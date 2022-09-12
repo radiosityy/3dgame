@@ -1,3 +1,4 @@
+#if EDITOR_ENABLE
 #include "editor.h"
 #include <iostream>
 
@@ -713,3 +714,5 @@ void Editor::updateSelectedPointLight()
 {
     m_scene.updateStaticPointLight(*m_selected_point_light_id, selectedPointLight());
 }
+
+#endif //EDITOR_ENABLE

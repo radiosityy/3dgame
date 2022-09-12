@@ -72,12 +72,16 @@ void Scene::loadFromFile(std::string_view filename)
 
     /*add sky dome*/
     auto sky_dome = std::make_unique<Object>(m_engine3d, "assets/meshes/sky_dome.3d", RenderMode::Sky, vec3(0.0f), vec3(4000.0f));
+#if EDITOR_ENABLE
     sky_dome->setSerializable(false);
+#endif
     addObject(std::move(sky_dome));
 
     /*add player*/
     auto player = std::make_unique<Player>(m_engine3d, "assets/meshes/man.3d", RenderMode::Default, vec3(0.0f, 5.0f, -10.0f));
+#if EDITOR_ENABLE
     player->setSerializable(false);
+#endif
     m_player = player.get();
     addObject(std::move(player));
 
