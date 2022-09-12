@@ -1169,6 +1169,8 @@ void Window::show()
         ss << "Failed to display window. Error: " << check;
         throw std::runtime_error(ss.str());
     }
+
+    showCursor(false);
 }
 
 void Window::showCursor(bool show)

@@ -168,6 +168,11 @@ void GameEngine::run()
     m_window->show();
     m_window->lockCursor();
 
+#if EDITOR_ENABLE
+    m_edit_mode = true;
+    m_window->showCursor(true);
+#endif
+
     m_timer.reset();
 
     while(true)
