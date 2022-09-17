@@ -18,7 +18,6 @@ Editor::Editor(Window& window, Scene& scene, Engine3D& engine3d, const Font& fon
 
 void Editor::update(const InputState& input_state, float dt)
 {
-#if 0
     const vec2 cur_pos_ndc(2.0f * (m_window.inputState().cursor_pos.x / m_window.width()) - 1.0f, -2.0f * (m_window.inputState().cursor_pos.y / m_window.height()) + 1.0f);
     Ray ray(m_scene.camera().pos(), m_scene.camera().cursorProjW(cur_pos_ndc));
     float d;
@@ -34,7 +33,6 @@ void Editor::update(const InputState& input_state, float dt)
     {
         m_scene.terrain().toolEdit(m_engine3d, m_cur_terrain_pos, m_terrain_tool_radius, 0.05f);
     }
-#endif
 
     if(m_selected_object)
     {

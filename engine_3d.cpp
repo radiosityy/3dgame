@@ -3095,7 +3095,7 @@ void Engine3D::createPipelines()
         /*----------------------- vertex input state -----------------------*/
         std::vector<VkVertexInputBindingDescription> vertex_binding_desc =
         {
-            {0, sizeof(VertexTerrain), VK_VERTEX_INPUT_RATE_VERTEX},
+            {0, sizeof(VertexTerrain), VK_VERTEX_INPUT_RATE_INSTANCE},
         };
 
         VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info{};
@@ -3113,15 +3113,7 @@ void Engine3D::createPipelines()
         input_assembly_state_create_info.pNext = NULL;
         input_assembly_state_create_info.flags = 0;
         input_assembly_state_create_info.primitiveRestartEnable = VK_FALSE;
-        input_assembly_state_create_info.topology = VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
-
-        /*----------------------- tesselation state -----------------------*/
-
-        VkPipelineTessellationStateCreateInfo tessellation_state_create_info{};
-        tessellation_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO;
-        tessellation_state_create_info.pNext = NULL;
-        tessellation_state_create_info.flags = 0;
-        tessellation_state_create_info.patchControlPoints = 1;
+        input_assembly_state_create_info.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
         /*----------------------- viewport state -----------------------*/
         VkViewport viewport;
@@ -3223,7 +3215,7 @@ void Engine3D::createPipelines()
         pipeline_create_info.flags = 0;
         pipeline_create_info.pVertexInputState = &vertex_input_state_create_info;
         pipeline_create_info.pInputAssemblyState = &input_assembly_state_create_info;
-        pipeline_create_info.pTessellationState = &tessellation_state_create_info;
+        pipeline_create_info.pTessellationState = NULL;
         pipeline_create_info.pViewportState = &viewport_state_create_info;
         pipeline_create_info.pRasterizationState = &rasterization_state_create_info;
         pipeline_create_info.pMultisampleState = &multisample_state_create_info;
@@ -3259,19 +3251,15 @@ void Engine3D::createPipelines()
         spec_info.pMapEntries = spec_info_map_entries.data();
         spec_info.mapEntryCount = static_cast<uint32_t>(spec_info_map_entries.size());
 
-        std::vector<VkShaderModule> shader_modules(4, VK_NULL_HANDLE);
+        std::vector<VkShaderModule> shader_modules(2, VK_NULL_HANDLE);
         std::vector<VkPipelineShaderStageCreateInfo> shader_stage_infos;
 
         shader_stage_infos.emplace_back(loadShader(VS_TERRAIN_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
-        shader_stage_infos.emplace_back(loadShader(TCS_TERRAIN_FILENAME, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT, &shader_modules[1]));
-        shader_stage_infos.emplace_back(loadShader(TES_TERRAIN_FILENAME, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT, &shader_modules[2]));
-        shader_stage_infos.emplace_back(loadShader(FS_TERRAIN_EDITOR_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[3], &spec_info));
+        shader_stage_infos.emplace_back(loadShader(FS_TERRAIN_EDITOR_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[1], &spec_info));
 
 #if VALIDATION_ENABLE
         setDebugObjectName(shader_modules[0], "TerrainVS");
-        setDebugObjectName(shader_modules[1], "TerrainTCS");
-        setDebugObjectName(shader_modules[2], "TerrainTES");
-        setDebugObjectName(shader_modules[3], "TerrainFS");
+        setDebugObjectName(shader_modules[1], "TerrainFS");
 #endif
 
         pipeline_create_info.stageCount = static_cast<uint32_t>(shader_stage_infos.size());
@@ -3295,7 +3283,7 @@ void Engine3D::createPipelines()
         /*----------------------- vertex input state -----------------------*/
         std::vector<VkVertexInputBindingDescription> vertex_binding_desc =
         {
-            {0, sizeof(VertexTerrain), VK_VERTEX_INPUT_RATE_VERTEX},
+            {0, sizeof(VertexTerrain), VK_VERTEX_INPUT_RATE_INSTANCE},
         };
 
         VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info{};
@@ -3313,15 +3301,7 @@ void Engine3D::createPipelines()
         input_assembly_state_create_info.pNext = NULL;
         input_assembly_state_create_info.flags = 0;
         input_assembly_state_create_info.primitiveRestartEnable = VK_FALSE;
-        input_assembly_state_create_info.topology = VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
-
-        /*----------------------- tesselation state -----------------------*/
-
-        VkPipelineTessellationStateCreateInfo tessellation_state_create_info{};
-        tessellation_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO;
-        tessellation_state_create_info.pNext = NULL;
-        tessellation_state_create_info.flags = 0;
-        tessellation_state_create_info.patchControlPoints = 1;
+        input_assembly_state_create_info.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
         /*----------------------- viewport state -----------------------*/
         VkViewport viewport;
@@ -3423,7 +3403,7 @@ void Engine3D::createPipelines()
         pipeline_create_info.flags = 0;
         pipeline_create_info.pVertexInputState = &vertex_input_state_create_info;
         pipeline_create_info.pInputAssemblyState = &input_assembly_state_create_info;
-        pipeline_create_info.pTessellationState = &tessellation_state_create_info;
+        pipeline_create_info.pTessellationState = NULL;
         pipeline_create_info.pViewportState = &viewport_state_create_info;
         pipeline_create_info.pRasterizationState = &rasterization_state_create_info;
         pipeline_create_info.pMultisampleState = &multisample_state_create_info;
@@ -3437,19 +3417,15 @@ void Engine3D::createPipelines()
         pipeline_create_info.basePipelineIndex = -1;
 
         /*---------------------------- shaders ----------------------------*/
-        std::vector<VkShaderModule> shader_modules(4, VK_NULL_HANDLE);
+        std::vector<VkShaderModule> shader_modules(2, VK_NULL_HANDLE);
         std::vector<VkPipelineShaderStageCreateInfo> shader_stage_infos;
 
         shader_stage_infos.emplace_back(loadShader(VS_TERRAIN_WIREFRAME_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
-        shader_stage_infos.emplace_back(loadShader(TCS_TERRAIN_WIREFRAME_FILENAME, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT, &shader_modules[1]));
-        shader_stage_infos.emplace_back(loadShader(TES_TERRAIN_WIREFRAME_FILENAME, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT, &shader_modules[2]));
-        shader_stage_infos.emplace_back(loadShader(FS_COLOR_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[3]));
+        shader_stage_infos.emplace_back(loadShader(FS_COLOR_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[1]));
 
 #if VALIDATION_ENABLE
         setDebugObjectName(shader_modules[0], "TerrainWireframeVS");
-        setDebugObjectName(shader_modules[1], "TerrainWireframeTCS");
-        setDebugObjectName(shader_modules[2], "TerrainWireframeTES");
-        setDebugObjectName(shader_modules[3], "TerrainWireframeFS");
+        setDebugObjectName(shader_modules[1], "TerrainWireframeFS");
 #endif
 
         pipeline_create_info.stageCount = static_cast<uint32_t>(shader_stage_infos.size());

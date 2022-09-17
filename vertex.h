@@ -78,51 +78,27 @@ inline const std::vector<VkVertexInputAttributeDescription> vertex_default_attr_
     {9, 1, VK_FORMAT_R32G32_UINT, 64}, // tex_id, normal_map_id
 };
 
-/*----------------------------------------- Vertex TerrainMesh ------------------------------------------*/
-
-struct VertexTerrainMesh
-{
-    vec3 pos;
-    vec2 tex_coords;
-    uint32_t id;
-};
-
-inline const std::vector<VkVertexInputAttributeDescription> vertex_terrain_mesh_attr_desc
-{
-    //TODO: make pos a vec2, since we take height from the heightmap anyways(?)
-    {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0}, // pos
-    {1, 0, VK_FORMAT_R32G32_SFLOAT, 12}, // texcoords
-    {2, 0, VK_FORMAT_R32_UINT, 20}, // id
-};
-
 /*----------------------------------------- Vertex Terrain ------------------------------------------*/
 
 struct VertexTerrain
 {
-    //TODO: make pos a vec2, since we take height from the heightmap anyways(?)
-    vec3 pos;
-    vec3 center_pos_left;
-    vec3 center_pos_bottom;
-    vec3 center_pos_right;
-    vec3 center_pos_top;
-    float tess_level;
-    float outer_tess_level_0;
-    float outer_tess_level_1;
-    float outer_tess_level_2;
-    float outer_tess_level_3;
+    vec2 pos;
+    float res;
+    float lod_res;
+    float edge_res_left;
+    float edge_res_top;
+    float edge_res_right;
+    float edge_res_bottom;
     uint32_t vertex_offset;
 };
 
 inline const std::vector<VkVertexInputAttributeDescription> vertex_terrain_attr_desc
 {
-    {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0}, // pos
-    {1, 0, VK_FORMAT_R32G32B32_SFLOAT, 12}, // center pos left
-    {2, 0, VK_FORMAT_R32G32B32_SFLOAT, 24}, // center pos bottom
-    {3, 0, VK_FORMAT_R32G32B32_SFLOAT, 36}, // center pos right
-    {4, 0, VK_FORMAT_R32G32B32_SFLOAT, 48}, // center pos top
-    {5, 0, VK_FORMAT_R32_SFLOAT, 60}, // tess level
-    {6, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 64}, // outer tess levels
-    {7, 0, VK_FORMAT_R32_UINT, 80}, // vertex offset
+    {0, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(VertexTerrain, pos)}, // pos
+    {1, 0, VK_FORMAT_R32_SFLOAT, offsetof(VertexTerrain, res)}, // res
+    {2, 0, VK_FORMAT_R32_SFLOAT, offsetof(VertexTerrain, lod_res)}, // lod res
+    {3, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(VertexTerrain, edge_res_left)}, // edge res
+    {4, 0, VK_FORMAT_R32_UINT, offsetof(VertexTerrain, vertex_offset)}, // vertex offset
 };
 
 #endif // VERTEX_H

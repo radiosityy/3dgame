@@ -11,6 +11,8 @@
 Scene::Scene(Engine3D& engine3d, float aspect_ratio, const Font& font)
     : m_engine3d(engine3d)
 {
+    engine3d.loadTexture("Bricks059_2K_Color.png");
+    engine3d.loadNormalMap("Bricks059_2K_Normal.png");
     m_time_label = std::make_unique<Label>(m_engine3d, 0, 20.0f, font, "", false, HorizontalAlignment::Left, VerticalAlignment::Top);
     m_time_label->setUpdateCallback([&](Label& label)
     {
@@ -114,15 +116,48 @@ void Scene::update(float dt, const InputState& input_state) noexcept
     {
         playerControls(input_state);
 
-        //first, if player has no vertical acceleration, check if the player is airborne
-        if(m_player->acceleration().y == 0.0f)
+        float dh = 5.0f;
+        AABB aabb = m_player->aabbs()[0];
+        vec3 player_velocity = m_player->velocity() + m_player->acceleration() * dt;
+        vec3 s = player_velocity * dt;
+        aabb.transform(m_player->pos() + s, m_player->scale());
+        const auto res  = m_terrain->collision(aabb, dh);
+        switch (res)
         {
-            if(!objectMoveCollision(m_player, vec3(0.0f, -0.001f, 0.0f)))
+        case CollisionResult::Collision:
+            if(player_velocity.y < 0.0f)
             {
-                m_player->setAcceleration(vec3(0.0f, -9.8f, 0.0f));
+                m_player->setAcceleration(vec3(0.0f, 0.0f, 0.0f));
             }
+            player_velocity.y = 0.0f;
+            return;
+        case CollisionResult::ResolvedCollision:
+            if(player_velocity.y < 0.0f)
+            {
+                m_player->setAcceleration(vec3(0.0f, 0.0f, 0.0f));
+            }
+            player_velocity.y = 0.0f;
+            std::cout << "resolved " << dh << std::endl;
+            s.y = dh;
+            m_player->move(s);
+            break;
+        case CollisionResult::Airborne:
+            std::cout << "airborne" << std::endl;
+            //first, if player has no vertical acceleration, check if the player is airborne
+            if(m_player->acceleration().y == 0.0f)
+            {
+//                if(!objectMoveCollision(m_player, vec3(0.0f, -0.001f, 0.0f)))
+                {
+                    m_player->setAcceleration(vec3(0.0f, -9.8f, 0.0f));
+                }
+            }
+            m_player->move(s);
+            break;
         }
 
+        m_player->setVelocity(player_velocity);
+
+#if 0
         //TODO:should we rotate before translation or after?
         if(m_player->rotVelocity() != 0.0f)
         {
@@ -130,6 +165,7 @@ void Scene::update(float dt, const InputState& input_state) noexcept
         }
 
         tryPlayerMove(dt);
+#endif
 
         const vec3 player_camera_reference_point = m_player->pos() + vec3(0.0f, 5.0f, 0.0f);
 
@@ -184,7 +220,7 @@ void Scene::draw() noexcept
         obj->draw(m_engine3d);
     }
 
-    m_terrain->draw(m_engine3d);
+    m_terrain->draw(m_engine3d, *m_camera);
 
     m_time_label->draw(m_engine3d);
 }
@@ -282,11 +318,6 @@ bool Scene::objectMoveCollision(const Object* obj, vec3 s)
         aabb.transform(obj->pos() + s, obj->scale());
 
         if(objectCollision(obj, aabb))
-        {
-            return true;
-        }
-
-        if(m_terrain->collision(aabb))
         {
             return true;
         }

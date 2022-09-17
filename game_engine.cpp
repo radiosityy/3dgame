@@ -1,17 +1,14 @@
 #include "game_engine.h"
-#include "game_utils.h"
-#include "object.h"
 
 #include <sstream>
 #include <fstream>
 #include <numeric>
 #include <iostream>
-#include "slider.h"
 
 GameEngine::GameEngine()
 {
     //TODO: set application name
-    const std::string app_name = "AppName";
+    const std::string app_name = "3dgame";
     const std::string font_directory = "assets/fonts/";
 
     /*create the application window*/
