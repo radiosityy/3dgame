@@ -14,42 +14,62 @@ Editor::Editor(Window& window, Scene& scene, Engine3D& engine3d, const Font& fon
     m_gui_objects.push_back(std::move(object_add_panel));
 
     m_billboard_vb_alloc = engine3d.requestVertexBufferAllocation<VertexQuad>(MAX_POINT_LIGHT_COUNT);
+
+    /*point light billboards*/
+    m_vertex_quad_data.resize(m_scene.staticPointLights().size());
+
+    for(size_t i = 0; i < m_scene.staticPointLights().size(); i++)
+    {
+        VertexQuad& vq = m_vertex_quad_data[i];
+        vq.color = m_selected_point_light_id && i == *m_selected_point_light_id ? ColorRGBA(1.0f, 1.0f, 1.0f, 1.0f) : ColorRGBA(0.5f, 0.5f, 0.5f, 1.0f);
+        vq.use_texture = 1;
+        vq.tex_id = m_engine3d.loadTexture("point_light.png");
+        vq.layer_id = 0;
+        vq.T = glm::translate(m_scene.staticPointLights()[i].pos) * glm::scale(vec3(m_billboard_size_x, m_billboard_size_y, 1.0f));
+    }
+
+    m_engine3d.updateVertexData(m_billboard_vb_alloc.vb, m_billboard_vb_alloc.data_offset, sizeof(VertexQuad) * m_vertex_quad_data.size(), m_vertex_quad_data.data());
 }
 
 void Editor::update(const InputState& input_state, float dt)
 {
-    const vec2 cur_pos_ndc(2.0f * (m_window.inputState().cursor_pos.x / m_window.width()) - 1.0f, -2.0f * (m_window.inputState().cursor_pos.y / m_window.height()) + 1.0f);
-    Ray ray(m_scene.camera().pos(), m_scene.camera().cursorProjW(cur_pos_ndc));
-    float d;
-
-    m_cur_terrain_intersection = m_scene.terrain().rayIntersection(ray, d);
-
-    if(m_cur_terrain_intersection)
+    if(Mode::Terrain == m_mode)
     {
-        m_cur_terrain_pos = ray.origin + d * ray.dir;
-    }
+        const vec2 cur_pos_ndc(2.0f * (m_window.inputState().cursor_pos.x / m_window.width()) - 1.0f, -2.0f * (m_window.inputState().cursor_pos.y / m_window.height()) + 1.0f);
+        Ray ray(m_scene.camera().pos(), m_scene.camera().cursorProjW(cur_pos_ndc));
+        float d;
 
-    if(m_cur_terrain_intersection && (input_state.mouse & LMB))
-    {
-        m_scene.terrain().toolEdit(m_engine3d, m_cur_terrain_pos, m_terrain_tool_radius, 0.05f);
-    }
+        m_cur_terrain_intersection = m_scene.terrain().rayIntersection(ray, d);
 
-    if(m_selected_object)
-    {
-        m_selected_object_blink_elapsed_time += dt;
-
-        if(m_selected_object_blink_elapsed_time >= m_selected_object_blink_time)
+        if(m_cur_terrain_intersection)
         {
-            m_selected_object_blink_elapsed_time -= m_selected_object_blink_time;
+            m_cur_terrain_pos = ray.origin + d * ray.dir;
         }
 
-        if(m_selected_object_blink_elapsed_time <= 0.5f * m_selected_object_blink_time)
+        if(m_cur_terrain_intersection && (input_state.mouse & LMB))
         {
-            m_selected_object_alpha = m_selected_object_max_alpha * m_selected_object_blink_elapsed_time / (0.5f * m_selected_object_blink_time);
+            m_scene.terrain().toolEdit(m_engine3d, m_cur_terrain_pos, m_terrain_tool_radius, 0.05f);
         }
-        else
+    }
+    else if(Mode::Transform == m_mode)
+    {
+        if(m_selected_object)
         {
-            m_selected_object_alpha = m_selected_object_max_alpha * (1.0f - (m_selected_object_blink_elapsed_time - 0.5f * m_selected_object_blink_time) / (0.5f * m_selected_object_blink_time));
+            m_selected_object_blink_elapsed_time += dt;
+
+            if(m_selected_object_blink_elapsed_time >= m_selected_object_blink_time)
+            {
+                m_selected_object_blink_elapsed_time -= m_selected_object_blink_time;
+            }
+
+            if(m_selected_object_blink_elapsed_time <= 0.5f * m_selected_object_blink_time)
+            {
+                m_selected_object_alpha = m_selected_object_max_alpha * m_selected_object_blink_elapsed_time / (0.5f * m_selected_object_blink_time);
+            }
+            else
+            {
+                m_selected_object_alpha = m_selected_object_max_alpha * (1.0f - (m_selected_object_blink_elapsed_time - 0.5f * m_selected_object_blink_time) / (0.5f * m_selected_object_blink_time));
+            }
         }
     }
 
@@ -90,35 +110,25 @@ void Editor::update(const InputState& input_state, float dt)
         }
     }
 
-    /*point light billboards*/
-    m_vertex_quad_data.resize(m_scene.staticPointLights().size());
-
-    for(size_t i = 0; i < m_scene.staticPointLights().size(); i++)
-    {
-        VertexQuad& vq = m_vertex_quad_data[i];
-        vq.color = m_selected_point_light_id && i == *m_selected_point_light_id ? ColorRGBA(1.0f, 1.0f, 1.0f, 1.0f) : ColorRGBA(0.5f, 0.5f, 0.5f, 1.0f);
-        vq.use_texture = 1;
-        vq.tex_id = m_engine3d.loadTexture("point_light.png");
-        vq.layer_id = 0;
-        vq.T = glm::translate(m_scene.staticPointLights()[i].pos) * glm::scale(vec3(m_billboard_size_x, m_billboard_size_y, 1.0f));
-    }
-
-    m_engine3d.updateVertexData(m_billboard_vb_alloc.vb, m_billboard_vb_alloc.data_offset, sizeof(VertexQuad) * m_vertex_quad_data.size(), m_vertex_quad_data.data());
-
     for(auto& child : m_gui_objects)
     {
         //TODO: handle visibility properly, also outside of editor (same as in Editor::draw())
         if(child->isVisible())
+        {
             child->update(m_engine3d, dt);
+        }
     }
 }
 
 void Editor::draw()
 {
     /*selected object highlight*/
-    if(m_selected_object)
+    if(Mode::Transform == m_mode)
     {
-        m_selected_object->drawHighlight(m_engine3d);
+        if(m_selected_object)
+        {
+            m_selected_object->drawHighlight(m_engine3d);
+        }
     }
 
     /*point light billboards*/
@@ -141,24 +151,114 @@ void Editor::onWindowResize(uint32_t width, uint32_t height, float scale_x, floa
 
 void Editor::onInputEvent(const Event& event, const InputState& input_state)
 {
-    if(Mode::Move == m_mode)
+    determineFocus(m_gui_objects, event, input_state);
+    if(forwardEventToFocused(event, input_state))
     {
-        return moveModeHandleEvent(event, input_state);
+        return;
     }
-    else if(Mode::Scale == m_mode)
+
+    if(event.event == EventType::MouseDragged)
     {
-        return scaleModeHandleEvent(event, input_state);
+        if(input_state.mouse & MMB)
+        {
+            m_scene.camera().rotate(event.cursor_delta.x * 0.005f);
+            m_scene.camera().pitch(event.cursor_delta.y * 0.005f);
+        }
     }
-    else if(Mode::Rotate == m_mode)
+
+    if(Mode::Transform == m_mode)
     {
-        return rotModeHandleEvent(event, input_state);
+        switch(m_transform_mode)
+        {
+        case TransformMode::Move:
+            return moveModeHandleEvent(event, input_state);
+        case TransformMode::Scale:
+            return scaleModeHandleEvent(event, input_state);
+        case TransformMode::Rotate:
+            return rotModeHandleEvent(event, input_state);
+        case TransformMode::None:
+            if(event.event == EventType::KeyPressed)
+            {
+                if(input_state.ctrl())
+                {
+                    switch(event.key)
+                    {
+                    case VKeyG:
+                        if(m_transform_mode == TransformMode::None)
+                        {
+                            if(m_selected_object)
+                            {
+                                m_transform_mode = TransformMode::Move;
+                                m_original_pos = m_selected_object->pos();
+                            }
+                            else if(m_selected_point_light_id)
+                            {
+                                m_transform_mode = TransformMode::Move;
+                                m_original_pos = selectedPointLight().pos;
+                            }
+                        }
+                        break;
+                    case VKeyS:
+                        if((m_transform_mode == TransformMode::None) && m_selected_object)
+                        {
+                            m_transform_mode = TransformMode::Scale;
+                            m_original_scale = m_selected_object->scale();
+                        }
+                        break;
+                    case VKeyR:
+                        if((m_transform_mode == TransformMode::None) && m_selected_object)
+                        {
+                            m_transform_mode = TransformMode::Rotate;
+                            m_original_rot = m_selected_object->rot();
+                            m_rot_cursor_pos = input_state.cursor_pos - vec2(m_window.width() / 2.0f, m_window.height() / 2.0f);
+                        }
+                        break;
+                    }
+                }
+
+                switch(event.key)
+                {
+                case VKeyDelete:
+                    if(m_selected_object)
+                    {
+                        m_scene.removeObject(m_selected_object);
+                        deselectAll();
+                    }
+                    else if(m_selected_point_light_id)
+                    {
+                        m_scene.removeStaticPointLight(*m_selected_point_light_id);
+                        deselectAll();
+                    }
+                    break;
+                case VKeyEsc:
+                    deselectAll();
+                    break;
+                default:
+                    break;
+                }
+            }
+            return;
+        default:
+            throw std::runtime_error("Invalid TransformMode in Editor: " + std::to_string(static_cast<uint32_t>(m_transform_mode)));
+        }
     }
 
     if(event.event == EventType::KeyPressed)
     {
         if(input_state.ctrl())
         {
-            if(event.key == VKeyA)
+            if(event.key == VKeyT)
+            {
+                if(Mode::Terrain == m_mode)
+                {
+                    m_mode = Mode::None;
+                }
+                else
+                {
+                    m_mode = Mode::Terrain;
+                }
+            }
+            else if(event.key == VKeyA)
             {
                 if(m_object_add_panel->isVisible())
                 {
@@ -182,154 +282,108 @@ void Editor::onInputEvent(const Event& event, const InputState& input_state)
 
                 return;
             }
-            else if(event.key == VKeyS)
+        }
+        else if(Mode::Terrain == m_mode)
+        {
+            if(event.key == VKeyZ)
             {
-                m_scene.serialize("scene.scn");
+                m_scene.terrain().toggleWireframe();
+            }
+            else if(event.key == VKeyX)
+            {
+                m_scene.terrain().toggleLod();
             }
         }
-        else
+        else if(event.key == VKeyF5)
         {
-            if(m_selected_object && (event.key == VKeyDelete))
-            {
-                m_scene.removeObject(m_selected_object);
-                m_selected_object = nullptr;
-            }
+            m_scene.serialize("scene.scn");
         }
     }
 
-    determineFocus(m_gui_objects, event, input_state);
-    if(forwardEventToFocused(event, input_state))
+    if(Mode::None == m_mode)
     {
-        return;
-    }
-
-    Camera& camera = m_scene.camera();
-
-    if(event.event == EventType::MouseDragged)
-    {
-        if(input_state.mouse & MMB)
-        {
-            camera.rotate(event.cursor_delta.x * 0.005f);
-            camera.pitch(event.cursor_delta.y * 0.005f);
-        }
-    }
-    else if((event.event == EventType::MousePressed) && (event.mouse == LMB))
-    {
-        deselectAll();
-
-        const float aspect_ratio = m_scene.camera().aspectRatio();
-        const float dx = 2.0f * aspect_ratio / m_window.width();
-        const float dy = 2.0f / m_window.height();
-
-        const vec3 ray_dirV = vec3(-aspect_ratio + dx * (0.5f + input_state.cursor_pos.x),
-                                   1.0f - dy * (0.5f + input_state.cursor_pos.y),
-                                   m_scene.camera().imagePlaneDistance());
-
-        Ray ray(m_scene.camera().pos(), m_scene.camera().invView() * vec4(ray_dirV, 0.0f));
-
-        float min_d;
-        m_selected_object = m_scene.pickObject(ray, min_d);
-
-        if(m_selected_object)
-        {
-            m_selected_object_blink_elapsed_time = 0.0f;
-        }
-
-        /*for every point light we test ray intersection with the 2 triangles
-        that compose the point light billboard in editor
-        because the 2 triangles are co-planar we assume we can't intersect both at the same time
-        so we can skip the 2nd if we intersect the 1st*/
-        for(uint32_t i = 0; i < m_scene.staticPointLights().size(); i++)
-        {
-            const auto& point_light = m_scene.staticPointLights()[i];
-
-            float d;
-
-            vec3 p0 = point_light.pos + vec3(-0.5f * m_billboard_size_x, 0.5f * m_billboard_size_y, 0.0f);
-            vec3 p1 = point_light.pos + vec3(0.5f * m_billboard_size_x, 0.5f * m_billboard_size_y, 0.0f);
-            vec3 p2 = point_light.pos + vec3(-0.5f * m_billboard_size_x, -0.5f * m_billboard_size_y, 0.0f);
-
-            if(intersect(ray, p0, p1, p2, d))
-            {
-                if(d < min_d)
-                {
-                    min_d = d;
-                    m_selected_point_light_id = i;
-                    continue;
-                }
-            }
-
-            p0 = point_light.pos + vec3(-0.5f * m_billboard_size_x, -0.5f * m_billboard_size_y, 0.0f);
-            p1 = point_light.pos + vec3(0.5f * m_billboard_size_x, 0.5f * m_billboard_size_y, 0.0f);
-            p2 = point_light.pos + vec3(0.5f * m_billboard_size_x, -0.5f * m_billboard_size_y, 0.0f);
-
-            if(intersect(ray, p0, p1, p2, d))
-            {
-                if(d < min_d)
-                {
-                    min_d = d;
-                    m_selected_point_light_id = i;
-                    continue;
-                }
-            }
-        }
-
-        if(m_selected_point_light_id)
-        {
-            m_selected_object = nullptr;
-            openPointLightEditPanel(*m_selected_point_light_id);
-        }
-    }
-    else if(event.event == EventType::KeyPressed)
-    {
-        if(event.key == VKeyEsc)
+        if((event.event == EventType::MousePressed) && (event.mouse == LMB))
         {
             deselectAll();
-        }
-        else if((event.key == VKeyG) && (input_state.shift()))
-        {
-            if(m_mode == Mode::None)
+
+            const float aspect_ratio = m_scene.camera().aspectRatio();
+            const float dx = 2.0f * aspect_ratio / m_window.width();
+            const float dy = 2.0f / m_window.height();
+
+            const vec3 ray_dirV = vec3(-aspect_ratio + dx * (0.5f + input_state.cursor_pos.x),
+                                       1.0f - dy * (0.5f + input_state.cursor_pos.y),
+                                       m_scene.camera().imagePlaneDistance());
+
+            Ray ray(m_scene.camera().pos(), m_scene.camera().invView() * vec4(ray_dirV, 0.0f));
+            float min_d = std::numeric_limits<float>::max();
+
+            if(m_render_point_light_billboards)
             {
+                /*for every point light we test ray intersection with the 2 triangles
+                that compose the point light billboard in editor*/
+                for(uint32_t i = 0; i < m_scene.staticPointLights().size(); i++)
+                {
+                    const auto& point_light = m_scene.staticPointLights()[i];
+
+                    float d;
+
+                    vec3 p0 = point_light.pos + vec3(-0.5f * m_billboard_size_x, 0.5f * m_billboard_size_y, 0.0f);
+                    vec3 p1 = point_light.pos + vec3(0.5f * m_billboard_size_x, 0.5f * m_billboard_size_y, 0.0f);
+                    vec3 p2 = point_light.pos + vec3(-0.5f * m_billboard_size_x, -0.5f * m_billboard_size_y, 0.0f);
+
+                    if(intersect(ray, p0, p1, p2, d))
+                    {
+                        if(d < min_d)
+                        {
+                            min_d = d;
+                            m_selected_point_light_id = i;
+                            continue;
+                        }
+                    }
+
+                    p0 = point_light.pos + vec3(-0.5f * m_billboard_size_x, -0.5f * m_billboard_size_y, 0.0f);
+                    p1 = point_light.pos + vec3(0.5f * m_billboard_size_x, 0.5f * m_billboard_size_y, 0.0f);
+                    p2 = point_light.pos + vec3(0.5f * m_billboard_size_x, -0.5f * m_billboard_size_y, 0.0f);
+
+                    if(intersect(ray, p0, p1, p2, d))
+                    {
+                        if(d < min_d)
+                        {
+                            min_d = d;
+                            m_selected_point_light_id = i;
+                            continue;
+                        }
+                    }
+                }
+            }
+
+            if(!m_selected_point_light_id || !m_point_light_billboards_in_front)
+            {
+                float obj_min_d = std::numeric_limits<float>::max();
+                m_selected_object = m_scene.pickObject(ray, obj_min_d);
+
                 if(m_selected_object)
                 {
-                    m_mode = Mode::Move;
-                    m_original_pos = m_selected_object->pos();
+                    if(obj_min_d < min_d)
+                    {
+                        m_selected_point_light_id.reset();
+                        m_selected_object_blink_elapsed_time = 0.0f;
+                    }
+                    else
+                    {
+                        m_selected_object = nullptr;
+                    }
                 }
-                else if(m_selected_point_light_id)
-                {
-                    m_mode = Mode::Move;
-                    m_original_pos = selectedPointLight().pos;
-                }
             }
-        }
-        else if((event.key == VKeyS) && (input_state.shift()))
-        {
-            if((m_mode == Mode::None) && m_selected_object)
+
+            if(m_selected_point_light_id)
             {
-                m_mode = Mode::Scale;
-                m_original_scale = m_selected_object->scale();
+                openPointLightEditPanel(*m_selected_point_light_id);
             }
-        }
-        else if((event.key == VKeyR) && (input_state.shift()))
-        {
-            if((m_mode == Mode::None) && m_selected_object)
+
+            if(m_selected_point_light_id || m_selected_object)
             {
-                m_mode = Mode::Rotate;
-                m_original_rot = m_selected_object->rot();
-                m_rot_cursor_pos = input_state.cursor_pos - vec2(m_window.width() / 2.0f, m_window.height() / 2.0f);
-            }
-        }
-        else if(event.key == VKeyDelete)
-        {
-            if(m_selected_object)
-            {
-                m_scene.removeObject(m_selected_object);
-                deselectAll();
-            }
-            else if(m_selected_point_light_id)
-            {
-                m_scene.removeStaticPointLight(*m_selected_point_light_id);
-                deselectAll();
+                m_mode = Mode::Transform;
             }
         }
     }
@@ -342,7 +396,7 @@ vec4 Editor::highlightColor() const
 
 void Editor::curTerrainPos(bool& cur_terrain_intersection, vec3& cur_terrain_pos) const
 {
-    cur_terrain_intersection = m_cur_terrain_intersection;
+    cur_terrain_intersection = (Mode::Terrain == m_mode) && m_cur_terrain_intersection;
     cur_terrain_pos = m_cur_terrain_pos;
 }
 
@@ -392,7 +446,7 @@ void Editor::moveModeHandleEvent(const Event& event, const InputState& input_sta
     {
         if(event.mouse == LMB)
         {
-            m_mode = Mode::None;
+            m_transform_mode = TransformMode::None;
             m_axis_lock = Axis::None;
         }
         else if(event.mouse == RMB)
@@ -407,7 +461,7 @@ void Editor::moveModeHandleEvent(const Event& event, const InputState& input_sta
                 updateSelectedPointLight();
             }
 
-            m_mode = Mode::None;
+            m_transform_mode = TransformMode::None;
             m_axis_lock = Axis::None;
         }
     }
@@ -415,12 +469,12 @@ void Editor::moveModeHandleEvent(const Event& event, const InputState& input_sta
     {
         if((event.key == VKeyG) && (input_state.shift()))
         {
-            m_mode = Mode::None;
+            m_transform_mode = TransformMode::None;
             m_axis_lock = Axis::None;
         }
         else if(event.key == VKeyEnter)
         {
-            m_mode = Mode::None;
+            m_transform_mode = TransformMode::None;
             m_axis_lock = Axis::None;
         }
         else if(event.key == VKeyEsc)
@@ -435,7 +489,7 @@ void Editor::moveModeHandleEvent(const Event& event, const InputState& input_sta
                 updateSelectedPointLight();
             }
 
-            m_mode = Mode::None;
+            m_transform_mode = TransformMode::None;
             m_axis_lock = Axis::None;
         }
         else if(event.key == VKeyX)
@@ -509,13 +563,13 @@ void Editor::scaleModeHandleEvent(const Event& event, const InputState& input_st
     {
         if(event.mouse == LMB)
         {
-            m_mode = Mode::None;
+            m_transform_mode = TransformMode::None;
             m_axis_lock = Axis::None;
         }
         else if(event.mouse == RMB)
         {
             m_selected_object->setScale(m_original_scale);
-            m_mode = Mode::None;
+            m_transform_mode = TransformMode::None;
             m_axis_lock = Axis::None;
         }
     }
@@ -523,18 +577,18 @@ void Editor::scaleModeHandleEvent(const Event& event, const InputState& input_st
     {
         if((event.key == VKeyS) && (input_state.shift()))
         {
-            m_mode = Mode::None;
+            m_transform_mode = TransformMode::None;
             m_axis_lock = Axis::None;
         }
         else if(event.key == VKeyEnter)
         {
-            m_mode = Mode::None;
+            m_transform_mode = TransformMode::None;
             m_axis_lock = Axis::None;
         }
         else if(event.key == VKeyEsc)
         {
             m_selected_object->setScale(m_original_scale);
-            m_mode = Mode::None;
+            m_transform_mode = TransformMode::None;
             m_axis_lock = Axis::None;
         }
         else if(event.key == VKeyX)
@@ -614,13 +668,13 @@ void Editor::rotModeHandleEvent(const Event& event, const InputState& input_stat
     {
         if(event.mouse == LMB)
         {
-            m_mode = Mode::None;
+            m_transform_mode = TransformMode::None;
             m_axis_lock = Axis::None;
         }
         else if(event.mouse == RMB)
         {
             m_selected_object->setRotation(m_original_rot);
-            m_mode = Mode::None;
+            m_transform_mode = TransformMode::None;
             m_axis_lock = Axis::None;
         }
     }
@@ -628,18 +682,18 @@ void Editor::rotModeHandleEvent(const Event& event, const InputState& input_stat
     {
         if((event.key == VKeyR) && (input_state.shift()))
         {
-            m_mode = Mode::None;
+            m_transform_mode = TransformMode::None;
             m_axis_lock = Axis::None;
         }
         else if(event.key == VKeyEnter)
         {
-            m_mode = Mode::None;
+            m_transform_mode = TransformMode::None;
             m_axis_lock = Axis::None;
         }
         else if(event.key == VKeyEsc)
         {
             m_selected_object->setRotation(m_original_rot);
-            m_mode = Mode::None;
+            m_transform_mode = TransformMode::None;
             m_axis_lock = Axis::None;
         }
         else if(event.key == VKeyX)
@@ -683,13 +737,14 @@ void Editor::deselectAll()
     m_selected_object = nullptr;
 
     m_mode = Mode::None;
+    m_transform_mode = TransformMode::None;
     m_axis_lock = Axis::None;
 
     if(m_selected_point_light_id)
     {
         closePointLightEditPanel();
+        m_selected_point_light_id.reset();
     }
-    m_selected_point_light_id.reset();
 }
 
 PointLight& Editor::selectedPointLight()

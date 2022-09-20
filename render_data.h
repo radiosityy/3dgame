@@ -1,11 +1,9 @@
 #ifndef RENDER_DATA_H
 #define RENDER_DATA_H
 
-#include "vertex.h"
 #include <list>
 #include <functional>
 #include "light.h"
-#include "collision.h"
 #include "font.h"
 #include <optional>
 #include <cstring>
@@ -15,14 +13,15 @@ enum class RenderMode
     Ui,
     Font,
     Default,
-    Wireframe,
     Sky,
     Terrain,
-    TerrainWireframe,
     DirShadowMap,
     PointShadowMap,
     Highlight,
     Billboard,
+#if EDITOR_ENABLE
+    TerrainWireframe,
+#endif
     Count
 };
 

@@ -4,13 +4,19 @@
 #include "gui_object.h"
 #include "window.h"
 #include "scene.h"
-#include "rect.h"
 #include "point_light_edit_panel.h"
 #include "object_add_panel.h"
 
 class Editor : public GuiParent
 {
     enum class Mode
+    {
+        None,
+        Transform,
+        Terrain
+    };
+
+    enum class TransformMode
     {
         None,
         Move,
@@ -62,12 +68,16 @@ private:
     std::vector<VertexQuad> m_vertex_quad_data;
     VertexBufferAllocation m_billboard_vb_alloc;
 
+    bool m_render_point_light_billboards = true;
+    bool m_point_light_billboards_in_front = true;
+
     static constexpr float m_selected_object_blink_time = 2.0f;
     float m_selected_object_blink_elapsed_time = 0.0f;
     static constexpr float m_selected_object_max_alpha = 0.1f;
     float m_selected_object_alpha = 0.05f;
 
     Mode m_mode = Mode::None;
+    TransformMode m_transform_mode = TransformMode::None;
     Axis m_axis_lock = Axis::None;
     vec3 m_original_pos;
     vec3 m_original_scale;

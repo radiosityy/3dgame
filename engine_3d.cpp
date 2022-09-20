@@ -7,6 +7,7 @@
 #include <sstream>
 #include <fstream>
 #include <list>
+#include "vertex.h"
 
 #include <png.h>
 

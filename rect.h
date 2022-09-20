@@ -2,6 +2,8 @@
 #define RECT_H
 
 #include "gui_object.h"
+#include "color.h"
+#include "vertex.h"
 #include "engine_3d.h"
 
 class Rect : public GuiObject

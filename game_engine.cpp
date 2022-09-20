@@ -302,24 +302,24 @@ void GameEngine::onInputEvent(const Event& event, const InputState& input_state)
             return;
         }
 
-        if(input_state.keyboard[VKeyLCtrl])
+#if EDITOR_ENABLE
+        if(event.key == VKeyF2)
+        {
+            m_edit_mode = !m_edit_mode;
+            m_window->showCursor(m_edit_mode);
+            return;
+        }
+#endif
+
+        if(input_state.ctrl())
         {
             if(event.key == VKeyL)
             {
-                m_window->lockCursor();
+                m_window->toggleCursorLock();
                 return;
             }
 
-#if EDITOR_ENABLE
-            if(event.key == VKeyK)
-            {
-                m_edit_mode = !m_edit_mode;
-                m_window->showCursor(m_edit_mode);
-                return;
-            }
-#endif
-
-            if(event.key == VKeyX)
+            if(event.key == VKeyQ)
             {
                 stop();
                 return;

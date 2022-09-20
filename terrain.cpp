@@ -1,43 +1,42 @@
 #include "terrain.h"
 #include <iostream>
 
-static constexpr uint32_t RES = 64;
-static constexpr float RESF = static_cast<float>(RES);
-
 Terrain::Terrain(Engine3D& engine3d)
 {
+#if EDITOR_ENABLE
+    const std::string filename = "terrain.dat";
+    std::ifstream in(filename.data(), std::ios::binary);
+
+    if(!in)
+    {
+        std::cout << "Failed to open file " << filename << ". Creating new terrain..." << std::endl;
+        createNew(engine3d);
+        return;
+    }
+
+    in.close();
+#endif
+
+    loadFromFile(engine3d);
+}
+
+#if EDITOR_ENABLE
+void Terrain::createNew(Engine3D& engine3d)
+{
+    m_size_x = DEFAULT_SIZE_X;
+    m_size_z = DEFAULT_SIZE_Z;
+    m_x = -0.5f * m_size_x;
+    m_z = -0.5f * m_size_z;
+    m_resolution_x = DEFAULT_RES_X;
+    m_resolution_z = DEFAULT_RES_Z;
+    m_patch_size_x = m_size_x / static_cast<float>(m_resolution_x);
+    m_patch_size_z = m_size_z / static_cast<float>(m_resolution_z);
+
     m_vertices.resize(m_resolution_x * m_resolution_z);
     m_patch_data.resize(m_vertices.size());
     m_bounding_ys.resize(m_vertices.size(), vec2(0.0f, 0.0f));
-    generatePatchVertices();
+    m_vertex_data.resize((DEFAULT_PATCH_RES + 1) * (DEFAULT_PATCH_RES + 1) * m_resolution_x * m_resolution_z);
 
-    m_vertex_data.resize((RES + 1) * (RES + 1) * m_resolution_x * m_resolution_z);
-
-    for(uint32_t p = 0; p < m_resolution_x * m_resolution_z; p++)
-    for(uint32_t z = 0; z < (RES + 1); z++)
-    {
-        for(uint32_t x = 0; x < (RES + 1); x++)
-        {
-            m_vertex_data[p*(RES + 1)*(RES + 1) + (RES + 1)*z + x].height = 5.0f * std::sin(6.28f * static_cast<float>(x) / RESF) - 5.0f;
-//            m_vertex_data[p*(RES + 1)*(RES + 1) + (RES + 1)*z + x].height = 2.0f;
-        }
-    }
-    m_vertex_data[8].height = 10.0f;
-
-    m_vb_alloc = engine3d.requestVertexBufferAllocation<VertexTerrain>(m_vertices.size());
-    engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexTerrain) * m_vertices.size(), m_vertices.data());
-
-    engine3d.requestTerrainBufferAllocation(m_vertex_data.size() * sizeof(VertexData));
-    engine3d.updateTerrainData(m_vertex_data.data(), 0, m_vertex_data.size() * sizeof(VertexData));
-}
-
-Terrain::Terrain(std::string_view filename)
-{
-    std::ifstream in(filename.data(), std::ios::binary);
-}
-
-void Terrain::generatePatchVertices()
-{
     for(uint32_t z = 0; z < m_resolution_z; z++)
     {
         for(uint32_t x = 0; x < m_resolution_x; x++)
@@ -51,16 +50,110 @@ void Terrain::generatePatchVertices()
             m_patch_data[vertex_id].center_pos_right = vec3(pos.x + m_patch_size_x, 0.0f, pos.z + 0.5f * m_patch_size_z);
             m_patch_data[vertex_id].center_pos_bottom = vec3(pos.x + 0.5f * m_patch_size_x, 0.0f, pos.z);
             m_patch_data[vertex_id].center_pos = (m_patch_data[vertex_id].center_pos_bottom + m_patch_data[vertex_id].center_pos_right + m_patch_data[vertex_id].center_pos_left + m_patch_data[vertex_id].center_pos_top) / 4.0f;
-            m_vertices[vertex_id].res = RESF;
-            m_patch_data[vertex_id].edge_res_left = RESF;
-            m_patch_data[vertex_id].edge_res_top = RESF;
-            m_patch_data[vertex_id].edge_res_right = RESF;
-            m_patch_data[vertex_id].edge_res_bottom = RESF;
-            m_vertices[vertex_id].vertex_offset = (RES + 1) * (RES + 1) * vertex_id;
+            m_vertices[vertex_id].res = static_cast<float>(DEFAULT_PATCH_RES);
+            m_patch_data[vertex_id].edge_res_left = static_cast<float>(DEFAULT_PATCH_RES);
+            m_patch_data[vertex_id].edge_res_top = static_cast<float>(DEFAULT_PATCH_RES);
+            m_patch_data[vertex_id].edge_res_right = static_cast<float>(DEFAULT_PATCH_RES);
+            m_patch_data[vertex_id].edge_res_bottom = static_cast<float>(DEFAULT_PATCH_RES);
+            m_vertices[vertex_id].vertex_offset = (DEFAULT_PATCH_RES + 1) * (DEFAULT_PATCH_RES + 1) * vertex_id;
         }
     }
+
+    m_vb_alloc = engine3d.requestVertexBufferAllocation<VertexTerrain>(m_vertices.size());
+    engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexTerrain) * m_vertices.size(), m_vertices.data());
+
+    engine3d.requestTerrainBufferAllocation(m_vertex_data.size() * sizeof(VertexData));
+    engine3d.updateTerrainData(m_vertex_data.data(), 0, m_vertex_data.size() * sizeof(VertexData));
+}
+#endif
+
+void Terrain::loadFromFile(Engine3D& engine3d)
+{
+    const std::string filename = "terrain.dat";
+    std::ifstream in(filename.data(), std::ios::binary);
+
+    if(!in)
+    {
+        throw std::runtime_error("Failed to open file " + filename + ".");
+    }
+
+    in.read(reinterpret_cast<char*>(&m_size_x), sizeof(m_size_x));
+    in.read(reinterpret_cast<char*>(&m_size_z), sizeof(m_size_z));
+    in.read(reinterpret_cast<char*>(&m_resolution_x), sizeof(m_resolution_x));
+    in.read(reinterpret_cast<char*>(&m_resolution_z), sizeof(m_resolution_z));
+
+    m_x = -0.5f * m_size_x;
+    m_z = -0.5f * m_size_z;
+    m_patch_size_x = m_size_x / static_cast<float>(m_resolution_x);
+    m_patch_size_z = m_size_z / static_cast<float>(m_resolution_z);
+
+    uint64_t bounding_ys_count = 0;
+    in.read(reinterpret_cast<char*>(&bounding_ys_count), sizeof(uint64_t));
+    m_bounding_ys.resize(bounding_ys_count);
+    in.read(reinterpret_cast<char*>(m_bounding_ys.data()), m_bounding_ys.size() * sizeof(vec2));
+
+    uint64_t patch_data_count = 0;
+    in.read(reinterpret_cast<char*>(&patch_data_count), sizeof(uint64_t));
+    m_patch_data.resize(patch_data_count);
+    in.read(reinterpret_cast<char*>(m_patch_data.data()), m_patch_data.size() * sizeof(PatchData));
+
+    uint64_t vertex_data_count = 0;
+    in.read(reinterpret_cast<char*>(&vertex_data_count), sizeof(uint64_t));
+    m_vertex_data.resize(vertex_data_count);
+    in.read(reinterpret_cast<char*>(m_vertex_data.data()), m_vertex_data.size() * sizeof(VertexData));
+
+    uint64_t vertex_count = 0;
+    in.read(reinterpret_cast<char*>(&vertex_count), sizeof(uint64_t));
+    m_vertices.resize(vertex_count);
+    in.read(reinterpret_cast<char*>(m_vertices.data()), m_vertices.size() * sizeof(VertexTerrain));
+
+    m_vb_alloc = engine3d.requestVertexBufferAllocation<VertexTerrain>(m_vertices.size());
+    engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexTerrain) * m_vertices.size(), m_vertices.data());
+
+    engine3d.requestTerrainBufferAllocation(m_vertex_data.size() * sizeof(VertexData));
+    engine3d.updateTerrainData(m_vertex_data.data(), 0, m_vertex_data.size() * sizeof(VertexData));
 }
 
+#if EDITOR_ENABLE
+void Terrain::draw(Engine3D& engine3d, Camera& camera)
+{
+    for(uint32_t i = 0; i < m_vertices.size(); i++)
+    {
+        if(m_lod_enabled)
+        {
+            auto tessLevel = [&](vec3 center_pos, float max_tess_level)
+            {
+                const float d = distance(camera.pos(), center_pos);
+
+                float tess_level = glm::clamp(max_tess_level * (50.0f / d), 2.0f, max_tess_level);
+                tess_level = float(1u << static_cast<uint32_t>(std::log2(tess_level) + 0.5f));
+
+                return tess_level;
+            };
+
+            m_vertices[i].edge_res_left = tessLevel(m_patch_data[i].center_pos_left, m_patch_data[i].edge_res_left);
+            m_vertices[i].edge_res_top = tessLevel(m_patch_data[i].center_pos_top, m_patch_data[i].edge_res_top);
+            m_vertices[i].edge_res_right = tessLevel(m_patch_data[i].center_pos_right, m_patch_data[i].edge_res_right);
+            m_vertices[i].edge_res_bottom = tessLevel(m_patch_data[i].center_pos_bottom, m_patch_data[i].edge_res_bottom);
+            m_vertices[i].lod_res = max(tessLevel(m_patch_data[i].center_pos, m_vertices[i].res), m_vertices[i].edge_res_left, m_vertices[i].edge_res_top, m_vertices[i].edge_res_right, m_vertices[i].edge_res_bottom);
+        }
+        else
+        {
+            m_vertices[i].edge_res_left = m_patch_data[i].edge_res_left;
+            m_vertices[i].edge_res_top = m_patch_data[i].edge_res_top;
+            m_vertices[i].edge_res_right = m_patch_data[i].edge_res_right;
+            m_vertices[i].edge_res_bottom = m_patch_data[i].edge_res_bottom;
+            m_vertices[i].lod_res = m_vertices[i].res;
+        }
+
+        //TODO: optimize this
+        engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexTerrain) * m_vertices.size(), m_vertices.data());
+
+        const uint32_t vertex_count = m_vertices[i].lod_res * m_vertices[i].lod_res * 6;
+        engine3d.draw(m_render_mode, m_vb_alloc.vb, m_vb_alloc.vertex_offset, vertex_count, i, {}, {});
+    }
+}
+#else
 void Terrain::draw(Engine3D& engine3d, Camera& camera)
 {
     for(uint32_t i = 0; i < m_vertices.size(); i++)
@@ -80,18 +173,15 @@ void Terrain::draw(Engine3D& engine3d, Camera& camera)
         m_vertices[i].edge_res_right = tessLevel(m_patch_data[i].center_pos_right, m_patch_data[i].edge_res_right);
         m_vertices[i].edge_res_bottom = tessLevel(m_patch_data[i].center_pos_bottom, m_patch_data[i].edge_res_bottom);
         m_vertices[i].lod_res = max(tessLevel(m_patch_data[i].center_pos, m_vertices[i].res), m_vertices[i].edge_res_left, m_vertices[i].edge_res_top, m_vertices[i].edge_res_right, m_vertices[i].edge_res_bottom);
-//        m_vertices[i].edge_res_left = m_patch_data[i].edge_res_left;
-//        m_vertices[i].edge_res_top = m_patch_data[i].edge_res_top;
-//        m_vertices[i].edge_res_right = m_patch_data[i].edge_res_right;
-//        m_vertices[i].edge_res_bottom = m_patch_data[i].edge_res_bottom;
-//        m_vertices[i].lod_res = m_vertices[i].res;
 
+        //TODO: optimize this
         engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexTerrain) * m_vertices.size(), m_vertices.data());
 
         const uint32_t vertex_count = m_vertices[i].lod_res * m_vertices[i].lod_res * 6;
         engine3d.draw(RenderMode::Terrain, m_vb_alloc.vb, m_vb_alloc.vertex_offset, vertex_count, i, {}, {});
     }
 }
+#endif
 
 float Terrain::patchSizeX() const
 {
@@ -172,8 +262,7 @@ CollisionResult Terrain::collision(const AABB& aabb, float& dh_out) const
                     {
                         for(uint32_t vx = min_patch_vx + 2; vx <= max_patch_vx - 2; vx++)
                         {
-                            //TODO: this assumes that all patches have the same same resolution which is not true, should be corrected
-                            const float vy = m_vertex_data[(res_u32 + 1) * (res_u32 + 1) * patch_id + vz * (res_u32 + 1) + vx].height;
+                            const float vy = m_vertex_data[m_vertices[patch_id].vertex_offset + vz * (res_u32 + 1) + vx].height;
                             if(height_cmp(vy)) return CollisionResult::Collision;
                         }
                     }
@@ -313,8 +402,7 @@ CollisionResult Terrain::collision(const AABB& aabb, float& dh_out) const
 
                 auto test_triangles = [&](float vx, float vz)
                 {
-                    //TODO: this assumes that all patches have the same same resolution which is not true, should be corrected
-                    const uint32_t base_vid = (res_u32 + 1) * (res_u32 + 1) * patch_id + vz * (res_u32 + 1) + vx;
+                    const uint32_t base_vid = m_vertices[patch_id].vertex_offset + vz * (res_u32 + 1) + vx;
                     const vec3 v0(m_x + m_patch_size_x * patch_x + dx * vx, m_vertex_data[base_vid].height, m_z + m_patch_size_z * patch_z + dz * vz);
                     const vec3 v1(m_x + m_patch_size_x * patch_x + dx * vx, m_vertex_data[base_vid + res_u32 + 1].height, m_z + m_patch_size_z * patch_z + dz * (vz + 1));
                     const vec3 v2(m_x + m_patch_size_x * patch_x + dx * (vx + 1), m_vertex_data[base_vid + res_u32 + 2].height, m_z + m_patch_size_z * patch_z + dz * (vz + 1));
@@ -362,12 +450,23 @@ void Terrain::serialize(std::string_view filename)
 {
     std::ofstream out(filename.data(), std::ios::binary);
 
-    out.write(reinterpret_cast<const char*>(&m_x), sizeof(m_x));
-    out.write(reinterpret_cast<const char*>(&m_z), sizeof(m_z));
     out.write(reinterpret_cast<const char*>(&m_size_x), sizeof(m_size_x));
     out.write(reinterpret_cast<const char*>(&m_size_z), sizeof(m_size_z));
     out.write(reinterpret_cast<const char*>(&m_resolution_x), sizeof(m_resolution_x));
     out.write(reinterpret_cast<const char*>(&m_resolution_z), sizeof(m_resolution_z));
+
+    const uint64_t bounding_ys_count = m_bounding_ys.size();
+    out.write(reinterpret_cast<const char*>(&bounding_ys_count), sizeof(uint64_t));
+    out.write(reinterpret_cast<const char*>(m_bounding_ys.data()), m_bounding_ys.size() * sizeof(vec2));
+    const uint64_t patch_data_count = m_patch_data.size();
+    out.write(reinterpret_cast<const char*>(&patch_data_count), sizeof(uint64_t));
+    out.write(reinterpret_cast<const char*>(m_patch_data.data()), m_patch_data.size() * sizeof(PatchData));
+    const uint64_t vertex_data_count = m_vertex_data.size();
+    out.write(reinterpret_cast<const char*>(&vertex_data_count), sizeof(uint64_t));
+    out.write(reinterpret_cast<const char*>(m_vertex_data.data()), m_vertex_data.size() * sizeof(VertexData));
+    const uint64_t vertex_count = m_vertices.size();
+    out.write(reinterpret_cast<const char*>(&vertex_count), sizeof(uint64_t));
+    out.write(reinterpret_cast<const char*>(m_vertices.data()), m_vertices.size() * sizeof(VertexTerrain));
 }
 
 bool Terrain::rayIntersection(const Ray& ray, float& d) const
@@ -487,5 +586,22 @@ void Terrain::toolEdit(Engine3D& engine3d, const vec3& center, float radius, flo
 
     //TODO: only update the data that's changed
     engine3d.updateTerrainData(m_vertex_data.data(), 0, m_vertex_data.size() * sizeof(VertexData));
+}
+
+void Terrain::toggleWireframe()
+{
+    if(RenderMode::Terrain == m_render_mode)
+    {
+        m_render_mode = RenderMode::TerrainWireframe;
+    }
+    else
+    {
+        m_render_mode = RenderMode::Terrain;
+    }
+}
+
+void Terrain::toggleLod()
+{
+    m_lod_enabled = !m_lod_enabled;
 }
 #endif

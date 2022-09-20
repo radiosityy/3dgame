@@ -137,12 +137,10 @@ void Scene::update(float dt, const InputState& input_state) noexcept
                 m_player->setAcceleration(vec3(0.0f, 0.0f, 0.0f));
             }
             player_velocity.y = 0.0f;
-            std::cout << "resolved " << dh << std::endl;
             s.y = dh;
             m_player->move(s);
             break;
         case CollisionResult::Airborne:
-            std::cout << "airborne" << std::endl;
             //first, if player has no vertical acceleration, check if the player is airborne
             if(m_player->acceleration().y == 0.0f)
             {
@@ -666,6 +664,8 @@ void Scene::serialize(std::string_view filename) const
     {
         point_light.serialize(outfile);
     }
+
+    m_terrain->serialize("terrain.dat");
 }
 
 #endif

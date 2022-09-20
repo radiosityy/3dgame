@@ -7,6 +7,7 @@
 #include <functional>
 #include <list>
 
+#include "collision.h"
 #include "platform.h"
 #include <vulkan.h>
 #include "window.h"

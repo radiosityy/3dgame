@@ -4,12 +4,12 @@
 #include "window.h"
 #include "engine_3d.h"
 #include "scene.h"
-#include "gui_object.h"
 #include "console.h"
 #include "timer.h"
 #include "font.h"
-#include "button.h"
-#include "editor.h"
+#if EDITOR_ENABLE
+#include "editor/editor.h"
+#endif
 
 class GameEngine
 {

@@ -765,6 +765,11 @@ void Window::manageEvents()
 
         if(generic_event)
         {
+            if(XCB_DESTROY_NOTIFY == generic_event->response_type)
+            {
+                m_game_engine.onWindowDestroyEvent();
+                return;
+            }
             generic_events.push_back(generic_event);
         }
         else
@@ -1046,11 +1051,6 @@ void Window::manageEvents()
                 showCursor(true);
             }
 
-            break;
-        }
-        case XCB_DESTROY_NOTIFY:
-        {
-            m_game_engine.onWindowDestroyEvent();
             break;
         }
         case XCB_CONFIGURE_NOTIFY:

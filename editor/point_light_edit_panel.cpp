@@ -1,4 +1,3 @@
-#if EDITOR_ENABLE
 #include "point_light_edit_panel.h"
 #include "rect.h"
 #include "slider.h"
@@ -343,4 +342,3 @@ void PointLightEditPanel::updatePointLight()
 {
     m_scene.updateStaticPointLight(m_point_light_id, m_point_light);
 }
-#endif //EDITOR_ENABLE

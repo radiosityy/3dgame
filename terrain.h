@@ -2,6 +2,8 @@
 #define TERRAIN_H
 
 #include "engine_3d.h"
+#include "collision.h"
+#include "vertex.h"
 
 enum class CollisionResult
 {
@@ -14,7 +16,6 @@ class Terrain
 {
 public:
     Terrain(Engine3D& engine3d);
-    Terrain(std::string_view filename);
 
     void draw(Engine3D& engine3d, Camera& camera);
 
@@ -29,19 +30,31 @@ public:
     bool rayIntersection(const Ray& ray, float& d) const;
     //std::optional<std::pair<PatchType, uint32_t>> pickPatch(const Ray& ray) const;
     void toolEdit(Engine3D& engine3d, const vec3& center, float radius, float dh);
+
+    void toggleWireframe();
+    void toggleLod();
 #endif
 
 private:
-    void generatePatchVertices();
+#if EDITOR_ENABLE
+    static constexpr float DEFAULT_SIZE_X = 100.0f;
+    static constexpr float DEFAULT_SIZE_Z = 100.0f;
+    static constexpr uint32_t DEFAULT_RES_X = 2;
+    static constexpr uint32_t DEFAULT_RES_Z = 2;
+    static constexpr uint32_t DEFAULT_PATCH_RES = 64;
 
-    float m_size_x = 1000.0f;
-    float m_size_z = 1000.0f;
-    float m_x = -0.5f * m_size_x;
-    float m_z = -0.5f * m_size_z;
-    uint32_t m_resolution_x = 10;
-    uint32_t m_resolution_z = 10;
-    float m_patch_size_x = m_size_x / static_cast<float>(m_resolution_x);
-    float m_patch_size_z = m_size_z / static_cast<float>(m_resolution_z);
+    void createNew(Engine3D&);
+#endif
+    void loadFromFile(Engine3D&);
+
+    float m_size_x;
+    float m_size_z;
+    float m_x;
+    float m_z;
+    uint32_t m_resolution_x;
+    uint32_t m_resolution_z;
+    float m_patch_size_x;
+    float m_patch_size_z;
 
     struct VertexData
     {
@@ -69,6 +82,11 @@ private:
 
     std::vector<VertexTerrain> m_vertices;
     VertexBufferAllocation m_vb_alloc;
+
+#if EDITOR_ENABLE
+    RenderMode m_render_mode = RenderMode::Terrain;
+    bool m_lod_enabled = true;
+#endif
 };
 
 #endif // TERRAIN_H

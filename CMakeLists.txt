@@ -5,9 +5,18 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 project(3dgame)
 
+option(EDITOR_ENABLE "Enable editor" OFF)
+if(EDITOR_ENABLE)
+    add_compile_definitions(EDITOR_ENABLE=1)
+endif()
+
 file(GLOB SOURCES
     *.h
     *.cpp
+if(EDITOR_ENABLE)
+    editor/*.h
+    editor/*.cpp
+endif()
 )
 
 file(GLOB_RECURSE OTHERS
@@ -22,6 +31,7 @@ file(GLOB_RECURSE OTHERS
     shaders/*.h
 )
 
+include_directories(${CMAKE_SOURCE_DIR})
 include_directories(include)
 
 add_executable(${PROJECT_NAME} ${SOURCES} ${OTHERS})
@@ -32,11 +42,6 @@ if(CMAKE_BUILD_TYPE MATCHES Debug)
     add_compile_definitions(DEBUG=1)
 else()
     add_compile_definitions(NDEBUG=1)
-endif()
-
-option(EDITOR_ENABLE "Enable editor" OFF)
-if(EDITOR_ENABLE)
-    add_compile_definitions(EDITOR_ENABLE=1)
 endif()
 
 set(VULKAN_INCLUDE "" CACHE FILEPATH "Vulkan include path")
