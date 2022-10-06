@@ -456,6 +456,8 @@ RenderData Scene::renderData() noexcept
     render_data.visual_sun_pos = m_visual_sun_pos;
     render_data.effective_sun_pos = m_effective_sun_pos;
     render_data.sun_radius = m_sun_radius;
+    render_data.terrain_patch_size_x = m_terrain->patchSizeX();
+    render_data.terrain_patch_size_z = m_terrain->patchSizeZ();
 
     return render_data;
 }

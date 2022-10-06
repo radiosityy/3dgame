@@ -17,6 +17,8 @@ enum class RenderMode
     Terrain,
     DirShadowMap,
     PointShadowMap,
+    TerrainDirShadowMap,
+    TerrainPointShadowMap,
     Highlight,
     Billboard,
 #if EDITOR_ENABLE
@@ -92,15 +94,14 @@ struct RenderData
     vec4 editor_highlight_color;
     float editor_terrain_tool_inner_radius;
     float editor_terrain_tool_outer_radius;
+    float terrain_patch_size_x;
+    float terrain_patch_size_z;
 };
 
 struct SceneInitData
 {
     std::vector<const Font*> fonts;
     RenderData render_data;
-
-    float terrain_patch_size_x;
-    float terrain_patch_size_z;
 };
 
 #endif // RENDER_DATA_H

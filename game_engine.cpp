@@ -31,8 +31,6 @@ GameEngine::GameEngine()
     }
 
     scene_init_data.render_data = m_scene->renderData();
-    scene_init_data.terrain_patch_size_x = m_scene->terrain().patchSizeX();
-    scene_init_data.terrain_patch_size_z = m_scene->terrain().patchSizeZ();
 
     m_engine3d->onSceneLoad(scene_init_data);
 
