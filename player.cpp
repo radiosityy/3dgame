@@ -63,9 +63,9 @@ void Player::walkForward(bool b)
             m_velocity += forward() * speed;
         }
 
-        if(m_mesh->forPlayer1("anim_walkf"))
+        if(m_model->forPlayer1("anim_walkf"))
         {
-            m_mesh->playAnimation("anim_walkf");
+            m_model->playAnimation("anim_walkf");
         }
     }
     else
@@ -75,9 +75,9 @@ void Player::walkForward(bool b)
             m_walking_forward = false;
             m_velocity -= forward() * speed;
 
-            if(m_mesh->forPlayer2("anim_walkf"))
+            if(m_model->forPlayer2("anim_walkf"))
             {
-                m_mesh->stopAnimation();
+                m_model->stopAnimation();
             }
         }
     }
@@ -99,9 +99,9 @@ void Player::walkBack(bool b)
             m_velocity -= forward() * speed;
         }
 
-        if(m_mesh->forPlayer1("anim_walkb"))
+        if(m_model->forPlayer1("anim_walkb"))
         {
-            m_mesh->playAnimation("anim_walkb");
+            m_model->playAnimation("anim_walkb");
         }
     }
     else
@@ -111,9 +111,9 @@ void Player::walkBack(bool b)
             m_walking_back = false;
             m_velocity += forward() * speed;
 
-            if(m_mesh->forPlayer2("anim_walkb"))
+            if(m_model->forPlayer2("anim_walkb"))
             {
-                m_mesh->stopAnimation();
+                m_model->stopAnimation();
             }
         }
     }
@@ -135,9 +135,9 @@ void Player::walkRight(bool b)
             m_velocity += right() * speed;
         }
 
-        if(m_mesh->forPlayer1("anim_walkr"))
+        if(m_model->forPlayer1("anim_walkr"))
         {
-            m_mesh->playAnimation("anim_walkr");
+            m_model->playAnimation("anim_walkr");
         }
     }
     else
@@ -147,9 +147,9 @@ void Player::walkRight(bool b)
             m_walking_right = false;
             m_velocity -= right() * speed;
 
-            if(m_mesh->forPlayer2("anim_walkr"))
+            if(m_model->forPlayer2("anim_walkr"))
             {
-                m_mesh->stopAnimation();
+                m_model->stopAnimation();
             }
         }
     }
@@ -171,9 +171,9 @@ void Player::walkLeft(bool b)
             m_velocity -= right() * speed;
         }
 
-        if(m_mesh->forPlayer1("anim_walkl"))
+        if(m_model->forPlayer1("anim_walkl"))
         {
-            m_mesh->playAnimation("anim_walkl");
+            m_model->playAnimation("anim_walkl");
         }
     }
     else
@@ -183,9 +183,9 @@ void Player::walkLeft(bool b)
             m_walking_left = false;
             m_velocity += right() * speed;
 
-            if(m_mesh->forPlayer2("anim_walkl"))
+            if(m_model->forPlayer2("anim_walkl"))
             {
-                m_mesh->stopAnimation();
+                m_model->stopAnimation();
             }
         }
     }
@@ -251,7 +251,7 @@ void Player::jump()
 
 void Player::wave()
 {
-    m_mesh->playAnimation("anim_wave");
+    m_model->playAnimation("anim_wave");
 }
 
 void Player::rotateY(float a)
@@ -307,9 +307,9 @@ void Player::walk(const vec3& direction)
 
         m_velocity += m_moving_direction * speed;
 
-        if(m_mesh->forPlayer1("anim_run"))
+        if(m_model->forPlayer1("anim_run"))
         {
-            m_mesh->playAnimation("anim_run");
+            m_model->playAnimation("anim_run");
         }
     }
 
@@ -333,7 +333,7 @@ void Player::stop()
     if(m_walking)
     {
         m_velocity -= m_moving_direction * speed;
-        m_mesh->stopAnimation();
+        m_model->stopAnimation();
     }
 
     m_walking = false;

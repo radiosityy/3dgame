@@ -267,14 +267,14 @@ public:
 
         return alloc;
     }
-    uint32_t requestPerInstanceVertexBufferAllocation();
+    uint32_t requestPerInstanceVertexBufferAllocation(uint32_t instance_count);
     uint32_t requestBoneTransformBufferAllocation(uint32_t bone_count);
     void requestTerrainBufferAllocation(uint64_t size);
 
     void freeVertexBufferAllocation(VertexBuffer* vb, uint64_t offset, uint64_t size);
 
     void updateVertexData(VertexBuffer* vb, uint64_t data_offset, uint64_t data_size, const void* data);
-    void updatePerInstanceVertexData(uint32_t instance_id, const void* data);
+    void updatePerInstanceVertexData(uint32_t instance_id, uint32_t instance_count, const void* data);
     void updateBoneTransformData(uint32_t bone_offset, uint32_t bone_count, const mat4x4* data);
     void updateTerrainData(void* data, uint64_t offset, uint64_t size);
 

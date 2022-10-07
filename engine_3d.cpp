@@ -1622,10 +1622,10 @@ bool Engine3D::enableVsync(bool vsync)
     return true;
 }
 
-uint32_t Engine3D::requestPerInstanceVertexBufferAllocation()
+uint32_t Engine3D::requestPerInstanceVertexBufferAllocation(uint32_t instance_count)
 {
     const uint32_t instance_id = m_per_instance_vertex_buffer.req_size / sizeof(InstanceVertexData);
-    m_per_instance_vertex_buffer.req_size += sizeof(InstanceVertexData);
+    m_per_instance_vertex_buffer.req_size += instance_count * sizeof(InstanceVertexData);
     return instance_id;
 }
 
@@ -1651,9 +1651,9 @@ void Engine3D::updateVertexData(VertexBuffer* vb, uint64_t data_offset, uint64_t
     m_buffer_update_reqs[vb].emplace_back(data_offset, data_size, data);
 }
 
-void Engine3D::updatePerInstanceVertexData(uint32_t instance_id, const void* data)
+void Engine3D::updatePerInstanceVertexData(uint32_t instance_id, uint32_t instance_count, const void* data)
 {
-    m_buffer_update_reqs[&m_per_instance_vertex_buffer].emplace_back(instance_id * sizeof(InstanceVertexData), sizeof(InstanceVertexData), data);
+    m_buffer_update_reqs[&m_per_instance_vertex_buffer].emplace_back(instance_id * sizeof(InstanceVertexData), instance_count * sizeof(InstanceVertexData), data);
 }
 
 void Engine3D::updateBoneTransformData(uint32_t bone_offset, uint32_t bone_count, const mat4x4* data)
