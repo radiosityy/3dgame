@@ -29,15 +29,10 @@ Mesh::Mesh(Engine3D& engine3d, std::ifstream& model_file, uint32_t bone_offset)
     model_file.read(reinterpret_cast<char*>(&vertex_count), sizeof(uint64_t));
 
     m_vertex_data.resize(vertex_count);
+    model_file.read(reinterpret_cast<char*>(m_vertex_data.data()), vertex_count * sizeof(VertexDefault));
 
-    //TODO: read the vertex data in a single read() rather than in a loop
     for(uint64_t i = 0; i < vertex_count; i++)
     {
-        model_file.read(reinterpret_cast<char*>(&m_vertex_data[i].pos), sizeof(vec3));
-        model_file.read(reinterpret_cast<char*>(&m_vertex_data[i].normal), sizeof(vec3));
-        model_file.read(reinterpret_cast<char*>(&m_vertex_data[i].tangent), sizeof(vec3));
-        model_file.read(reinterpret_cast<char*>(&m_vertex_data[i].tex_coords), sizeof(vec2));
-        model_file.read(reinterpret_cast<char*>(&m_vertex_data[i].bone_id), sizeof(uint8_t));
         m_vertex_data[i].bone_id += bone_offset;
     }
 
