@@ -5,13 +5,13 @@
 #include "render_data.h"
 #include <vector>
 #include <map>
-#include "mesh.h"
+#include "model.h"
 
 class Object
 {
 public:
     Object(Engine3D& engine3d, std::ifstream& scene_file);
-    Object(Engine3D& engine3d, std::string_view mesh_filename, RenderMode render_mode, vec3 pos = vec3(0.0f, 0.0f, 0.0f), vec3 scale = vec3(1.0f, 1.0f, 1.0f), quat rot = quat(1.0f, 0.0f, 0.0f, 0.0f));
+    Object(Engine3D& engine3d, std::string_view model_filename, RenderMode render_mode, vec3 pos = vec3(0.0f, 0.0f, 0.0f), vec3 scale = vec3(1.0f, 1.0f, 1.0f), quat rot = quat(1.0f, 0.0f, 0.0f, 0.0f));
 
     virtual ~Object() = default;
 
@@ -61,7 +61,7 @@ public:
 protected:
     void updateVertexGroup();
 
-    std::unique_ptr<Mesh> m_mesh;
+    std::unique_ptr<Model> m_model;
 
     vec3 m_pos = {0.0f, 0.0f, 0.0f};
     vec3 m_scale = {1.0f, 1.0f, 1.0f};
@@ -74,10 +74,10 @@ protected:
     RenderMode m_render_mode = RenderMode::Default;
 
 private:
-    InstanceVertexData m_instance_data;
+    std::vector<InstanceVertexData> m_instance_data;
     uint32_t m_instance_id = 0;
 #if EDITOR_ENABLE
-    std::string m_mesh_filename;
+    std::string m_model_filename;
 #endif
     bool m_visible = true;
     bool m_serialiable = true;

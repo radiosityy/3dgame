@@ -8,6 +8,8 @@
 #include <sstream>
 #include <fstream>
 
+#include <fmod.hpp>
+
 Scene::Scene(Engine3D& engine3d, float aspect_ratio, const Font& font)
     : m_engine3d(engine3d)
 {
@@ -37,6 +39,25 @@ Scene::Scene(Engine3D& engine3d, float aspect_ratio, const Font& font)
     updateSun();
 
     loadFromFile("scene.scn");
+
+    //sound test
+
+    FMOD::System* system = nullptr;
+    FMOD::System_Create(&system);
+    system->init(32, FMOD_INIT_NORMAL, nullptr);
+
+    FMOD::Sound* sound = nullptr;
+    system->createSound("assets/music/g2.wav", FMOD_DEFAULT, nullptr, &sound);
+
+    FMOD::Channel* channel = nullptr;
+    system->playSound(sound, nullptr, false, &channel);
+
+    bool is_playing = true;
+    while(is_playing)
+    {
+        channel->isPlaying(&is_playing);
+        system->update();
+    }
 }
 
 void Scene::loadFromFile(std::string_view filename)
@@ -456,6 +477,8 @@ RenderData Scene::renderData() noexcept
     render_data.visual_sun_pos = m_visual_sun_pos;
     render_data.effective_sun_pos = m_effective_sun_pos;
     render_data.sun_radius = m_sun_radius;
+    render_data.terrain_patch_size_x = m_terrain->patchSizeX();
+    render_data.terrain_patch_size_z = m_terrain->patchSizeZ();
 
     return render_data;
 }

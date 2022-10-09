@@ -446,6 +446,56 @@ CollisionResult Terrain::collision(const AABB& aabb, float& dh_out) const
 
 #if EDITOR_ENABLE
 
+void Terrain::setSizeX(Engine3D& engine3d, float size_x)
+{
+    m_size_x = size_x;
+    m_x = -0.5f * m_size_x;
+    m_patch_size_x = m_size_x / static_cast<float>(m_resolution_x);
+
+    for(uint32_t z = 0; z < m_resolution_z; z++)
+    {
+        for(uint32_t x = 0; x < m_resolution_x; x++)
+        {
+            const uint32_t vertex_id = z * m_resolution_x + x;
+            const vec3 pos = vec3(m_x + x * m_patch_size_x, 0.0f, m_z + z * m_patch_size_z);
+
+            m_vertices[vertex_id].pos = vec2(pos.x, pos.z);
+            m_patch_data[vertex_id].center_pos_left = vec3(pos.x, 0.0f, pos.z + 0.5f * m_patch_size_z);
+            m_patch_data[vertex_id].center_pos_top = vec3(pos.x + 0.5f * m_patch_size_x, 0.0f, pos.z + m_patch_size_z);
+            m_patch_data[vertex_id].center_pos_right = vec3(pos.x + m_patch_size_x, 0.0f, pos.z + 0.5f * m_patch_size_z);
+            m_patch_data[vertex_id].center_pos_bottom = vec3(pos.x + 0.5f * m_patch_size_x, 0.0f, pos.z);
+            m_patch_data[vertex_id].center_pos = (m_patch_data[vertex_id].center_pos_bottom + m_patch_data[vertex_id].center_pos_right + m_patch_data[vertex_id].center_pos_left + m_patch_data[vertex_id].center_pos_top) / 4.0f;
+        }
+    }
+
+    engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexTerrain) * m_vertices.size(), m_vertices.data());
+}
+
+void Terrain::setSizeZ(Engine3D& engine3d, float size_z)
+{
+    m_size_z = size_z;
+    m_z = -0.5f * m_size_z;
+    m_patch_size_z = m_size_z / static_cast<float>(m_resolution_z);
+
+    for(uint32_t z = 0; z < m_resolution_z; z++)
+    {
+        for(uint32_t x = 0; x < m_resolution_x; x++)
+        {
+            const uint32_t vertex_id = z * m_resolution_x + x;
+            const vec3 pos = vec3(m_x + x * m_patch_size_x, 0.0f, m_z + z * m_patch_size_z);
+
+            m_vertices[vertex_id].pos = vec2(pos.x, pos.z);
+            m_patch_data[vertex_id].center_pos_left = vec3(pos.x, 0.0f, pos.z + 0.5f * m_patch_size_z);
+            m_patch_data[vertex_id].center_pos_top = vec3(pos.x + 0.5f * m_patch_size_x, 0.0f, pos.z + m_patch_size_z);
+            m_patch_data[vertex_id].center_pos_right = vec3(pos.x + m_patch_size_x, 0.0f, pos.z + 0.5f * m_patch_size_z);
+            m_patch_data[vertex_id].center_pos_bottom = vec3(pos.x + 0.5f * m_patch_size_x, 0.0f, pos.z);
+            m_patch_data[vertex_id].center_pos = (m_patch_data[vertex_id].center_pos_bottom + m_patch_data[vertex_id].center_pos_right + m_patch_data[vertex_id].center_pos_left + m_patch_data[vertex_id].center_pos_top) / 4.0f;
+        }
+    }
+
+    engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexTerrain) * m_vertices.size(), m_vertices.data());
+}
+
 void Terrain::serialize(std::string_view filename)
 {
     std::ofstream out(filename.data(), std::ios::binary);

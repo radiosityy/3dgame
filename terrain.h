@@ -31,6 +31,9 @@ public:
     //std::optional<std::pair<PatchType, uint32_t>> pickPatch(const Ray& ray) const;
     void toolEdit(Engine3D& engine3d, const vec3& center, float radius, float dh);
 
+    void setSizeX(Engine3D& engine3d, float size_x);
+    void setSizeZ(Engine3D& engine3d, float size_z);
+
     void toggleWireframe();
     void toggleLod();
 #endif

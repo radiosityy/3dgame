@@ -44,12 +44,20 @@ else()
     add_compile_definitions(NDEBUG=1)
 endif()
 
-set(VULKAN_INCLUDE "" CACHE FILEPATH "Vulkan include path")
+#vulkan
+set(VULKAN_INCLUDE "" CACHE PATH "Vulkan include path")
 set(VULKAN_LIB "" CACHE FILEPATH "Vulkan library path")
 set(GLSLC_PATH "" CACHE FILEPATH "Glslc spir-v compiler path")
 
 include_directories(${VULKAN_INCLUDE})
 target_link_libraries(${PROJECT_NAME} ${VULKAN_LIB})
+
+#FMOD
+set(FMOD_INCLUDE "" CACHE PATH "FMOD include directory")
+set(FMOD_LIB "" CACHE FILEPATH "FMOD library")
+
+include_directories(${FMOD_INCLUDE})
+target_link_libraries(${PROJECT_NAME} ${FMOD_LIB})
 
 add_custom_target(
     compile_shaders ALL

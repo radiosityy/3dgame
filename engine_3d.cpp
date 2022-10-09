@@ -831,7 +831,7 @@ void Engine3D::destroy() noexcept
             destroyBuffer(vb.second);
         }
 
-        destroyBuffer(m_per_instance_vertex_buffer);
+        destroyBuffer(m_instance_vertex_buffer);
         destroyBuffer(m_bone_transform_buffer);
         destroyBuffer(m_terrain_buffer);
 
@@ -926,6 +926,8 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
     m_common_buffer_data.cur_terrain_intersection = render_data.cur_terrain_intersection;
     m_common_buffer_data.editor_terrain_tool_inner_radius = render_data.editor_terrain_tool_inner_radius;
     m_common_buffer_data.editor_terrain_tool_outer_radius = render_data.editor_terrain_tool_outer_radius;
+    m_common_buffer_data.terrain_patch_size_x = render_data.terrain_patch_size_x;
+    m_common_buffer_data.terrain_patch_size_z = render_data.terrain_patch_size_z;
 
     for(auto buf_to_destroy : per_frame_data.bufs_to_destroy)
     {
@@ -992,23 +994,6 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
         }
     }
 
-    const size_t dir_shadow_map_data_size = MAX_DIR_SHADOW_MAP_PARTITIONS * m_dir_shadow_map_count * sizeof(DirShadowMapData);
-    const size_t point_shadow_map_data_size = m_point_shadow_map_count * sizeof(PointShadowMapData);
-
-    //dir shadow map data copy callback
-    const auto copy_dir_shadow_map_data = [&](void* ptr)
-    {
-        uint8_t* dst = reinterpret_cast<uint8_t*>(ptr);
-        std::memcpy(dst, m_dir_shadow_map_data.data(), dir_shadow_map_data_size);
-    };
-
-    //point shadow map data copy callback
-    const auto copy_point_shadow_map_data = [&](void* ptr)
-    {
-        uint8_t* dst = reinterpret_cast<uint8_t*>(ptr);
-        std::memcpy(dst, m_point_shadow_map_data.data(), point_shadow_map_data_size);
-    };
-
     VkCommandBuffer cmd_buf = per_frame_data.cmd_buf;
 
     VkResult res = vkWaitForFences(m_device, 1, &per_frame_data.cmd_buf_ready_fence, VK_TRUE, UINT64_MAX);
@@ -1049,6 +1034,23 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
         }
     }
     per_frame_data.point_shadow_maps_to_destroy.clear();
+
+    const size_t dir_shadow_map_data_size = MAX_DIR_SHADOW_MAP_PARTITIONS * m_dir_shadow_map_count * sizeof(DirShadowMapData);
+    const size_t point_shadow_map_data_size = m_point_shadow_map_count * sizeof(PointShadowMapData);
+
+    //dir shadow map data copy callback
+    const auto copy_dir_shadow_map_data = [&](void* ptr)
+    {
+        uint8_t* dst = reinterpret_cast<uint8_t*>(ptr);
+        std::memcpy(dst, m_dir_shadow_map_data.data(), dir_shadow_map_data_size);
+    };
+
+    //point shadow map data copy callback
+    const auto copy_point_shadow_map_data = [&](void* ptr)
+    {
+        uint8_t* dst = reinterpret_cast<uint8_t*>(ptr);
+        std::memcpy(dst, m_point_shadow_map_data.data(), point_shadow_map_data_size);
+    };
 
     uint32_t image_id;
     res = vkAcquireNextImageKHR(m_device, m_swapchain, 0, per_frame_data.image_acquire_semaphore, VK_NULL_HANDLE, &image_id);
@@ -1166,7 +1168,7 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
 
     /*bind vertex buffer*/
     const VkDeviceSize vb_offset = 0;
-    vkCmdBindVertexBuffers(cmd_buf, 1, 1, &m_per_instance_vertex_buffer.buf, &vb_offset);
+    vkCmdBindVertexBuffers(cmd_buf, 1, 1, &m_instance_vertex_buffer.buf, &vb_offset);
 
     /*bind descriptor sets*/
     vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layout, 0, 1, &per_frame_data.descriptor_set, 0, NULL);
@@ -1174,10 +1176,6 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
     /*shadow map rendering*/
     if(m_dir_shadow_map_count != 0)
     {
-        vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[static_cast<uint32_t>(RenderMode::DirShadowMap)]);
-        vkCmdBindVertexBuffers(cmd_buf, 0, 1, &m_vertex_buffers[sizeof(VertexDefault)].buf, &vb_offset);
-
-        uint32_t shadow_map_offset = 0;
         uint32_t prev_viewport_width = 0;
         uint32_t prev_viewport_height = 0;
 
@@ -1204,7 +1202,7 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
             }
 
             push_const.shadow_map_count = shadow_map.count;
-            push_const.shadow_map_offset = shadow_map_offset;
+            push_const.shadow_map_offset = dir_shadow_map_id * MAX_DIR_SHADOW_MAP_PARTITIONS;
             vkCmdPushConstants(cmd_buf, m_pipeline_layout, VK_SHADER_STAGE_GEOMETRY_BIT, 0, sizeof(push_const), &push_const);
 
             vkCmdBeginRenderPass(cmd_buf, &shadow_map.render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
@@ -1215,8 +1213,20 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
 
                 if(rb.render_mode == RenderMode::Default)
                 {
-                    vkCmdDraw(cmd_buf, rb.vertex_count, 1, rb.vertex_offset, rb.instance_id);
+                    vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[static_cast<uint32_t>(RenderMode::DirShadowMap)]);
+                    vkCmdBindVertexBuffers(cmd_buf, 0, 1, &m_vertex_buffers[sizeof(VertexDefault)].buf, &vb_offset);
                 }
+                else if(rb.render_mode == RenderMode::Terrain)
+                {
+                    vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[static_cast<uint32_t>(RenderMode::TerrainDirShadowMap)]);
+                    vkCmdBindVertexBuffers(cmd_buf, 0, 1, &m_vertex_buffers[sizeof(VertexTerrain)].buf, &vb_offset);
+                }
+                else
+                {
+                    continue;
+                }
+
+                vkCmdDraw(cmd_buf, rb.vertex_count, 1, rb.vertex_offset, rb.instance_id);
             }
 
             vkCmdEndRenderPass(cmd_buf);
@@ -1225,8 +1235,6 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
             VkImageSubresourceRange subres_range = {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, shadow_map.count};
             VkImageMemoryBarrier img_mem_bar = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, NULL, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, shadow_map.depth_img.img, subres_range};
             vkCmdPipelineBarrier(cmd_buf, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, NULL, 0, NULL, 1, &img_mem_bar);
-
-            shadow_map_offset += shadow_map.count;
         }
     }
 
@@ -1235,7 +1243,6 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
         vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[static_cast<uint32_t>(RenderMode::PointShadowMap)]);
         vkCmdBindVertexBuffers(cmd_buf, 0, 1, &m_vertex_buffers[sizeof(VertexDefault)].buf, &vb_offset);
 
-        uint32_t shadow_map_offset = 0;
         uint32_t prev_viewport_res = 0;
 
         //TODO: add frustum culling for point shadow map rendering?
@@ -1261,7 +1268,7 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
                 vkCmdSetViewport(cmd_buf, 0, 1, &viewport);
             }
 
-            push_const.shadow_map_offset = shadow_map_offset;
+            push_const.shadow_map_offset = point_shadow_map_id;
             vkCmdPushConstants(cmd_buf, m_pipeline_layout, VK_SHADER_STAGE_GEOMETRY_BIT, 0, sizeof(push_const), &push_const);
 
             vkCmdBeginRenderPass(cmd_buf, &shadow_map.render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
@@ -1272,8 +1279,20 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
 
                 if(rb.render_mode == RenderMode::Default)
                 {
-                    vkCmdDraw(cmd_buf, rb.vertex_count, 1, rb.vertex_offset, rb.instance_id);
+                    vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[static_cast<uint32_t>(RenderMode::PointShadowMap)]);
+                    vkCmdBindVertexBuffers(cmd_buf, 0, 1, &m_vertex_buffers[sizeof(VertexDefault)].buf, &vb_offset);
                 }
+                else if(rb.render_mode == RenderMode::Terrain)
+                {
+                    vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[static_cast<uint32_t>(RenderMode::TerrainPointShadowMap)]);
+                    vkCmdBindVertexBuffers(cmd_buf, 0, 1, &m_vertex_buffers[sizeof(VertexTerrain)].buf, &vb_offset);
+                }
+                else
+                {
+                    continue;
+                }
+
+                vkCmdDraw(cmd_buf, rb.vertex_count, 1, rb.vertex_offset, rb.instance_id);
             }
 
             vkCmdEndRenderPass(cmd_buf);
@@ -1282,8 +1301,6 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
             VkImageSubresourceRange subres_range = {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 6};
             VkImageMemoryBarrier img_mem_bar = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, NULL, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, shadow_map.depth_img.img, subres_range};
             vkCmdPipelineBarrier(cmd_buf, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, NULL, 0, NULL, 1, &img_mem_bar);
-
-            shadow_map_offset ++;
         }
     }
 
@@ -1386,9 +1403,6 @@ void Engine3D::onSceneLoad(const SceneInitData& scene_init_data)
 {
     //TODO: do this wait better (wait on fence or sth?)
     deviceWaitIdle();
-
-    m_common_buffer_data.terrain_patch_size_x = scene_init_data.terrain_patch_size_x;
-    m_common_buffer_data.terrain_patch_size_z = scene_init_data.terrain_patch_size_z;
 
     loadFonts(scene_init_data.fonts);
 
@@ -1602,28 +1616,43 @@ bool Engine3D::enableVsync(bool vsync)
     return true;
 }
 
-uint32_t Engine3D::requestPerInstanceVertexBufferAllocation()
+uint32_t Engine3D::requestInstanceVertexBufferAllocation(uint32_t instance_count)
 {
-    const uint32_t instance_id = m_per_instance_vertex_buffer.req_size / sizeof(InstanceVertexData);
-    m_per_instance_vertex_buffer.req_size += sizeof(InstanceVertexData);
+    const uint64_t offset = m_instance_vertex_buffer.allocate(instance_count * sizeof(InstanceVertexData));
+    const uint32_t instance_id = offset / sizeof(InstanceVertexData);
     return instance_id;
 }
 
 uint32_t Engine3D::requestBoneTransformBufferAllocation(uint32_t bone_count)
 {
-    const uint32_t bone_transform_id = m_bone_transform_buffer.req_size / sizeof(mat4x4);
-    m_bone_transform_buffer.req_size += bone_count * sizeof(mat4x4);
+    const uint64_t offset = m_bone_transform_buffer.allocate(bone_count * sizeof(mat4x4));
+    const uint32_t bone_transform_id = offset / sizeof(mat4x4);
     return bone_transform_id;
 }
 
 void Engine3D::requestTerrainBufferAllocation(uint64_t size)
 {
-    m_terrain_buffer.req_size = size;
+    m_terrain_buffer.allocate(size);
 }
 
 void Engine3D::freeVertexBufferAllocation(VertexBuffer* vb, uint64_t offset, uint64_t size)
 {
+    vb->free(offset, size);
+}
 
+void Engine3D::freeInstanceVertexBufferAllocation(uint32_t instance_id, uint32_t instance_count)
+{
+    m_instance_vertex_buffer.free(instance_id * sizeof(InstanceVertexData), instance_count * sizeof(instance_count));
+}
+
+void Engine3D::freeBoneTransformBufferAllocation(uint32_t bone_id, uint32_t bone_count)
+{
+    m_bone_transform_buffer.free(bone_id * sizeof(mat4x4), bone_count * sizeof(mat4x4));
+}
+
+void Engine3D::freeTerrainBufferAllocation()
+{
+    m_terrain_buffer.free(0, m_terrain_buffer.size);
 }
 
 void Engine3D::updateVertexData(VertexBuffer* vb, uint64_t data_offset, uint64_t data_size, const void* data)
@@ -1631,9 +1660,9 @@ void Engine3D::updateVertexData(VertexBuffer* vb, uint64_t data_offset, uint64_t
     m_buffer_update_reqs[vb].emplace_back(data_offset, data_size, data);
 }
 
-void Engine3D::updatePerInstanceVertexData(uint32_t instance_id, const void* data)
+void Engine3D::updateInstanceVertexData(uint32_t instance_id, uint32_t instance_count, const void* data)
 {
-    m_buffer_update_reqs[&m_per_instance_vertex_buffer].emplace_back(instance_id * sizeof(InstanceVertexData), sizeof(InstanceVertexData), data);
+    m_buffer_update_reqs[&m_instance_vertex_buffer].emplace_back(instance_id * sizeof(InstanceVertexData), instance_count * sizeof(InstanceVertexData), data);
 }
 
 void Engine3D::updateBoneTransformData(uint32_t bone_offset, uint32_t bone_count, const mat4x4* data)
@@ -3725,16 +3754,14 @@ void Engine3D::createPipelines()
         pipeline_create_info.basePipelineIndex = -1;
 
         /*---------------------------- shaders ----------------------------*/
-        std::vector<VkShaderModule> shader_modules(3, VK_NULL_HANDLE);
+        std::vector<VkShaderModule> shader_modules(2, VK_NULL_HANDLE);
         std::vector<VkPipelineShaderStageCreateInfo> shader_stage_infos;
 
         shader_stage_infos.emplace_back(loadShader(VS_SHADOWMAP_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
         shader_stage_infos.emplace_back(loadShader(GS_DIR_SHADOW_MAP_FILENAME, VK_SHADER_STAGE_GEOMETRY_BIT, &shader_modules[1]));
-        shader_stage_infos.emplace_back(loadShader(FS_DIR_SHADOW_MAP_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[2]));
 #if VALIDATION_ENABLE
         setDebugObjectName(shader_modules[0], "DirShadowMapVS");
         setDebugObjectName(shader_modules[1], "DirShadowMapGS");
-        setDebugObjectName(shader_modules[2], "DirShadowMapFS");
 #endif
 
         pipeline_create_info.stageCount = static_cast<uint32_t>(shader_stage_infos.size());
@@ -3743,6 +3770,144 @@ void Engine3D::createPipelines()
         VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::DirShadowMap)]);
 #if VALIDATION_ENABLE
         setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::DirShadowMap)], "PipelineDirShadowMap");
+#endif
+
+        for(auto& sm : shader_modules)
+        {
+            vkDestroyShaderModule(m_device, sm, NULL);
+        }
+
+        assertVkSuccess(res, "Failed to create graphics pipeline.");
+    }
+
+    /*--- TerrainDirShadowMap ---*/
+    {
+        /*----------------------- vertex input state -----------------------*/
+        std::vector<VkVertexInputBindingDescription> vertex_binding_desc =
+        {
+            {0, sizeof(VertexTerrain), VK_VERTEX_INPUT_RATE_INSTANCE},
+        };
+
+        VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info{};
+        vertex_input_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+        vertex_input_state_create_info.pNext = NULL;
+        vertex_input_state_create_info.flags = 0;
+        vertex_input_state_create_info.vertexBindingDescriptionCount = static_cast<uint32_t>(vertex_binding_desc.size());
+        vertex_input_state_create_info.pVertexBindingDescriptions = vertex_binding_desc.data();
+        vertex_input_state_create_info.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertex_terrain_attr_desc.size());
+        vertex_input_state_create_info.pVertexAttributeDescriptions = vertex_terrain_attr_desc.data();
+
+        /*----------------------- input assembly state -----------------------*/
+        VkPipelineInputAssemblyStateCreateInfo input_assembly_state_create_info{};
+        input_assembly_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+        input_assembly_state_create_info.pNext = NULL;
+        input_assembly_state_create_info.flags = 0;
+        input_assembly_state_create_info.primitiveRestartEnable = VK_FALSE;
+        input_assembly_state_create_info.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+        /*----------------------- viewport state -----------------------*/
+        VkRect2D scissors;
+        scissors.offset = {0, 0};
+        scissors.extent = {m_physical_device_properties.limits.maxViewportDimensions[0],
+                           m_physical_device_properties.limits.maxViewportDimensions[1]};
+
+        VkPipelineViewportStateCreateInfo viewport_state_create_info{};
+        viewport_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+        viewport_state_create_info.pNext = NULL;
+        viewport_state_create_info.flags = 0;
+        viewport_state_create_info.viewportCount = 1;
+        viewport_state_create_info.pViewports = NULL; //will be set dynamically
+        viewport_state_create_info.scissorCount = 1;
+        viewport_state_create_info.pScissors = &scissors;
+
+        /*----------------------- rasterization state -----------------------*/
+        VkPipelineRasterizationStateCreateInfo rasterization_state_create_info{};
+        rasterization_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+        rasterization_state_create_info.pNext = NULL;
+        rasterization_state_create_info.flags = 0;
+        rasterization_state_create_info.depthClampEnable = VK_FALSE;
+        rasterization_state_create_info.rasterizerDiscardEnable = VK_FALSE;
+        rasterization_state_create_info.polygonMode = VK_POLYGON_MODE_FILL;
+        rasterization_state_create_info.cullMode = VK_CULL_MODE_NONE;
+        rasterization_state_create_info.frontFace = VK_FRONT_FACE_CLOCKWISE;
+        rasterization_state_create_info.depthBiasEnable = VK_TRUE;
+        rasterization_state_create_info.depthBiasConstantFactor = 1.0f;
+        rasterization_state_create_info.depthBiasClamp = 0;
+        rasterization_state_create_info.depthBiasSlopeFactor = 5.0f;
+        rasterization_state_create_info.lineWidth = 1.0;
+
+        /*----------------------- multisample state -----------------------*/
+        VkPipelineMultisampleStateCreateInfo multisample_state_create_info{};
+        multisample_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+        multisample_state_create_info.pNext = NULL;
+        multisample_state_create_info.flags = 0;
+        multisample_state_create_info.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+        multisample_state_create_info.sampleShadingEnable = VK_TRUE;
+        multisample_state_create_info.minSampleShading = 0.0;
+        multisample_state_create_info.pSampleMask = NULL;
+        multisample_state_create_info.alphaToCoverageEnable = VK_FALSE;
+        multisample_state_create_info.alphaToOneEnable = VK_FALSE;
+
+        /*---------------------- depth stencil state ----------------------*/
+        VkPipelineDepthStencilStateCreateInfo depth_stencil_state{};
+        depth_stencil_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+        depth_stencil_state.pNext = NULL;
+        depth_stencil_state.flags = 0;
+        depth_stencil_state.depthTestEnable = VK_TRUE;
+        depth_stencil_state.depthWriteEnable = VK_TRUE;
+        depth_stencil_state.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+        depth_stencil_state.depthBoundsTestEnable = VK_FALSE;
+        depth_stencil_state.stencilTestEnable = VK_FALSE;
+        depth_stencil_state.front = {};
+        depth_stencil_state.back = {};
+        depth_stencil_state.minDepthBounds = 0;
+        depth_stencil_state.maxDepthBounds = 1000.0f;
+
+        /*------------------------- dynamic state -------------------------*/
+        VkDynamicState dynamic_state = VK_DYNAMIC_STATE_VIEWPORT;
+        VkPipelineDynamicStateCreateInfo dynamic_state_create_info{};
+        dynamic_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+        dynamic_state_create_info.pNext = NULL;
+        dynamic_state_create_info.flags = 0;
+        dynamic_state_create_info.dynamicStateCount = 1;
+        dynamic_state_create_info.pDynamicStates = &dynamic_state;
+
+        VkGraphicsPipelineCreateInfo pipeline_create_info{};
+        pipeline_create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+        pipeline_create_info.pNext = NULL;
+        pipeline_create_info.flags = 0;
+        pipeline_create_info.pVertexInputState = &vertex_input_state_create_info;
+        pipeline_create_info.pInputAssemblyState = &input_assembly_state_create_info;
+        pipeline_create_info.pTessellationState = NULL;
+        pipeline_create_info.pViewportState = &viewport_state_create_info;
+        pipeline_create_info.pRasterizationState = &rasterization_state_create_info;
+        pipeline_create_info.pMultisampleState = &multisample_state_create_info;
+        pipeline_create_info.pDepthStencilState = &depth_stencil_state;
+        pipeline_create_info.pColorBlendState = NULL;
+        pipeline_create_info.pDynamicState = &dynamic_state_create_info;
+        pipeline_create_info.layout = m_pipeline_layout;
+        pipeline_create_info.renderPass = m_shadow_map_render_pass;
+        pipeline_create_info.subpass = 0;
+        pipeline_create_info.basePipelineHandle = VK_NULL_HANDLE;
+        pipeline_create_info.basePipelineIndex = -1;
+
+        /*---------------------------- shaders ----------------------------*/
+        std::vector<VkShaderModule> shader_modules(2, VK_NULL_HANDLE);
+        std::vector<VkPipelineShaderStageCreateInfo> shader_stage_infos;
+
+        shader_stage_infos.emplace_back(loadShader(VS_TERRAIN_SHADOWMAP_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
+        shader_stage_infos.emplace_back(loadShader(GS_DIR_SHADOW_MAP_FILENAME, VK_SHADER_STAGE_GEOMETRY_BIT, &shader_modules[1]));
+#if VALIDATION_ENABLE
+        setDebugObjectName(shader_modules[0], "TerrainDirShadowMapVS");
+        setDebugObjectName(shader_modules[1], "TerrainDirShadowMapGS");
+#endif
+
+        pipeline_create_info.stageCount = static_cast<uint32_t>(shader_stage_infos.size());
+        pipeline_create_info.pStages = shader_stage_infos.data();
+
+        VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::TerrainDirShadowMap)]);
+#if VALIDATION_ENABLE
+        setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::TerrainDirShadowMap)], "PipelineTerrainDirShadowMap");
 #endif
 
         for(auto& sm : shader_modules)
@@ -3884,6 +4049,146 @@ void Engine3D::createPipelines()
         VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::PointShadowMap)]);
 #if VALIDATION_ENABLE
         setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::PointShadowMap)], "PipelinePointShadowMap");
+#endif
+
+        for(auto& sm : shader_modules)
+        {
+            vkDestroyShaderModule(m_device, sm, NULL);
+        }
+
+        assertVkSuccess(res, "Failed to create graphics pipeline.");
+    }
+
+    /*--- TerrainPointShadowMap ---*/
+    {
+        /*----------------------- vertex input state -----------------------*/
+        std::vector<VkVertexInputBindingDescription> vertex_binding_desc =
+        {
+            {0, sizeof(VertexTerrain), VK_VERTEX_INPUT_RATE_INSTANCE},
+        };
+
+        VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info{};
+        vertex_input_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+        vertex_input_state_create_info.pNext = NULL;
+        vertex_input_state_create_info.flags = 0;
+        vertex_input_state_create_info.vertexBindingDescriptionCount = static_cast<uint32_t>(vertex_binding_desc.size());
+        vertex_input_state_create_info.pVertexBindingDescriptions = vertex_binding_desc.data();
+        vertex_input_state_create_info.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertex_terrain_attr_desc.size());
+        vertex_input_state_create_info.pVertexAttributeDescriptions = vertex_terrain_attr_desc.data();
+
+        /*----------------------- input assembly state -----------------------*/
+        VkPipelineInputAssemblyStateCreateInfo input_assembly_state_create_info{};
+        input_assembly_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+        input_assembly_state_create_info.pNext = NULL;
+        input_assembly_state_create_info.flags = 0;
+        input_assembly_state_create_info.primitiveRestartEnable = VK_FALSE;
+        input_assembly_state_create_info.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+        /*----------------------- viewport state -----------------------*/
+        VkRect2D scissors;
+        scissors.offset = {0, 0};
+        scissors.extent = {m_physical_device_properties.limits.maxViewportDimensions[0],
+                           m_physical_device_properties.limits.maxViewportDimensions[1]};
+
+        VkPipelineViewportStateCreateInfo viewport_state_create_info{};
+        viewport_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+        viewport_state_create_info.pNext = NULL;
+        viewport_state_create_info.flags = 0;
+        viewport_state_create_info.viewportCount = 1;
+        viewport_state_create_info.pViewports = NULL; //will be set dynamically
+        viewport_state_create_info.scissorCount = 1;
+        viewport_state_create_info.pScissors = &scissors;
+
+        /*----------------------- rasterization state -----------------------*/
+        VkPipelineRasterizationStateCreateInfo rasterization_state_create_info{};
+        rasterization_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+        rasterization_state_create_info.pNext = NULL;
+        rasterization_state_create_info.flags = 0;
+        rasterization_state_create_info.depthClampEnable = VK_FALSE;
+        rasterization_state_create_info.rasterizerDiscardEnable = VK_FALSE;
+        rasterization_state_create_info.polygonMode = VK_POLYGON_MODE_FILL;
+        rasterization_state_create_info.cullMode = VK_CULL_MODE_NONE;
+        rasterization_state_create_info.frontFace = VK_FRONT_FACE_CLOCKWISE;
+        rasterization_state_create_info.depthBiasEnable = VK_FALSE;
+        rasterization_state_create_info.depthBiasConstantFactor = 1.0f;
+        rasterization_state_create_info.depthBiasClamp = 0;
+        rasterization_state_create_info.depthBiasSlopeFactor = 5.0f;
+        rasterization_state_create_info.lineWidth = 1.0;
+
+        /*----------------------- multisample state -----------------------*/
+        VkPipelineMultisampleStateCreateInfo multisample_state_create_info{};
+        multisample_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+        multisample_state_create_info.pNext = NULL;
+        multisample_state_create_info.flags = 0;
+        multisample_state_create_info.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+        multisample_state_create_info.sampleShadingEnable = VK_TRUE;
+        multisample_state_create_info.minSampleShading = 0.0;
+        multisample_state_create_info.pSampleMask = NULL;
+        multisample_state_create_info.alphaToCoverageEnable = VK_FALSE;
+        multisample_state_create_info.alphaToOneEnable = VK_FALSE;
+
+        /*---------------------- depth stencil state ----------------------*/
+        VkPipelineDepthStencilStateCreateInfo depth_stencil_state{};
+        depth_stencil_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+        depth_stencil_state.pNext = NULL;
+        depth_stencil_state.flags = 0;
+        depth_stencil_state.depthTestEnable = VK_TRUE;
+        depth_stencil_state.depthWriteEnable = VK_TRUE;
+        depth_stencil_state.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+        depth_stencil_state.depthBoundsTestEnable = VK_FALSE;
+        depth_stencil_state.stencilTestEnable = VK_FALSE;
+        depth_stencil_state.front = {};
+        depth_stencil_state.back = {};
+        depth_stencil_state.minDepthBounds = 0;
+        depth_stencil_state.maxDepthBounds = 1000.0f;
+
+        /*------------------------- dynamic state -------------------------*/
+        VkDynamicState dynamic_state = VK_DYNAMIC_STATE_VIEWPORT;
+        VkPipelineDynamicStateCreateInfo dynamic_state_create_info{};
+        dynamic_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+        dynamic_state_create_info.pNext = NULL;
+        dynamic_state_create_info.flags = 0;
+        dynamic_state_create_info.dynamicStateCount = 1;
+        dynamic_state_create_info.pDynamicStates = &dynamic_state;
+
+        VkGraphicsPipelineCreateInfo pipeline_create_info{};
+        pipeline_create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+        pipeline_create_info.pNext = NULL;
+        pipeline_create_info.flags = 0;
+        pipeline_create_info.pVertexInputState = &vertex_input_state_create_info;
+        pipeline_create_info.pInputAssemblyState = &input_assembly_state_create_info;
+        pipeline_create_info.pTessellationState = NULL;
+        pipeline_create_info.pViewportState = &viewport_state_create_info;
+        pipeline_create_info.pRasterizationState = &rasterization_state_create_info;
+        pipeline_create_info.pMultisampleState = &multisample_state_create_info;
+        pipeline_create_info.pDepthStencilState = &depth_stencil_state;
+        pipeline_create_info.pColorBlendState = NULL;
+        pipeline_create_info.pDynamicState = &dynamic_state_create_info;
+        pipeline_create_info.layout = m_pipeline_layout;
+        pipeline_create_info.renderPass = m_shadow_map_render_pass;
+        pipeline_create_info.subpass = 0;
+        pipeline_create_info.basePipelineHandle = VK_NULL_HANDLE;
+        pipeline_create_info.basePipelineIndex = -1;
+
+        /*---------------------------- shaders ----------------------------*/
+        std::vector<VkShaderModule> shader_modules(3, VK_NULL_HANDLE);
+        std::vector<VkPipelineShaderStageCreateInfo> shader_stage_infos;
+
+        shader_stage_infos.emplace_back(loadShader(VS_TERRAIN_SHADOWMAP_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
+        shader_stage_infos.emplace_back(loadShader(GS_POINT_SHADOW_MAP_FILENAME, VK_SHADER_STAGE_GEOMETRY_BIT, &shader_modules[1]));
+        shader_stage_infos.emplace_back(loadShader(FS_POINT_SHADOW_MAP_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[2]));
+#if VALIDATION_ENABLE
+        setDebugObjectName(shader_modules[0], "TerrainPointShadowMapVS");
+        setDebugObjectName(shader_modules[1], "TerrainPointShadowMapGS");
+        setDebugObjectName(shader_modules[2], "TerrainPointShadowMapFS");
+#endif
+
+        pipeline_create_info.stageCount = static_cast<uint32_t>(shader_stage_infos.size());
+        pipeline_create_info.pStages = shader_stage_infos.data();
+
+        VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::TerrainPointShadowMap)]);
+#if VALIDATION_ENABLE
+        setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::TerrainPointShadowMap)], "PipelineTerrainPointShadowMap");
 #endif
 
         for(auto& sm : shader_modules)

@@ -4,52 +4,61 @@ Object::Object(Engine3D& engine3d, std::ifstream& scene_file)
 {
     uint8_t mesh_filename_length = 0;
     scene_file.read(reinterpret_cast<char*>(&mesh_filename_length), sizeof(uint8_t));
-    std::string mesh_filename;
-    mesh_filename.resize(mesh_filename_length);
-    scene_file.read(reinterpret_cast<char*>(mesh_filename.data()), mesh_filename_length);
+    std::string model_filename;
+    model_filename.resize(mesh_filename_length);
+    scene_file.read(reinterpret_cast<char*>(model_filename.data()), mesh_filename_length);
     scene_file.read(reinterpret_cast<char*>(&m_render_mode), sizeof(RenderMode));
     scene_file.read(reinterpret_cast<char*>(&m_pos), sizeof(vec3));
     scene_file.read(reinterpret_cast<char*>(&m_scale), sizeof(vec3));
     scene_file.read(reinterpret_cast<char*>(&m_rot), sizeof(quat));
 
-    m_mesh = std::make_unique<Mesh>(engine3d, mesh_filename);
-    m_instance_id = engine3d.requestPerInstanceVertexBufferAllocation();
+    m_model = std::make_unique<Model>(engine3d, model_filename);
+    m_instance_data.resize(m_model->mehes().size());
+    m_instance_id = engine3d.requestInstanceVertexBufferAllocation(m_instance_data.size());
 
 #if EDITOR_ENABLE
-    m_mesh_filename = mesh_filename;
+    m_model_filename = model_filename;
 #endif
 }
 
-Object::Object(Engine3D& engine3d, std::string_view mesh_filename, RenderMode render_mode, vec3 pos, vec3 scale, quat rot)
+Object::Object(Engine3D& engine3d, std::string_view model_filename, RenderMode render_mode, vec3 pos, vec3 scale, quat rot)
     : m_pos(pos)
     , m_scale(scale)
     , m_rot(rot)
     , m_render_mode(render_mode)
 #if EDITOR_ENABLE
-    , m_mesh_filename(mesh_filename)
+    , m_model_filename(model_filename)
 #endif
 
 {
-    m_mesh = std::make_unique<Mesh>(engine3d, mesh_filename);
-    m_instance_id = engine3d.requestPerInstanceVertexBufferAllocation();
+    m_model = std::make_unique<Model>(engine3d, model_filename);
+    m_instance_data.resize(m_model->mehes().size());
+    m_instance_id = engine3d.requestInstanceVertexBufferAllocation(m_instance_data.size());
 }
 
 void Object::update(Engine3D& engine3d, float dt)
 {
-    m_mesh->animationUpdate(engine3d, dt);
+    m_model->animationUpdate(engine3d, dt);
 }
 
 void Object::draw(Engine3D& engine3d)
 {
-    //TODO: only update instance data if the instance data has really changed (measure if any performance boost)
-    m_instance_data.W = glm::translate(m_pos) * mat4_cast(m_rot) * glm::scale(m_scale);
-    m_instance_data.tex_id = m_mesh->textureId();
-    m_instance_data.normal_map_id = m_mesh->normalMapId();
-    engine3d.updatePerInstanceVertexData(m_instance_id, &m_instance_data);
-
-    Sphere s = m_mesh->boundingSphere();
+    Sphere s = m_model->boundingSphere();
     s.transform(m_pos, m_scale);
-    engine3d.draw(m_render_mode, m_mesh->vertexBuffer(), m_mesh->vertexBufferOffset(), m_mesh->vertexCount(), m_instance_id, s, {});
+
+    for(uint32_t i = 0; i < m_model->mehes().size(); i++)
+    {
+       const auto& mesh = m_model->mehes()[i];
+
+       //TODO: only update instance data if the instance data has really changed (measure if any performance boost)
+       m_instance_data[i].W = glm::translate(m_pos) * mat4_cast(m_rot) * glm::scale(m_scale);
+       m_instance_data[i].tex_id = mesh.textureId();
+       m_instance_data[i].normal_map_id = mesh.normalMapId();
+
+        engine3d.draw(m_render_mode, mesh.vertexBuffer(), mesh.vertexBufferOffset(), mesh.vertexCount(), m_instance_id + i, s, {});
+    }
+
+    engine3d.updateInstanceVertexData(m_instance_id, m_instance_data.size(), m_instance_data.data());
 }
 
 void Object::updateAndDraw(Engine3D& engine3d, float dt)
@@ -60,17 +69,17 @@ void Object::updateAndDraw(Engine3D& engine3d, float dt)
 
 const std::vector<AABB>& Object::aabbs() const
 {
-    return m_mesh->aabbs();
+    return m_model->aabbs();
 }
 
 const std::vector<BoundingBox>& Object::bbs() const
 {
-    return m_mesh->bbs();
+    return m_model->bbs();
 }
 
 const std::vector<Sphere>& Object::spheres() const
 {
-    return m_mesh->spheres();
+    return m_model->spheres();
 }
 
 #if 0
@@ -190,9 +199,9 @@ void Object::setSerializable(bool serializable)
 
 void Object::serialize(std::ofstream& outfile) const
 {
-    const uint8_t mesh_filename_length = static_cast<uint8_t>(m_mesh_filename.size());
+    const uint8_t mesh_filename_length = static_cast<uint8_t>(m_model_filename.size());
     outfile.write(reinterpret_cast<const char*>(&mesh_filename_length), sizeof(uint8_t));
-    outfile.write(reinterpret_cast<const char*>(m_mesh_filename.data()), mesh_filename_length);
+    outfile.write(reinterpret_cast<const char*>(m_model_filename.data()), mesh_filename_length);
     outfile.write(reinterpret_cast<const char*>(&m_render_mode), sizeof(RenderMode));
     outfile.write(reinterpret_cast<const char*>(&m_pos), sizeof(vec3));
     outfile.write(reinterpret_cast<const char*>(&m_scale), sizeof(vec3));
@@ -201,9 +210,13 @@ void Object::serialize(std::ofstream& outfile) const
 
 void Object::drawHighlight(Engine3D& engine3d)
 {
-    Sphere s = m_mesh->boundingSphere();
+    Sphere s = m_model->boundingSphere();
     s.transform(m_pos, m_scale);
-    engine3d.draw(RenderMode::Highlight, m_mesh->vertexBuffer(), m_mesh->vertexBufferOffset(), m_mesh->vertexCount(), m_instance_id, s, {});
+
+    for(const auto& mesh : m_model->mehes())
+    {
+        engine3d.draw(RenderMode::Highlight, mesh.vertexBuffer(), mesh.vertexBufferOffset(), mesh.vertexCount(), m_instance_id, s, {});
+    }
 }
 
 bool Object::rayIntersetion(const Ray& rayW, float min_d, float& d)
@@ -216,6 +229,6 @@ bool Object::rayIntersetion(const Ray& rayW, float min_d, float& d)
     //by inverting the order and negating arguments to scale(), translate() etc.
     const Ray rayL = rayW.transformed(glm::inverse(W));
 
-    return m_mesh->rayIntersetion(rayL, min_d, d);
+    return m_model->rayIntersetion(rayL, min_d, d);
 }
 #endif
