@@ -8,6 +8,8 @@
 #include <sstream>
 #include <fstream>
 
+#include <fmod.hpp>
+
 Scene::Scene(Engine3D& engine3d, float aspect_ratio, const Font& font)
     : m_engine3d(engine3d)
 {
@@ -37,6 +39,25 @@ Scene::Scene(Engine3D& engine3d, float aspect_ratio, const Font& font)
     updateSun();
 
     loadFromFile("scene.scn");
+
+    //sound test
+
+    FMOD::System* system = nullptr;
+    FMOD::System_Create(&system);
+    system->init(32, FMOD_INIT_NORMAL, nullptr);
+
+    FMOD::Sound* sound = nullptr;
+    system->createSound("assets/music/g2.wav", FMOD_DEFAULT, nullptr, &sound);
+
+    FMOD::Channel* channel = nullptr;
+    system->playSound(sound, nullptr, false, &channel);
+
+    bool is_playing = true;
+    while(is_playing)
+    {
+        channel->isPlaying(&is_playing);
+        system->update();
+    }
 }
 
 void Scene::loadFromFile(std::string_view filename)
