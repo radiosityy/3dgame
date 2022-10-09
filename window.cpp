@@ -76,9 +76,10 @@ void Window::manageEvents()
         DispatchMessage(&msg);
     }
 
-    handleControllerEvents();
+//    handleControllerEvents();
 }
 
+#if 0
 static ControllerState controllerStateFromXINPUT_GAMEPAD(const XINPUT_GAMEPAD& xinput)
 {
     ControllerState state;
@@ -282,6 +283,7 @@ void Window::handleControllerEvents()
         throw std::runtime_error("Error in XInputGetState" + std::to_string(res));
     }
 }
+#endif
 
 Window::Window(GameEngine& game_engine, std::string_view app_name, uint16_t width, uint16_t height)
     : m_x(0)

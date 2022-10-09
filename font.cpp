@@ -10,6 +10,7 @@ Font::Font(const std::string& font_filename, uint32_t font_size)
     FT_Face face;
 
     auto error = FT_Init_FreeType(&library);
+    //TODO: improve error handling here
     if(error)
     {
         std::cout << error << std::endl;

@@ -37,7 +37,7 @@ constexpr uint8_t ControllerButtonCount = 14;
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#include <xinput.h>
+//#include <xinput.h>
 
 #define VK_USE_PLATFORM_WIN32_KHR 1
 #define VK_PLATFORM_SURFACE_EXTENSION_NAME VK_KHR_WIN32_SURFACE_EXTENSION_NAME

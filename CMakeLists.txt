@@ -67,17 +67,19 @@ target_link_libraries(${PROJECT_NAME} freetype)
 
 elseif(WIN32)
 
-include_directories(C:/lib/libpng C:/lib/freetype/freetype-2.10.2/include)
+set(GLM_PATH "" CACHE FILEPATH "glm library path")
+set(ZLIB_LIB "" CACHE FILEPATH "zlib library path")
+set(LIBPNG_INCLUDE "" CACHE PATH "libpng include dir")
+set(LIBPNG_LIB "" CACHE FILEPATH "libpng library path")
+set(FREETYPE_INCLUDE "" CACHE PATH "freetype include dir")
+set(FREETYPE_LIB "" CACHE FILEPATH "freetype library path")
 
-set(GLM_PATH "" CACHE FILEPATH "GLM library path")
-set(ZLIB_LIB "" CACHE FILEPATH "ZLIB library path")
-
-include_directories(${GLM_PATH})
+include_directories(${GLM_PATH} ${LIBPNG_INCLUDE} ${FREETYPE_INCLUDE})
 
 target_link_libraries(${PROJECT_NAME} User32.dll)
-target_link_libraries(${PROJECT_NAME} C:/lib/libpng/build/libpng.a)
+target_link_libraries(${PROJECT_NAME} ${LIBPNG_LIB})
 target_link_libraries(${PROJECT_NAME} ${ZLIB_LIB})
-target_link_libraries(${PROJECT_NAME} C:/lib/freetype/freetype-2.10.2/objs/freetype.a)
-target_link_libraries(${PROJECT_NAME} xinput)
+target_link_libraries(${PROJECT_NAME} ${FREETYPE_LIB})
+#target_link_libraries(${PROJECT_NAME} xinput)
 
 endif()
