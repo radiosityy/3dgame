@@ -8,11 +8,29 @@
 #include <sstream>
 #include <fstream>
 
-#include <fmod.hpp>
+#include <fmod.h>
 
 Scene::Scene(Engine3D& engine3d, float aspect_ratio, const Font& font)
     : m_engine3d(engine3d)
 {
+    //sound test
+    FMOD_SYSTEM* system = nullptr;
+    FMOD_System_Create(&system, FMOD_VERSION);
+    FMOD_System_Init(system, 32, FMOD_INIT_NORMAL, nullptr);
+
+    FMOD_SOUND* sound = nullptr;
+    FMOD_System_CreateSound(system, "assets/music/g2.wav", FMOD_DEFAULT, nullptr, &sound);
+
+    FMOD_CHANNEL* channel = nullptr;
+    FMOD_System_PlaySound(system, sound, nullptr, false, &channel);
+
+    FMOD_BOOL is_playing = true;
+    while(is_playing)
+    {
+        FMOD_Channel_IsPlaying(channel, &is_playing);
+        FMOD_System_Update(system);
+    }
+
     engine3d.loadTexture("Bricks059_2K_Color.png");
     engine3d.loadNormalMap("Bricks059_2K_Normal.png");
     m_time_label = std::make_unique<Label>(m_engine3d, 0, 20.0f, font, "", false, HorizontalAlignment::Left, VerticalAlignment::Top);
@@ -39,25 +57,6 @@ Scene::Scene(Engine3D& engine3d, float aspect_ratio, const Font& font)
     updateSun();
 
     loadFromFile("scene.scn");
-
-    //sound test
-
-    FMOD::System* system = nullptr;
-    FMOD::System_Create(&system);
-    system->init(32, FMOD_INIT_NORMAL, nullptr);
-
-    FMOD::Sound* sound = nullptr;
-    system->createSound("assets/music/g2.wav", FMOD_DEFAULT, nullptr, &sound);
-
-    FMOD::Channel* channel = nullptr;
-    system->playSound(sound, nullptr, false, &channel);
-
-    bool is_playing = true;
-    while(is_playing)
-    {
-        channel->isPlaying(&is_playing);
-        system->update();
-    }
 }
 
 void Scene::loadFromFile(std::string_view filename)
