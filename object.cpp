@@ -14,7 +14,7 @@ Object::Object(Engine3D& engine3d, std::ifstream& scene_file)
 
     m_model = std::make_unique<Model>(engine3d, model_filename);
     m_instance_data.resize(m_model->mehes().size());
-    m_instance_id = engine3d.requestPerInstanceVertexBufferAllocation(m_instance_data.size());
+    m_instance_id = engine3d.requestInstanceVertexBufferAllocation(m_instance_data.size());
 
 #if EDITOR_ENABLE
     m_model_filename = model_filename;
@@ -33,7 +33,7 @@ Object::Object(Engine3D& engine3d, std::string_view model_filename, RenderMode r
 {
     m_model = std::make_unique<Model>(engine3d, model_filename);
     m_instance_data.resize(m_model->mehes().size());
-    m_instance_id = engine3d.requestPerInstanceVertexBufferAllocation(m_instance_data.size());
+    m_instance_id = engine3d.requestInstanceVertexBufferAllocation(m_instance_data.size());
 }
 
 void Object::update(Engine3D& engine3d, float dt)
@@ -58,7 +58,7 @@ void Object::draw(Engine3D& engine3d)
         engine3d.draw(m_render_mode, mesh.vertexBuffer(), mesh.vertexBufferOffset(), mesh.vertexCount(), m_instance_id + i, s, {});
     }
 
-    engine3d.updatePerInstanceVertexData(m_instance_id, m_instance_data.size(), m_instance_data.data());
+    engine3d.updateInstanceVertexData(m_instance_id, m_instance_data.size(), m_instance_data.data());
 }
 
 void Object::updateAndDraw(Engine3D& engine3d, float dt)

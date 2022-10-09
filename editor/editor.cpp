@@ -13,22 +13,9 @@ Editor::Editor(Window& window, Scene& scene, Engine3D& engine3d, const Font& fon
     m_object_add_panel = object_add_panel.get();
     m_gui_objects.push_back(std::move(object_add_panel));
 
-    m_billboard_vb_alloc = engine3d.requestVertexBufferAllocation<VertexQuad>(MAX_POINT_LIGHT_COUNT);
+    m_billboard_vb_alloc = m_engine3d.requestVertexBufferAllocation<VertexQuad>(MAX_POINT_LIGHT_COUNT);
 
-    /*point light billboards*/
-    m_vertex_quad_data.resize(m_scene.staticPointLights().size());
-
-    for(size_t i = 0; i < m_scene.staticPointLights().size(); i++)
-    {
-        VertexQuad& vq = m_vertex_quad_data[i];
-        vq.color = m_selected_point_light_id && i == *m_selected_point_light_id ? ColorRGBA(1.0f, 1.0f, 1.0f, 1.0f) : ColorRGBA(0.5f, 0.5f, 0.5f, 1.0f);
-        vq.use_texture = 1;
-        vq.tex_id = m_engine3d.loadTexture("point_light.png");
-        vq.layer_id = 0;
-        vq.T = glm::translate(m_scene.staticPointLights()[i].pos) * glm::scale(vec3(m_billboard_size_x, m_billboard_size_y, 1.0f));
-    }
-
-    m_engine3d.updateVertexData(m_billboard_vb_alloc.vb, m_billboard_vb_alloc.data_offset, sizeof(VertexQuad) * m_vertex_quad_data.size(), m_vertex_quad_data.data());
+    updatePointLightBillboards();
 }
 
 void Editor::update(const InputState& input_state, float dt)
@@ -166,141 +153,7 @@ void Editor::onInputEvent(const Event& event, const InputState& input_state)
         }
     }
 
-    if(Mode::Transform == m_mode)
-    {
-        switch(m_transform_mode)
-        {
-        case TransformMode::Move:
-            return moveModeHandleEvent(event, input_state);
-        case TransformMode::Scale:
-            return scaleModeHandleEvent(event, input_state);
-        case TransformMode::Rotate:
-            return rotModeHandleEvent(event, input_state);
-        case TransformMode::None:
-            if(event.event == EventType::KeyPressed)
-            {
-                if(input_state.ctrl())
-                {
-                    switch(event.key)
-                    {
-                    case VKeyG:
-                        if(m_transform_mode == TransformMode::None)
-                        {
-                            if(m_selected_object)
-                            {
-                                m_transform_mode = TransformMode::Move;
-                                m_original_pos = m_selected_object->pos();
-                            }
-                            else if(m_selected_point_light_id)
-                            {
-                                m_transform_mode = TransformMode::Move;
-                                m_original_pos = selectedPointLight().pos;
-                            }
-                        }
-                        break;
-                    case VKeyS:
-                        if((m_transform_mode == TransformMode::None) && m_selected_object)
-                        {
-                            m_transform_mode = TransformMode::Scale;
-                            m_original_scale = m_selected_object->scale();
-                        }
-                        break;
-                    case VKeyR:
-                        if((m_transform_mode == TransformMode::None) && m_selected_object)
-                        {
-                            m_transform_mode = TransformMode::Rotate;
-                            m_original_rot = m_selected_object->rot();
-                            m_rot_cursor_pos = input_state.cursor_pos - vec2(m_window.width() / 2.0f, m_window.height() / 2.0f);
-                        }
-                        break;
-                    }
-                }
-
-                switch(event.key)
-                {
-                case VKeyDelete:
-                    if(m_selected_object)
-                    {
-                        m_scene.removeObject(m_selected_object);
-                        deselectAll();
-                    }
-                    else if(m_selected_point_light_id)
-                    {
-                        m_scene.removeStaticPointLight(*m_selected_point_light_id);
-                        deselectAll();
-                    }
-                    break;
-                case VKeyEsc:
-                    deselectAll();
-                    break;
-                default:
-                    break;
-                }
-            }
-            return;
-        default:
-            throw std::runtime_error("Invalid TransformMode in Editor: " + std::to_string(static_cast<uint32_t>(m_transform_mode)));
-        }
-    }
-
-    if(event.event == EventType::KeyPressed)
-    {
-        if(input_state.ctrl())
-        {
-            if(event.key == VKeyT)
-            {
-                if(Mode::Terrain == m_mode)
-                {
-                    m_mode = Mode::None;
-                }
-                else
-                {
-                    m_mode = Mode::Terrain;
-                }
-            }
-            else if(event.key == VKeyA)
-            {
-                if(m_object_add_panel->isVisible())
-                {
-                    m_object_add_panel->setVisible(false);
-
-                    if(m_keyboard_focus == m_object_add_panel)
-                    {
-                        resetKeyboardFocus();
-                    }
-
-                    if(m_mouse_focus == m_object_add_panel)
-                    {
-                        resetMouseFocus();
-                    }
-                }
-                else
-                {
-                    m_object_add_panel->setVisible(true);
-                    setKeyboardFocus(m_object_add_panel);
-                }
-
-                return;
-            }
-        }
-        else if(Mode::Terrain == m_mode)
-        {
-            if(event.key == VKeyZ)
-            {
-                m_scene.terrain().toggleWireframe();
-            }
-            else if(event.key == VKeyX)
-            {
-                m_scene.terrain().toggleLod();
-            }
-        }
-        else if(event.key == VKeyF5)
-        {
-            m_scene.serialize("scene.scn");
-        }
-    }
-
-    if(Mode::None == m_mode)
+    if((Mode::None == m_mode) || ((Mode::Transform == m_mode) && (TransformMode::None == m_transform_mode)))
     {
         if((event.event == EventType::MousePressed) && (event.mouse == LMB))
         {
@@ -379,12 +232,163 @@ void Editor::onInputEvent(const Event& event, const InputState& input_state)
             if(m_selected_point_light_id)
             {
                 openPointLightEditPanel(*m_selected_point_light_id);
+                updatePointLightBillboards();
             }
 
             if(m_selected_point_light_id || m_selected_object)
             {
                 m_mode = Mode::Transform;
             }
+        }
+    }
+
+    if(Mode::Transform == m_mode)
+    {
+        switch(m_transform_mode)
+        {
+        case TransformMode::Move:
+            return moveModeHandleEvent(event, input_state);
+        case TransformMode::Scale:
+            return scaleModeHandleEvent(event, input_state);
+        case TransformMode::Rotate:
+            return rotModeHandleEvent(event, input_state);
+        case TransformMode::None:
+            if(event.event == EventType::KeyPressed)
+            {
+                if(input_state.ctrl())
+                {
+                    switch(event.key)
+                    {
+                    case VKeyG:
+                        if(m_transform_mode == TransformMode::None)
+                        {
+                            if(m_selected_object)
+                            {
+                                m_transform_mode = TransformMode::Move;
+                                m_original_pos = m_selected_object->pos();
+                            }
+                            else if(m_selected_point_light_id)
+                            {
+                                m_transform_mode = TransformMode::Move;
+                                m_original_pos = selectedPointLight().pos;
+                            }
+                        }
+                        break;
+                    case VKeyS:
+                        if((m_transform_mode == TransformMode::None) && m_selected_object)
+                        {
+                            m_transform_mode = TransformMode::Scale;
+                            m_original_scale = m_selected_object->scale();
+                        }
+                        break;
+                    case VKeyR:
+                        if((m_transform_mode == TransformMode::None) && m_selected_object)
+                        {
+                            m_transform_mode = TransformMode::Rotate;
+                            m_original_rot = m_selected_object->rot();
+                            m_rot_cursor_pos = input_state.cursor_pos - vec2(m_window.width() / 2.0f, m_window.height() / 2.0f);
+                        }
+                        break;
+                    }
+                }
+
+                switch(event.key)
+                {
+                case VKeyDelete:
+                    if(m_selected_object)
+                    {
+                        m_scene.removeObject(m_selected_object);
+                        deselectAll();
+                    }
+                    else if(m_selected_point_light_id)
+                    {
+                        m_scene.removeStaticPointLight(*m_selected_point_light_id);
+                        deselectAll();
+                        updatePointLightBillboards();
+                    }
+                    break;
+                case VKeyEsc:
+                    deselectAll();
+                    break;
+                default:
+                    break;
+                }
+            }
+            return;
+        default:
+            throw std::runtime_error("Invalid TransformMode in Editor: " + std::to_string(static_cast<uint32_t>(m_transform_mode)));
+        }
+    }
+
+    if(event.event == EventType::KeyPressed)
+    {
+        if(input_state.ctrl())
+        {
+            if(event.key == VKeyT)
+            {
+                if(Mode::Terrain == m_mode)
+                {
+                    m_mode = Mode::None;
+                }
+                else
+                {
+                    m_mode = Mode::Terrain;
+                }
+            }
+            else if(event.key == VKeyA)
+            {
+                if(m_object_add_panel->isVisible())
+                {
+                    m_object_add_panel->setVisible(false);
+
+                    if(m_keyboard_focus == m_object_add_panel)
+                    {
+                        resetKeyboardFocus();
+                    }
+
+                    if(m_mouse_focus == m_object_add_panel)
+                    {
+                        resetMouseFocus();
+                    }
+                }
+                else
+                {
+                    m_object_add_panel->setVisible(true);
+                    setKeyboardFocus(m_object_add_panel);
+                }
+
+                return;
+            }
+            else if(event.key == VKeyP)
+            {
+                PointLight pl;
+                pl.pos = m_scene.camera().pos() + 10.0f * m_scene.camera().forward();
+                pl.color = ColorRGBA::White;
+                pl.a0 = 1.0f;
+                pl.a1 = 1.0f;
+                pl.a2 = 1.0f;
+                pl.max_d = 100.0f;
+                pl.power = 100.0f;
+                pl.shadow_map_res = 512;
+                m_scene.addStaticPointLight(pl);
+                updatePointLightBillboards();
+                return;
+            }
+        }
+        else if(Mode::Terrain == m_mode)
+        {
+            if(event.key == VKeyZ)
+            {
+                m_scene.terrain().toggleWireframe();
+            }
+            else if(event.key == VKeyX)
+            {
+                m_scene.terrain().toggleLod();
+            }
+        }
+        else if(event.key == VKeyF5)
+        {
+            m_scene.serialize("scene.scn");
         }
     }
 }
@@ -744,6 +748,7 @@ void Editor::deselectAll()
     {
         closePointLightEditPanel();
         m_selected_point_light_id.reset();
+        updatePointLightBillboards();
     }
 }
 
@@ -766,6 +771,28 @@ void Editor::closePointLightEditPanel()
 void Editor::updateSelectedPointLight()
 {
     m_scene.updateStaticPointLight(*m_selected_point_light_id, selectedPointLight());
+
+    VertexQuad& vq = m_vertex_quad_data[*m_selected_point_light_id];
+    vq.T = glm::translate(selectedPointLight().pos) * glm::scale(vec3(m_billboard_size_x, m_billboard_size_y, 1.0f));
+    m_engine3d.updateVertexData(m_billboard_vb_alloc.vb, m_billboard_vb_alloc.data_offset + sizeof(VertexQuad) * *m_selected_point_light_id, sizeof(VertexQuad), &m_vertex_quad_data[*m_selected_point_light_id]);
+}
+
+void Editor::updatePointLightBillboards()
+{
+    /*point light billboards*/
+    m_vertex_quad_data.resize(m_scene.staticPointLights().size());
+
+    for(size_t i = 0; i < m_scene.staticPointLights().size(); i++)
+    {
+        VertexQuad& vq = m_vertex_quad_data[i];
+        vq.color = m_selected_point_light_id && i == *m_selected_point_light_id ? ColorRGBA(1.0f, 1.0f, 1.0f, 1.0f) : ColorRGBA(0.5f, 0.5f, 0.5f, 1.0f);
+        vq.use_texture = 1;
+        vq.tex_id = m_engine3d.loadTexture("point_light.png");
+        vq.layer_id = 0;
+        vq.T = glm::translate(m_scene.staticPointLights()[i].pos) * glm::scale(vec3(m_billboard_size_x, m_billboard_size_y, 1.0f));
+    }
+
+    m_engine3d.updateVertexData(m_billboard_vb_alloc.vb, m_billboard_vb_alloc.data_offset, sizeof(VertexQuad) * m_vertex_quad_data.size(), m_vertex_quad_data.data());
 }
 
 #endif //EDITOR_ENABLE

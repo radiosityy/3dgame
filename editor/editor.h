@@ -50,6 +50,7 @@ private:
     void openPointLightEditPanel(PointLightId point_light_id);
     void closePointLightEditPanel();
     void updateSelectedPointLight();
+    void updatePointLightBillboards();
 
     void moveModeHandleEvent(const Event& event, const InputState& input_state);
     void scaleModeHandleEvent(const Event& event, const InputState& input_state);

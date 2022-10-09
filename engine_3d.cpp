@@ -831,7 +831,7 @@ void Engine3D::destroy() noexcept
             destroyBuffer(vb.second);
         }
 
-        destroyBuffer(m_per_instance_vertex_buffer);
+        destroyBuffer(m_instance_vertex_buffer);
         destroyBuffer(m_bone_transform_buffer);
         destroyBuffer(m_terrain_buffer);
 
@@ -994,23 +994,6 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
         }
     }
 
-    const size_t dir_shadow_map_data_size = MAX_DIR_SHADOW_MAP_PARTITIONS * m_dir_shadow_map_count * sizeof(DirShadowMapData);
-    const size_t point_shadow_map_data_size = m_point_shadow_map_count * sizeof(PointShadowMapData);
-
-    //dir shadow map data copy callback
-    const auto copy_dir_shadow_map_data = [&](void* ptr)
-    {
-        uint8_t* dst = reinterpret_cast<uint8_t*>(ptr);
-        std::memcpy(dst, m_dir_shadow_map_data.data(), dir_shadow_map_data_size);
-    };
-
-    //point shadow map data copy callback
-    const auto copy_point_shadow_map_data = [&](void* ptr)
-    {
-        uint8_t* dst = reinterpret_cast<uint8_t*>(ptr);
-        std::memcpy(dst, m_point_shadow_map_data.data(), point_shadow_map_data_size);
-    };
-
     VkCommandBuffer cmd_buf = per_frame_data.cmd_buf;
 
     VkResult res = vkWaitForFences(m_device, 1, &per_frame_data.cmd_buf_ready_fence, VK_TRUE, UINT64_MAX);
@@ -1051,6 +1034,23 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
         }
     }
     per_frame_data.point_shadow_maps_to_destroy.clear();
+
+    const size_t dir_shadow_map_data_size = MAX_DIR_SHADOW_MAP_PARTITIONS * m_dir_shadow_map_count * sizeof(DirShadowMapData);
+    const size_t point_shadow_map_data_size = m_point_shadow_map_count * sizeof(PointShadowMapData);
+
+    //dir shadow map data copy callback
+    const auto copy_dir_shadow_map_data = [&](void* ptr)
+    {
+        uint8_t* dst = reinterpret_cast<uint8_t*>(ptr);
+        std::memcpy(dst, m_dir_shadow_map_data.data(), dir_shadow_map_data_size);
+    };
+
+    //point shadow map data copy callback
+    const auto copy_point_shadow_map_data = [&](void* ptr)
+    {
+        uint8_t* dst = reinterpret_cast<uint8_t*>(ptr);
+        std::memcpy(dst, m_point_shadow_map_data.data(), point_shadow_map_data_size);
+    };
 
     uint32_t image_id;
     res = vkAcquireNextImageKHR(m_device, m_swapchain, 0, per_frame_data.image_acquire_semaphore, VK_NULL_HANDLE, &image_id);
@@ -1168,7 +1168,7 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
 
     /*bind vertex buffer*/
     const VkDeviceSize vb_offset = 0;
-    vkCmdBindVertexBuffers(cmd_buf, 1, 1, &m_per_instance_vertex_buffer.buf, &vb_offset);
+    vkCmdBindVertexBuffers(cmd_buf, 1, 1, &m_instance_vertex_buffer.buf, &vb_offset);
 
     /*bind descriptor sets*/
     vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layout, 0, 1, &per_frame_data.descriptor_set, 0, NULL);
@@ -1176,7 +1176,6 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
     /*shadow map rendering*/
     if(m_dir_shadow_map_count != 0)
     {
-        uint32_t shadow_map_offset = 0;
         uint32_t prev_viewport_width = 0;
         uint32_t prev_viewport_height = 0;
 
@@ -1203,7 +1202,7 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
             }
 
             push_const.shadow_map_count = shadow_map.count;
-            push_const.shadow_map_offset = shadow_map_offset;
+            push_const.shadow_map_offset = dir_shadow_map_id * MAX_DIR_SHADOW_MAP_PARTITIONS;
             vkCmdPushConstants(cmd_buf, m_pipeline_layout, VK_SHADER_STAGE_GEOMETRY_BIT, 0, sizeof(push_const), &push_const);
 
             vkCmdBeginRenderPass(cmd_buf, &shadow_map.render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
@@ -1236,8 +1235,6 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
             VkImageSubresourceRange subres_range = {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, shadow_map.count};
             VkImageMemoryBarrier img_mem_bar = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, NULL, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, shadow_map.depth_img.img, subres_range};
             vkCmdPipelineBarrier(cmd_buf, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, NULL, 0, NULL, 1, &img_mem_bar);
-
-            shadow_map_offset += shadow_map.count;
         }
     }
 
@@ -1246,7 +1243,6 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
         vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[static_cast<uint32_t>(RenderMode::PointShadowMap)]);
         vkCmdBindVertexBuffers(cmd_buf, 0, 1, &m_vertex_buffers[sizeof(VertexDefault)].buf, &vb_offset);
 
-        uint32_t shadow_map_offset = 0;
         uint32_t prev_viewport_res = 0;
 
         //TODO: add frustum culling for point shadow map rendering?
@@ -1272,7 +1268,7 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
                 vkCmdSetViewport(cmd_buf, 0, 1, &viewport);
             }
 
-            push_const.shadow_map_offset = shadow_map_offset;
+            push_const.shadow_map_offset = point_shadow_map_id;
             vkCmdPushConstants(cmd_buf, m_pipeline_layout, VK_SHADER_STAGE_GEOMETRY_BIT, 0, sizeof(push_const), &push_const);
 
             vkCmdBeginRenderPass(cmd_buf, &shadow_map.render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
@@ -1305,8 +1301,6 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
             VkImageSubresourceRange subres_range = {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 6};
             VkImageMemoryBarrier img_mem_bar = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, NULL, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, shadow_map.depth_img.img, subres_range};
             vkCmdPipelineBarrier(cmd_buf, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, NULL, 0, NULL, 1, &img_mem_bar);
-
-            shadow_map_offset ++;
         }
     }
 
@@ -1622,28 +1616,43 @@ bool Engine3D::enableVsync(bool vsync)
     return true;
 }
 
-uint32_t Engine3D::requestPerInstanceVertexBufferAllocation(uint32_t instance_count)
+uint32_t Engine3D::requestInstanceVertexBufferAllocation(uint32_t instance_count)
 {
-    const uint32_t instance_id = m_per_instance_vertex_buffer.req_size / sizeof(InstanceVertexData);
-    m_per_instance_vertex_buffer.req_size += instance_count * sizeof(InstanceVertexData);
+    const uint64_t offset = m_instance_vertex_buffer.allocate(instance_count * sizeof(InstanceVertexData));
+    const uint32_t instance_id = offset / sizeof(InstanceVertexData);
     return instance_id;
 }
 
 uint32_t Engine3D::requestBoneTransformBufferAllocation(uint32_t bone_count)
 {
-    const uint32_t bone_transform_id = m_bone_transform_buffer.req_size / sizeof(mat4x4);
-    m_bone_transform_buffer.req_size += bone_count * sizeof(mat4x4);
+    const uint64_t offset = m_bone_transform_buffer.allocate(bone_count * sizeof(mat4x4));
+    const uint32_t bone_transform_id = offset / sizeof(mat4x4);
     return bone_transform_id;
 }
 
 void Engine3D::requestTerrainBufferAllocation(uint64_t size)
 {
-    m_terrain_buffer.req_size = size;
+    m_terrain_buffer.allocate(size);
 }
 
 void Engine3D::freeVertexBufferAllocation(VertexBuffer* vb, uint64_t offset, uint64_t size)
 {
+    vb->free(offset, size);
+}
 
+void Engine3D::freeInstanceVertexBufferAllocation(uint32_t instance_id, uint32_t instance_count)
+{
+    m_instance_vertex_buffer.free(instance_id * sizeof(InstanceVertexData), instance_count * sizeof(instance_count));
+}
+
+void Engine3D::freeBoneTransformBufferAllocation(uint32_t bone_id, uint32_t bone_count)
+{
+    m_bone_transform_buffer.free(bone_id * sizeof(mat4x4), bone_count * sizeof(mat4x4));
+}
+
+void Engine3D::freeTerrainBufferAllocation()
+{
+    m_terrain_buffer.free(0, m_terrain_buffer.size);
 }
 
 void Engine3D::updateVertexData(VertexBuffer* vb, uint64_t data_offset, uint64_t data_size, const void* data)
@@ -1651,9 +1660,9 @@ void Engine3D::updateVertexData(VertexBuffer* vb, uint64_t data_offset, uint64_t
     m_buffer_update_reqs[vb].emplace_back(data_offset, data_size, data);
 }
 
-void Engine3D::updatePerInstanceVertexData(uint32_t instance_id, uint32_t instance_count, const void* data)
+void Engine3D::updateInstanceVertexData(uint32_t instance_id, uint32_t instance_count, const void* data)
 {
-    m_buffer_update_reqs[&m_per_instance_vertex_buffer].emplace_back(instance_id * sizeof(InstanceVertexData), instance_count * sizeof(InstanceVertexData), data);
+    m_buffer_update_reqs[&m_instance_vertex_buffer].emplace_back(instance_id * sizeof(InstanceVertexData), instance_count * sizeof(InstanceVertexData), data);
 }
 
 void Engine3D::updateBoneTransformData(uint32_t bone_offset, uint32_t bone_count, const mat4x4* data)

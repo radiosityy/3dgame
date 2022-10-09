@@ -17,6 +17,7 @@
 #include <queue>
 #include <span>
 #include "shader_data.h"
+#include "vk_buffer_wrapper.h"
 
 #if DEBUG
 #define VALIDATION_ENABLE 1
@@ -24,55 +25,6 @@
 
 using DirLightId = uint32_t;
 using PointLightId = uint32_t;
-
-struct VkBufferWrapper
-{
-    VkBufferWrapper(VkBufferUsageFlags _usage_flags, bool _host_visible_required, VkFormat _buf_view_format = VK_FORMAT_UNDEFINED)
-        : usage_flags(_usage_flags)
-        , host_visible_required(_host_visible_required)
-        , buf_view_format(_buf_view_format)
-    {}
-
-    VkBufferWrapper(VkBufferWrapper&& other)
-        : buf(other.buf)
-        , buf_view(other.buf_view)
-        , mem(other.mem)
-        , host_visible(other.host_visible)
-        , req_size(other.req_size)
-        , size(other.size)
-        , usage_flags(other.usage_flags)
-        , host_visible_required(other.host_visible_required)
-        , buf_view_format(other.buf_view_format)
-    {
-        other.buf = VK_NULL_HANDLE;
-        other.buf_view = VK_NULL_HANDLE;
-        other.mem = VK_NULL_HANDLE;
-        other.req_size = 0;
-        other.size = 0;
-        transfer_buffer = std::move(other.transfer_buffer);
-    }
-
-    VkBuffer buf = VK_NULL_HANDLE;
-    VkBufferView buf_view = VK_NULL_HANDLE;
-    VkDeviceMemory mem = VK_NULL_HANDLE;
-
-    bool host_visible;
-    VkDeviceSize req_size = 0;
-    VkDeviceSize size = 0;
-
-    const VkBufferUsageFlags usage_flags;
-    const bool host_visible_required;
-    const VkFormat buf_view_format;
-
-    std::unique_ptr<VkBufferWrapper> transfer_buffer;
-
-    struct FreeSpace
-    {
-        uint64_t offset = 0;
-        uint64_t size = 0;
-    };
-    std::vector<FreeSpace> free_spaces;
-};
 
 struct VertexBuffer : VkBufferWrapper
 {
@@ -260,21 +212,23 @@ public:
     {
         VertexBufferAllocation alloc;
         alloc.vb = &m_vertex_buffers[sizeof(VertexType)];
-        alloc.data_offset = alloc.vb->req_size;
-        alloc.vertex_offset = alloc.vb->req_size / sizeof(VertexType);
 
-        alloc.vb->req_size += vertex_count * sizeof(VertexType);
+        alloc.data_offset = alloc.vb->allocate(vertex_count * sizeof(VertexType));
+        alloc.vertex_offset = alloc.data_offset / sizeof(VertexType);
 
         return alloc;
     }
-    uint32_t requestPerInstanceVertexBufferAllocation(uint32_t instance_count);
+    uint32_t requestInstanceVertexBufferAllocation(uint32_t instance_count);
     uint32_t requestBoneTransformBufferAllocation(uint32_t bone_count);
     void requestTerrainBufferAllocation(uint64_t size);
 
     void freeVertexBufferAllocation(VertexBuffer* vb, uint64_t offset, uint64_t size);
+    void freeInstanceVertexBufferAllocation(uint32_t instance_id, uint32_t instance_count);
+    void freeBoneTransformBufferAllocation(uint32_t bone_id, uint32_t bone_count);
+    void freeTerrainBufferAllocation();
 
     void updateVertexData(VertexBuffer* vb, uint64_t data_offset, uint64_t data_size, const void* data);
-    void updatePerInstanceVertexData(uint32_t instance_id, uint32_t instance_count, const void* data);
+    void updateInstanceVertexData(uint32_t instance_id, uint32_t instance_count, const void* data);
     void updateBoneTransformData(uint32_t bone_offset, uint32_t bone_count, const mat4x4* data);
     void updateTerrainData(void* data, uint64_t offset, uint64_t size);
 
@@ -483,7 +437,7 @@ private:
 
     /*--- vertex buffers ---*/
     std::unordered_map<uint32_t, VertexBuffer> m_vertex_buffers;
-    VertexBuffer m_per_instance_vertex_buffer;
+    VertexBuffer m_instance_vertex_buffer;
 
     /*--- buffers ---*/
     VkBufferWrapper m_bone_transform_buffer;
