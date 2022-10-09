@@ -53,7 +53,7 @@ uint64_t VkBufferWrapper::allocate(uint64_t alloc_size)
 
 void VkBufferWrapper::free(uint64_t offset, uint64_t alloc_size)
 {
-    if((offset + alloc_size) == size)
+    if((offset + alloc_size) == req_size)
     {
         req_size -= alloc_size;
     }
