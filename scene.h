@@ -61,6 +61,8 @@ private:
     template<class Collider>
     bool objectCollision(const Object*, const Collider&);
 
+    void soundTest();
+
     Engine3D& m_engine3d;
 
     std::unique_ptr<Terrain> m_terrain;

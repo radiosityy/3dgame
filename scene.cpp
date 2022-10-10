@@ -13,26 +13,8 @@
 Scene::Scene(Engine3D& engine3d, float aspect_ratio, const Font& font)
     : m_engine3d(engine3d)
 {
-    //sound test
-    FMOD_SYSTEM* system = nullptr;
-    FMOD_System_Create(&system, FMOD_VERSION);
-    FMOD_System_Init(system, 32, FMOD_INIT_NORMAL, nullptr);
-
-    FMOD_SOUND* sound = nullptr;
-    FMOD_System_CreateSound(system, "assets/music/g2.wav", FMOD_DEFAULT, nullptr, &sound);
-
-    FMOD_CHANNEL* channel = nullptr;
-    FMOD_System_PlaySound(system, sound, nullptr, false, &channel);
-
-    FMOD_BOOL is_playing = true;
-    while(is_playing)
-    {
-        FMOD_Channel_IsPlaying(channel, &is_playing);
-        FMOD_System_Update(system);
-    }
-
-    engine3d.loadTexture("Bricks059_2K_Color.png");
-    engine3d.loadNormalMap("Bricks059_2K_Normal.png");
+    engine3d.loadTexture("Ground003_4K_Color.png");
+    engine3d.loadNormalMap("Ground003_4K_Normal.png");
     m_time_label = std::make_unique<Label>(m_engine3d, 0, 20.0f, font, "", false, HorizontalAlignment::Left, VerticalAlignment::Top);
     m_time_label->setUpdateCallback([&](Label& label)
     {
@@ -387,6 +369,26 @@ void Scene::updateSun()
     m_sun.dir = -m_effective_sun_pos;
 
     m_engine3d.updateDirLight(0, m_sun);
+}
+
+void Scene::soundTest()
+{
+    FMOD_SYSTEM* system = nullptr;
+    FMOD_System_Create(&system, FMOD_VERSION);
+    FMOD_System_Init(system, 32, FMOD_INIT_NORMAL, nullptr);
+
+    FMOD_SOUND* sound = nullptr;
+    FMOD_System_CreateSound(system, "assets/music/g2.wav", FMOD_DEFAULT, nullptr, &sound);
+
+    FMOD_CHANNEL* channel = nullptr;
+    FMOD_System_PlaySound(system, sound, nullptr, false, &channel);
+
+//    FMOD_BOOL is_playing = true;
+//    while(is_playing)
+//    {
+//        FMOD_Channel_IsPlaying(channel, &is_playing);
+//        FMOD_System_Update(system);
+//    }
 }
 
 template<class Collider>
