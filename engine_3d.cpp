@@ -3308,6 +3308,7 @@ void Engine3D::createPipelines()
         assertVkSuccess(res, "Failed to create graphics pipeline.");
     }
 
+#if EDITOR_ENABLE
     /*--- Terrain Wireframe ---*/
     {
         /*----------------------- vertex input state -----------------------*/
@@ -3473,6 +3474,7 @@ void Engine3D::createPipelines()
 
         assertVkSuccess(res, "Failed to create graphics pipeline.");
     }
+#endif
 
     /*--- Sky ---*/
     {

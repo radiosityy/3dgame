@@ -13,11 +13,15 @@ endif()
 file(GLOB SOURCES
     *.h
     *.cpp
+)
+
 if(EDITOR_ENABLE)
+file(GLOB EDITOR_SOURCES
     editor/*.h
     editor/*.cpp
-endif()
 )
+set(SOURCES ${SOURCES} ${EDITOR_SOURCES})
+endif()
 
 file(GLOB_RECURSE OTHERS
     other/*
@@ -89,5 +93,8 @@ target_link_libraries(${PROJECT_NAME} ${LIBPNG_LIB})
 target_link_libraries(${PROJECT_NAME} ${ZLIB_LIB})
 target_link_libraries(${PROJECT_NAME} ${FREETYPE_LIB})
 #target_link_libraries(${PROJECT_NAME} xinput)
+
+set(CMAKE_CXX_STANDARD_LIBRARIES "-static-libgcc -static-libstdc++ ${CMAKE_CXX_STANDARD_LIBRARIES}")
+set(CMAKE_EXE_LINKER_FLAGS "-mwindows ${CMAKE_EXE_LINKER_FLAGS} -Wl,-Bstatic,--whole-archive -lwinpthread -Wl,--no-whole-archive")
 
 endif()

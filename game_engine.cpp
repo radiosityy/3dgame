@@ -162,6 +162,7 @@ void GameEngine::run()
 {
     m_window->show();
     m_window->lockCursor();
+    m_window->showCursor(false);
 
 #if EDITOR_ENABLE
     m_edit_mode = true;
