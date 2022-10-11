@@ -17,7 +17,7 @@ PointLightEditPanel::PointLightEditPanel(Engine3D& engine3d, float x, float y, S
     const float text_input_x = padding_x + 3.0f * static_cast<float>(font.texWidth()) + 10.0f;
     const float text_input_width = m_width - text_input_x - padding_x;
     const float slider_height = 16.0f;
-    const float vertical_spacing = 5.0f;
+    const float vertical_spacing = 7.0f;
     const float color_rect_size = 50.0f;
     const float checkbox_size = 20.0f;
 
@@ -139,6 +139,40 @@ PointLightEditPanel::PointLightEditPanel(Engine3D& engine3d, float x, float y, S
         if(slider.value() != m_point_light.power)
         {
             slider.setValue(m_point_light.power);
+        }
+    });
+    m_children.push_back(std::move(slider));
+    y += slider_height + vertical_spacing;
+
+    /*Max Distance*/
+    label = std::make_unique<Label>(engine3d, m_x + padding_x, y, font, "max distance", false, HorizontalAlignment::Left, VerticalAlignment::Top);
+    text_input = std::make_unique<Label>(engine3d, m_x + 2.0f * text_input_x, y, text_input_width - text_input_x, label->height(), font, "", true, HorizontalAlignment::Center, VerticalAlignment::Top);
+    text_input->setCancalable(true);
+    text_input->setUpdateCallback([this](Label& l)
+    {
+        std::stringstream ss;
+        ss << std::fixed << std::setprecision(2) << m_point_light.max_d;
+        l.setText(ss.str());
+    });
+    text_input->setConfirmCallback([this](Label& l)
+    {
+        m_point_light.max_d = static_cast<float>(std::atof(l.text().c_str()));
+        updatePointLight();
+    });
+    y += label->height() + vertical_spacing;
+    m_children.push_back(std::move(label));
+    m_children.push_back(std::move(text_input));
+
+    slider = std::make_unique<Slider<float>>(engine3d, m_x + padding_x, y, m_width - 2.0f * padding_x, slider_height, 0.0f, 100.0f, m_point_light.max_d, [this](float value)
+    {
+        m_point_light.max_d = value;
+        updatePointLight();
+    });
+    slider->setUpdateCallback([this](Slider<float>& slider)
+    {
+        if(slider.value() != m_point_light.max_d)
+        {
+            slider.setValue(m_point_light.max_d);
         }
     });
     m_children.push_back(std::move(slider));
