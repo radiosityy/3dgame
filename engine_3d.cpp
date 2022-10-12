@@ -1983,14 +1983,25 @@ void Engine3D::createInstance(std::string_view app_name)
 
     checkIfLayersAndExtensionsAvailable(req_layer_names, req_ext_names);
 
+    const uint32_t min_supported_instance_version = VK_API_VERSION_1_2;
+    uint32_t instance_version = 0;
+    vkEnumerateInstanceVersion(&instance_version);
+    if(instance_version < min_supported_instance_version)
+    {
+        std::stringstream ss;
+        ss << "Unsupported Vulkan API version: " << VK_API_VERSION_MAJOR(instance_version) << "_" << VK_API_VERSION_MINOR(instance_version) << "_" << VK_API_VERSION_PATCH(instance_version)
+           << ". Minimum supported Vulkan API version: " << VK_API_VERSION_MAJOR(min_supported_instance_version) << "_" << VK_API_VERSION_MINOR(min_supported_instance_version) << "_" << VK_API_VERSION_PATCH(min_supported_instance_version) << ".";
+        throw std::runtime_error(ss.str());
+    }
+
     VkApplicationInfo app_info{};
     app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     app_info.pNext = NULL;
     app_info.pApplicationName = app_name.data();
-    app_info.applicationVersion = VK_MAKE_VERSION(0, 1, 0);
+    app_info.applicationVersion = VK_MAKE_VERSION(0, 0, 1);
     app_info.pEngineName = "EngineName"; //TODO: set engine name
-    app_info.engineVersion = VK_MAKE_VERSION(0, 1, 0);
-    app_info.apiVersion = VK_API_VERSION_1_3;
+    app_info.engineVersion = VK_MAKE_VERSION(0, 0, 1);
+    app_info.apiVersion = std::max<uint32_t>(VK_API_VERSION_1_3, instance_version);
 
     VkInstanceCreateInfo ici{};
     ici.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -2032,31 +2043,9 @@ void Engine3D::createDevice()
 {
     VkResult res;
 
-    /*first enumerate physical devices*/
-    uint32_t count;
+    pickPhysicalDevice();
 
-    res = vkEnumeratePhysicalDevices(m_instance, &count, NULL);
-    assertVkSuccess(res, "Failed to enumerate physical devices.");
-
-    std::vector<VkPhysicalDevice> physical_devices(count);
-
-    res = vkEnumeratePhysicalDevices(m_instance, &count, physical_devices.data());
-    assertVkSuccess(res, "Failed to enumerate physical devices.");
-
-    /*look for a discrete gpu and choose it as the physical device to be used*/
-    //@TODO: if a discrete gpu is not present, choose a different device
-    for(VkPhysicalDevice& pd : physical_devices)
-    {
-        vkGetPhysicalDeviceProperties(pd, &m_physical_device_properties);
-
-        if(m_physical_device_properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
-        {
-            m_physical_device = pd;
-            break;
-        }
-    }
-
-    /*get the physical device's available features and properties*/
+    /*get the physical device's available features and properties and verify that the required ones are supported*/
     m_physical_device_12_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
     m_physical_device_12_features.pNext = NULL;
 
@@ -2066,19 +2055,33 @@ void Engine3D::createDevice()
 
     vkGetPhysicalDeviceFeatures2(m_physical_device, &phy_dev_feat2);
 
-    /*only enable the required features, not all the supported ones*/
-    //TODO: review features; remove geometry shader???
-    if((phy_dev_feat2.features.geometryShader == VK_FALSE)
-       || (phy_dev_feat2.features.sampleRateShading == VK_FALSE)
-       || (phy_dev_feat2.features.shaderSampledImageArrayDynamicIndexing == VK_FALSE)
-       || (phy_dev_feat2.features.fillModeNonSolid == VK_FALSE)
-       || (phy_dev_feat2.features.samplerAnisotropy == VK_FALSE)
-       || (phy_dev_feat2.features.tessellationShader == VK_FALSE)
-       || (m_physical_device_12_features.descriptorBindingPartiallyBound == VK_FALSE))
+    std::vector<std::string> unsupported_phy_dev_feats;
+
+#define CHECK_PHY_DEV_FEAT_2_SUPPORT(x) if(phy_dev_feat2.features.x == VK_FALSE) { unsupported_phy_dev_feats.push_back(#x); }
+#define CHECK_PHY_DEV_VULKAN_1_2_FEAT_SUPPORT(x) if(m_physical_device_12_features.x == VK_FALSE) { unsupported_phy_dev_feats.push_back(#x); }
+
+    CHECK_PHY_DEV_FEAT_2_SUPPORT(geometryShader);
+    CHECK_PHY_DEV_FEAT_2_SUPPORT(sampleRateShading);
+    CHECK_PHY_DEV_FEAT_2_SUPPORT(shaderSampledImageArrayDynamicIndexing);
+    CHECK_PHY_DEV_FEAT_2_SUPPORT(fillModeNonSolid);
+    CHECK_PHY_DEV_FEAT_2_SUPPORT(samplerAnisotropy);
+    CHECK_PHY_DEV_VULKAN_1_2_FEAT_SUPPORT(descriptorBindingPartiallyBound);
+
+#undef CHECK_PHY_DEV_FEAT_2_SUPPORT
+#undef CHECK_PHY_DEV_VULKAN_1_2_FEAT_SUPPORT
+
+    if(!unsupported_phy_dev_feats.empty())
     {
-        throw std::runtime_error("Required physical device feature not supported.");
+        std::stringstream ss;
+        ss << "Required physical device features not supported:\n\n";
+        for(const auto& s : unsupported_phy_dev_feats)
+        {
+            ss << s << "\n";
+        }
+        throw std::runtime_error(ss.str());
     }
 
+    /*only enable the required features, not all the supported ones*/
     m_physical_device_features = {};
     m_physical_device_features.fillModeNonSolid = VK_TRUE;
     m_physical_device_features.geometryShader = VK_TRUE;
@@ -2093,6 +2096,8 @@ void Engine3D::createDevice()
     m_physical_device_12_features.descriptorBindingPartiallyBound = VK_TRUE;
 
     vkGetPhysicalDeviceMemoryProperties(m_physical_device, &m_physical_device_memory_properties);
+
+    uint32_t count;
 
     vkGetPhysicalDeviceQueueFamilyProperties(m_physical_device, &count, NULL);
     std::vector<VkQueueFamilyProperties> queue_family_properties(count);
@@ -2136,6 +2141,65 @@ void Engine3D::createDevice()
     assertVkSuccess(res, "Failed to create device.");
 
     vkGetDeviceQueue(m_device, m_queue_family_index, 0, &m_queue);
+}
+
+void Engine3D::pickPhysicalDevice()
+{
+    /*first enumerate physical devices*/
+    uint32_t count;
+
+    VkResult res = vkEnumeratePhysicalDevices(m_instance, &count, NULL);
+    assertVkSuccess(res, "Failed to enumerate physical devices.");
+
+    if(0 == count)
+    {
+        throw std::runtime_error("No physical devices enumerated by Vulkan!");
+    }
+
+    std::vector<VkPhysicalDevice> physical_devices(count);
+
+    res = vkEnumeratePhysicalDevices(m_instance, &count, physical_devices.data());
+    assertVkSuccess(res, "Failed to enumerate physical devices.");
+
+    /*look for a discrete gpu and choose it as the physical device to be used*/
+    for(VkPhysicalDevice& pd : physical_devices)
+    {
+        vkGetPhysicalDeviceProperties(pd, &m_physical_device_properties);
+
+        if(m_physical_device_properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+        {
+            m_physical_device = pd;
+            return;
+        }
+    }
+
+    /*if no discrete gpu found, search for an integrated GPU*/
+    for(VkPhysicalDevice& pd : physical_devices)
+    {
+        vkGetPhysicalDeviceProperties(pd, &m_physical_device_properties);
+
+        if(m_physical_device_properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU)
+        {
+            m_physical_device = pd;
+            return;
+        }
+    }
+
+    /*otherwise pick CPU*/
+    for(VkPhysicalDevice& pd : physical_devices)
+    {
+        vkGetPhysicalDeviceProperties(pd, &m_physical_device_properties);
+
+        if(m_physical_device_properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU)
+        {
+            m_physical_device = pd;
+            return;
+        }
+    }
+
+    /*otherwise pick whatever*/
+    vkGetPhysicalDeviceProperties(physical_devices[0], &m_physical_device_properties);
+    m_physical_device = physical_devices[0];
 }
 
 void Engine3D::createSurface(const Window& window)

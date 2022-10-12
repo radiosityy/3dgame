@@ -283,6 +283,7 @@ private:
     /*------------------ create methods ------------------*/
     void createInstance(std::string_view app_name);
     void createDevice();
+    void pickPhysicalDevice();
     void createSurface(const Window&);
     void createSwapchain(uint32_t width, uint32_t height);
     void createCommandPool();
