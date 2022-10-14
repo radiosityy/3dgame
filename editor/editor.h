@@ -66,7 +66,7 @@ private:
     Object* m_selected_object = nullptr;
     std::optional<uint32_t> m_selected_point_light_id;
 
-    std::vector<VertexQuad> m_vertex_quad_data;
+    std::vector<VertexBillboard> m_vertex_billboard_data;
     VertexBufferAllocation m_billboard_vb_alloc;
 
     bool m_render_point_light_billboards = true;

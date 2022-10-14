@@ -474,8 +474,8 @@ private:
     {
         mat4x4 VP;
         mat4x4 V;
-        mat4x4 guiT;
         alignas(16) vec3 camera_pos;
+        alignas(16) vec3 camera_up;
         uint32_t dir_light_count = 0;
         uint32_t point_light_count = 0;
         alignas(16) vec3 visual_sun_pos;
@@ -485,6 +485,7 @@ private:
                     uint32_t cur_terrain_intersection;
         alignas(16) float terrain_patch_size_x;
                     float terrain_patch_size_z;
+                    vec2 ui_scale;
         alignas(16) vec4 editor_highlight_color;
                     float editor_terrain_tool_inner_radius;
                     float editor_terrain_tool_outer_radius;

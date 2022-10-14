@@ -915,9 +915,10 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
 
     m_common_buffer_data.VP = camera.viewProj();
     m_common_buffer_data.V = camera.view();
-    //TODO: this guiT field can only be calculated once I guess, for a given surface size, no need to recalculate it every frame
-    m_common_buffer_data.guiT = scale(vec3(1.0f / static_cast<float>(m_surface_width), 1.0f / static_cast<float>(m_surface_height), 1.0f));
+    //TODO: the ui_scale field can only be calculated once I guess, for a given surface size, no need to recalculate it every frame
+    m_common_buffer_data.ui_scale = vec2(1.0f / static_cast<float>(m_surface_width), 1.0f / static_cast<float>(m_surface_height));
     m_common_buffer_data.camera_pos = camera.pos();
+    m_common_buffer_data.camera_up = camera.up();
     m_common_buffer_data.visual_sun_pos = render_data.visual_sun_pos;
     m_common_buffer_data.effective_sun_pos = render_data.effective_sun_pos;
     m_common_buffer_data.sun_radius = render_data.sun_radius;
@@ -2642,7 +2643,7 @@ void Engine3D::createPipelines()
         /*----------------------- vertex input state -----------------------*/
         VkVertexInputBindingDescription vertex_binding_desc{};
         vertex_binding_desc.binding = 0;
-        vertex_binding_desc.stride = sizeof(VertexQuad);
+        vertex_binding_desc.stride = sizeof(VertexUi);
         vertex_binding_desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
         VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info{};
@@ -2651,8 +2652,8 @@ void Engine3D::createPipelines()
         vertex_input_state_create_info.flags = 0;
         vertex_input_state_create_info.vertexBindingDescriptionCount = 1;
         vertex_input_state_create_info.pVertexBindingDescriptions = &vertex_binding_desc;
-        vertex_input_state_create_info.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertex_quad_attr_desc.size());
-        vertex_input_state_create_info.pVertexAttributeDescriptions = vertex_quad_attr_desc.data();
+        vertex_input_state_create_info.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertex_ui_attr_desc.size());
+        vertex_input_state_create_info.pVertexAttributeDescriptions = vertex_ui_attr_desc.data();
 
         /*----------------------- input assembly state -----------------------*/
         VkPipelineInputAssemblyStateCreateInfo input_assembly_state_create_info{};
@@ -2822,7 +2823,7 @@ void Engine3D::createPipelines()
         /*----------------------- vertex input state -----------------------*/
         VkVertexInputBindingDescription vertex_binding_desc{};
         vertex_binding_desc.binding = 0;
-        vertex_binding_desc.stride = sizeof(VertexQuad);
+        vertex_binding_desc.stride = sizeof(VertexUi);
         vertex_binding_desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
         VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info{};
@@ -2831,8 +2832,8 @@ void Engine3D::createPipelines()
         vertex_input_state_create_info.flags = 0;
         vertex_input_state_create_info.vertexBindingDescriptionCount = 1;
         vertex_input_state_create_info.pVertexBindingDescriptions = &vertex_binding_desc;
-        vertex_input_state_create_info.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertex_quad_attr_desc.size());
-        vertex_input_state_create_info.pVertexAttributeDescriptions = vertex_quad_attr_desc.data();
+        vertex_input_state_create_info.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertex_ui_attr_desc.size());
+        vertex_input_state_create_info.pVertexAttributeDescriptions = vertex_ui_attr_desc.data();
 
         /*----------------------- input assembly state -----------------------*/
         VkPipelineInputAssemblyStateCreateInfo input_assembly_state_create_info{};
@@ -4436,7 +4437,7 @@ void Engine3D::createPipelines()
         /*----------------------- vertex input state -----------------------*/
         VkVertexInputBindingDescription vertex_binding_desc{};
         vertex_binding_desc.binding = 0;
-        vertex_binding_desc.stride = sizeof(VertexQuad);
+        vertex_binding_desc.stride = sizeof(VertexBillboard);
         vertex_binding_desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
         VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info{};
@@ -4445,8 +4446,8 @@ void Engine3D::createPipelines()
         vertex_input_state_create_info.flags = 0;
         vertex_input_state_create_info.vertexBindingDescriptionCount = 1;
         vertex_input_state_create_info.pVertexBindingDescriptions = &vertex_binding_desc;
-        vertex_input_state_create_info.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertex_quad_attr_desc.size());
-        vertex_input_state_create_info.pVertexAttributeDescriptions = vertex_quad_attr_desc.data();
+        vertex_input_state_create_info.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertex_billboard_attr_desc.size());
+        vertex_input_state_create_info.pVertexAttributeDescriptions = vertex_billboard_attr_desc.data();
 
         /*----------------------- input assembly state -----------------------*/
         VkPipelineInputAssemblyStateCreateInfo input_assembly_state_create_info{};
@@ -4585,9 +4586,9 @@ void Engine3D::createPipelines()
         std::vector<VkShaderModule> shader_modules(3, VK_NULL_HANDLE);
         std::vector<VkPipelineShaderStageCreateInfo> shader_stage_infos;
 
-        shader_stage_infos.emplace_back(loadShader(VS_QUAD_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
+        shader_stage_infos.emplace_back(loadShader(VS_BILLBOARD_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
         shader_stage_infos.emplace_back(loadShader(GS_BILLBOARD_FILENAME, VK_SHADER_STAGE_GEOMETRY_BIT, &shader_modules[1]));
-        shader_stage_infos.emplace_back(loadShader(FS_UI_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[2], &spec_info));
+        shader_stage_infos.emplace_back(loadShader(FS_BILLBOARD_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[2], &spec_info));
 #if VALIDATION_ENABLE
         setDebugObjectName(shader_modules[0], "BillboardVS");
         setDebugObjectName(shader_modules[1], "BillboardGS");

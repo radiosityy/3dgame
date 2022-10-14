@@ -13,7 +13,7 @@ Editor::Editor(Window& window, Scene& scene, Engine3D& engine3d, const Font& fon
     m_object_add_panel = object_add_panel.get();
     m_gui_objects.push_back(std::move(object_add_panel));
 
-    m_billboard_vb_alloc = m_engine3d.requestVertexBufferAllocation<VertexQuad>(MAX_POINT_LIGHT_COUNT);
+    m_billboard_vb_alloc = m_engine3d.requestVertexBufferAllocation<VertexBillboard>(MAX_POINT_LIGHT_COUNT);
 
     updatePointLightBillboards();
 }
@@ -119,7 +119,7 @@ void Editor::draw()
     }
 
     /*point light billboards*/
-    m_engine3d.draw(RenderMode::Billboard, m_billboard_vb_alloc.vb, m_billboard_vb_alloc.vertex_offset, m_vertex_quad_data.size(), 0, {}, {});
+    m_engine3d.draw(RenderMode::Billboard, m_billboard_vb_alloc.vb, m_billboard_vb_alloc.vertex_offset, m_vertex_billboard_data.size(), 0, {}, {});
 
     for(auto& child : m_gui_objects)
     {
@@ -174,15 +174,19 @@ void Editor::onInputEvent(const Event& event, const InputState& input_state)
             {
                 /*for every point light we test ray intersection with the 2 triangles
                 that compose the point light billboard in editor*/
+                const vec3 up = m_scene.camera().up() * m_billboard_size_y;
+
                 for(uint32_t i = 0; i < m_scene.staticPointLights().size(); i++)
                 {
                     const auto& point_light = m_scene.staticPointLights()[i];
 
+                    const vec3 right = normalize(cross(up, m_scene.camera().pos() - point_light.pos)) * m_billboard_size_x;
+
                     float d;
 
-                    vec3 p0 = point_light.pos + vec3(-0.5f * m_billboard_size_x, 0.5f * m_billboard_size_y, 0.0f);
-                    vec3 p1 = point_light.pos + vec3(0.5f * m_billboard_size_x, 0.5f * m_billboard_size_y, 0.0f);
-                    vec3 p2 = point_light.pos + vec3(-0.5f * m_billboard_size_x, -0.5f * m_billboard_size_y, 0.0f);
+                    const vec3 p0 = point_light.pos - 0.5f * right + 0.5f * up;
+                    const vec3 p1 = point_light.pos + 0.5f * right + 0.5f * up;
+                    const vec3 p2 = point_light.pos - 0.5f * right - 0.5f * up;
 
                     if(intersect(ray, p0, p1, p2, d))
                     {
@@ -194,11 +198,9 @@ void Editor::onInputEvent(const Event& event, const InputState& input_state)
                         }
                     }
 
-                    p0 = point_light.pos + vec3(-0.5f * m_billboard_size_x, -0.5f * m_billboard_size_y, 0.0f);
-                    p1 = point_light.pos + vec3(0.5f * m_billboard_size_x, 0.5f * m_billboard_size_y, 0.0f);
-                    p2 = point_light.pos + vec3(0.5f * m_billboard_size_x, -0.5f * m_billboard_size_y, 0.0f);
+                    const vec3 p3 = point_light.pos + 0.5f * right - 0.5f * up;
 
-                    if(intersect(ray, p0, p1, p2, d))
+                    if(intersect(ray, p2, p1, p3, d))
                     {
                         if(d < min_d)
                         {
@@ -772,27 +774,28 @@ void Editor::updateSelectedPointLight()
 {
     m_scene.updateStaticPointLight(*m_selected_point_light_id, selectedPointLight());
 
-    VertexQuad& vq = m_vertex_quad_data[*m_selected_point_light_id];
-    vq.T = glm::translate(selectedPointLight().pos) * glm::scale(vec3(m_billboard_size_x, m_billboard_size_y, 1.0f));
-    m_engine3d.updateVertexData(m_billboard_vb_alloc.vb, m_billboard_vb_alloc.data_offset + sizeof(VertexQuad) * *m_selected_point_light_id, sizeof(VertexQuad), &m_vertex_quad_data[*m_selected_point_light_id]);
+    auto& v = m_vertex_billboard_data[*m_selected_point_light_id];
+
+    v.center_pos = selectedPointLight().pos;
+    m_engine3d.updateVertexData(m_billboard_vb_alloc.vb, m_billboard_vb_alloc.data_offset + sizeof(VertexBillboard) * *m_selected_point_light_id, sizeof(VertexBillboard), &m_vertex_billboard_data[*m_selected_point_light_id]);
 }
 
 void Editor::updatePointLightBillboards()
 {
     /*point light billboards*/
-    m_vertex_quad_data.resize(m_scene.staticPointLights().size());
+    m_vertex_billboard_data.resize(m_scene.staticPointLights().size());
 
     for(size_t i = 0; i < m_scene.staticPointLights().size(); i++)
     {
-        VertexQuad& vq = m_vertex_quad_data[i];
-        vq.color = m_selected_point_light_id && i == *m_selected_point_light_id ? ColorRGBA(1.0f, 1.0f, 1.0f, 1.0f) : ColorRGBA(0.5f, 0.5f, 0.5f, 1.0f);
-        vq.use_texture = 1;
-        vq.tex_id = m_engine3d.loadTexture("point_light.png");
-        vq.layer_id = 0;
-        vq.T = glm::translate(m_scene.staticPointLights()[i].pos) * glm::scale(vec3(m_billboard_size_x, m_billboard_size_y, 1.0f));
+        auto& v = m_vertex_billboard_data[i];
+        v.color = m_selected_point_light_id && i == *m_selected_point_light_id ? ColorRGBA(1.0f, 1.0f, 1.0f, 1.0f) : ColorRGBA(0.5f, 0.5f, 0.5f, 1.0f);
+        v.tex_id = m_engine3d.loadTexture("point_light.png");
+        v.layer_id = 0;
+        v.center_pos = m_scene.staticPointLights()[i].pos;
+        v.size = vec2(m_billboard_size_x, m_billboard_size_y);
     }
 
-    m_engine3d.updateVertexData(m_billboard_vb_alloc.vb, m_billboard_vb_alloc.data_offset, sizeof(VertexQuad) * m_vertex_quad_data.size(), m_vertex_quad_data.data());
+    m_engine3d.updateVertexData(m_billboard_vb_alloc.vb, m_billboard_vb_alloc.data_offset, sizeof(VertexBillboard) * m_vertex_billboard_data.size(), m_vertex_billboard_data.data());
 }
 
 #endif //EDITOR_ENABLE
