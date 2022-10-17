@@ -23,8 +23,8 @@ private:
 
     float m_x;
     float m_y;
-    const float m_width = 200.0f;
-    const float m_height = 600.0f;
+    const float m_width = 300.0f;
+    const float m_height = 700.0f;
 
     Scene& m_scene;
     const uint32_t m_point_light_id;
