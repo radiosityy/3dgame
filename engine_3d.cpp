@@ -2066,6 +2066,7 @@ void Engine3D::createDevice()
     CHECK_PHY_DEV_FEAT_2_SUPPORT(shaderSampledImageArrayDynamicIndexing);
     CHECK_PHY_DEV_FEAT_2_SUPPORT(fillModeNonSolid);
     CHECK_PHY_DEV_FEAT_2_SUPPORT(samplerAnisotropy);
+    CHECK_PHY_DEV_FEAT_2_SUPPORT(shaderImageGatherExtended);
     CHECK_PHY_DEV_VULKAN_1_2_FEAT_SUPPORT(descriptorBindingPartiallyBound);
 
 #undef CHECK_PHY_DEV_FEAT_2_SUPPORT
@@ -2089,7 +2090,7 @@ void Engine3D::createDevice()
     m_physical_device_features.sampleRateShading = VK_TRUE;
     m_physical_device_features.shaderSampledImageArrayDynamicIndexing = VK_TRUE;
     m_physical_device_features.samplerAnisotropy = VK_TRUE;
-    m_physical_device_features.tessellationShader = VK_TRUE;
+    m_physical_device_features.shaderImageGatherExtended = VK_TRUE;
 
     m_physical_device_12_features = {};
     m_physical_device_12_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
@@ -4842,8 +4843,8 @@ void Engine3D::createSamplers()
     sampler_create_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     sampler_create_info.pNext = NULL;
     sampler_create_info.flags = 0;
-    sampler_create_info.magFilter = VK_FILTER_NEAREST;
-    sampler_create_info.minFilter = VK_FILTER_NEAREST;
+    sampler_create_info.magFilter = VK_FILTER_LINEAR;
+    sampler_create_info.minFilter = VK_FILTER_LINEAR;
     sampler_create_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
     sampler_create_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
     sampler_create_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
@@ -4851,8 +4852,8 @@ void Engine3D::createSamplers()
     sampler_create_info.mipLodBias = 0.0f;
     sampler_create_info.anisotropyEnable = VK_FALSE;
     sampler_create_info.maxAnisotropy = 0.0f;
-    sampler_create_info.compareEnable = VK_FALSE;
-    sampler_create_info.compareOp = VK_COMPARE_OP_ALWAYS;
+    sampler_create_info.compareEnable = VK_TRUE;
+    sampler_create_info.compareOp = VK_COMPARE_OP_LESS;
     sampler_create_info.minLod = 0.0f;
     sampler_create_info.maxLod = 1.0f;
     sampler_create_info.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
@@ -5076,7 +5077,7 @@ void Engine3D::updateDirShadowMap(Camera& camera, const DirLightShaderData& ligh
 
     for(uint32_t i = 0; i < shadow_map_count; i++)
     {
-        const vec3 light_pos = -1000.0f * light.dir;
+        const vec3 light_pos = -10000.0f * light.dir;
 
         const quat q = normalize(glm::rotation(light.dir, vec3(0.0f, 0.0f, 1.0f)));
         const auto world_to_light = mat4_cast(q) * translate(-light_pos);
@@ -5108,11 +5109,12 @@ void Engine3D::updateDirShadowMap(Camera& camera, const DirLightShaderData& ligh
         if(shadow_map_count - 1 == i)
         {
             far_wall = &view_frustum_points[4];
+            //TODO: consider renaming the below "z" to something like "far_z" as it's unclear what that z actually is
             shadow_map_data[i].z = camera.far();
         }
         else
         {
-            const float lambda = 0.95f;
+            const float lambda = 0.97f;
             const float i_over_N = static_cast<float>(i + 1) / static_cast<float>(shadow_map_count);
             const float z = lambda * camera.near() * std::pow(camera.far() / camera.near(), i_over_N) + (1.0f - lambda) * (camera.near() + i_over_N * (camera.far() - camera.near()));
             const float d = (z - camera.near()) / (camera.far() - camera.near());
@@ -5134,14 +5136,26 @@ void Engine3D::updateDirShadowMap(Camera& camera, const DirLightShaderData& ligh
             bb_max = max(bb_max, p);
         }
 
-        const auto orto = glm::orthoLH_ZO(bb_min.x, bb_max.x, bb_min.y, bb_max.y, 0.0f, bb_max.z);
+        bb_min = vec3(-25,-25, 9000);
+        bb_max = vec3(25, 25, 15000);
+        mat4x4 orto{};
+        orto[0][0] = 2.0f / (bb_max.x - bb_min.x);
+        orto[1][1] = 2.0f / (bb_max.y - bb_min.y);
+        orto[2][2] = 1.0f / (bb_max.z - 0.0f);
+        orto[3][2] = 0.0f / (0.0f - bb_max.z);
+        orto[3][3] = 1.0f;
+        shadow_map_data[0].z = 100;
+        shadow_map_data[1].z = 500;
+        shadow_map_data[2].z = 1000;
+        shadow_map_data[3].z = 1500;
 
-        shadow_map_data[i].P = orto * world_to_light;
+//        shadow_map_data[i].P = orto * world_to_light;
+        shadow_map_data[i].P = orto * glm::translate(vec3(-0.5f * (bb_max.x + bb_min.x), -0.5f * (bb_max.y + bb_min.y), 0.0f)) * world_to_light;
 
         constexpr mat4x4 to_tex_coords = mat4x4(0.5f, 0.0f, 0.0f, 0.0f,
-                                            0.0f, -0.5f, 0.0f, 0.0f,
-                                            0.0f, 0.0f, 1.0f, 0.0f,
-                                            0.5f, 0.5f, 0.0f, 1.0f);
+                                                0.0f, -0.5f, 0.0f, 0.0f,
+                                                0.0f, 0.0f, 1.0f, 0.0f,
+                                                0.5f, 0.5f, 0.0f, 1.0f);
 
         shadow_map_data[i].tex_P = to_tex_coords * shadow_map_data[i].P;
     }

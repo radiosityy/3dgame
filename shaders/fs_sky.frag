@@ -1,6 +1,8 @@
 #version 450
 #include "common.h"
 
+layout(early_fragment_tests) in;
+
 layout(location = 0) in vec3 col_in;
 layout(location = 1) in vec3 world_pos_in;
 
