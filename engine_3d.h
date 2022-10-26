@@ -19,10 +19,6 @@
 #include "shader_data.h"
 #include "vk_buffer_wrapper.h"
 
-#if DEBUG
-#define VALIDATION_ENABLE 1
-#endif
-
 using DirLightId = uint32_t;
 using PointLightId = uint32_t;
 
@@ -464,7 +460,7 @@ private:
     uint8_t m_frame_id = 0;
     VkSampleCountFlagBits m_sample_count = VK_SAMPLE_COUNT_1_BIT;
     bool m_vsync_disable_support = false;
-    bool m_vsync = true;
+    bool m_vsync = false;
 
 /*---------------------------------------------------------------------------------------------------------*/
 /*------------------------------------------ render mode params -------------------------------------------*/
@@ -504,7 +500,7 @@ private:
     };
 
     /*---------------------- debug -----------------------*/
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
     PFN_vkSetDebugUtilsObjectNameEXT m_set_debug_utils_object_name_function = VK_NULL_HANDLE;
     VkDebugUtilsMessengerEXT m_debug_report_callback = VK_NULL_HANDLE;
     PFN_vkDestroyDebugUtilsMessengerEXT m_destroy_debug_utils_messenger_function = nullptr;

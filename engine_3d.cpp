@@ -1968,7 +1968,7 @@ void Engine3D::createInstance(std::string_view app_name)
 {
     const std::vector<const char*> req_layer_names =
     {
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         "VK_LAYER_KHRONOS_validation"
 #endif
     };
@@ -1977,7 +1977,7 @@ void Engine3D::createInstance(std::string_view app_name)
     {
         VK_KHR_SURFACE_EXTENSION_NAME,
         VK_PLATFORM_SURFACE_EXTENSION_NAME
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         , VK_EXT_DEBUG_UTILS_EXTENSION_NAME
 #endif
     };
@@ -2014,7 +2014,7 @@ void Engine3D::createInstance(std::string_view app_name)
     ici.enabledExtensionCount = static_cast<uint32_t>(req_ext_names.size());
     ici.ppEnabledExtensionNames = req_ext_names.data();
 
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
     VkDebugUtilsMessengerCreateInfoEXT create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
     create_info.pNext = NULL;
@@ -2035,7 +2035,7 @@ void Engine3D::createInstance(std::string_view app_name)
     VkResult res = vkCreateInstance(&ici, NULL, &m_instance);
     assertVkSuccess(res, "Failed to create VkInstance");
 
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
     createDebugCallback(create_info);
 #endif
 }
@@ -2445,7 +2445,7 @@ void Engine3D::createMainRenderPass()
 
     VkResult res = vkCreateRenderPass(m_device, &create_info, NULL, &m_main_render_pass);
     assertVkSuccess(res, "Failed to create render pass.");
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
     setDebugObjectName(m_main_render_pass, "MainRenderPass");
 #endif
 }
@@ -2492,7 +2492,7 @@ void Engine3D::createShadowMapRenderPass()
 
     VkResult res = vkCreateRenderPass(m_device, &create_info, NULL, &m_shadow_map_render_pass);
     assertVkSuccess(res, "Failed to create shadow map render pass.");
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
     setDebugObjectName(m_main_render_pass, "ShadowMapRenderPass");
 #endif
 }
@@ -2614,7 +2614,7 @@ void Engine3D::createDescriptorSets()
     for(uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++)
     {
         m_per_frame_data[i].descriptor_set = descriptor_sets[i];
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_per_frame_data[i].descriptor_set, "DescriptorSet_" + std::to_string(i));
 #endif
     }
@@ -2797,7 +2797,7 @@ void Engine3D::createPipelines()
         shader_stage_infos.emplace_back(loadShader(VS_QUAD_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
         shader_stage_infos.emplace_back(loadShader(GS_UI_FILENAME, VK_SHADER_STAGE_GEOMETRY_BIT, &shader_modules[1]));
         shader_stage_infos.emplace_back(loadShader(FS_UI_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[2], &spec_info));
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(shader_modules[0], "UiVS");
         setDebugObjectName(shader_modules[1], "UiGS");
         setDebugObjectName(shader_modules[2], "UiFS");
@@ -2807,7 +2807,7 @@ void Engine3D::createPipelines()
         pipeline_create_info.pStages = shader_stage_infos.data();
 
         VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::Ui)]);
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::Ui)], "PipelineUi");
 #endif
 
@@ -2976,7 +2976,7 @@ void Engine3D::createPipelines()
         shader_stage_infos.emplace_back(loadShader(VS_QUAD_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
         shader_stage_infos.emplace_back(loadShader(GS_UI_FILENAME, VK_SHADER_STAGE_GEOMETRY_BIT, &shader_modules[1]));
         shader_stage_infos.emplace_back(loadShader(FS_FONT_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[2], &spec_info));
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(shader_modules[0], "FontVS");
         setDebugObjectName(shader_modules[1], "FontGS");
         setDebugObjectName(shader_modules[2], "FontFS");
@@ -2986,7 +2986,7 @@ void Engine3D::createPipelines()
         pipeline_create_info.pStages = shader_stage_infos.data();
 
         VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::Font)]);
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::Font)], "PipelineFont");
 #endif
 
@@ -3165,7 +3165,7 @@ void Engine3D::createPipelines()
 
         shader_stage_infos.emplace_back(loadShader(VS_DEFAULT_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
         shader_stage_infos.emplace_back(loadShader(FS_DEFAULT_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[1], &spec_info));
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(shader_modules[0], "DefaultVS");
         setDebugObjectName(shader_modules[1], "DefaultFS");
 #endif
@@ -3174,7 +3174,7 @@ void Engine3D::createPipelines()
         pipeline_create_info.pStages = shader_stage_infos.data();
 
         VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::Default)]);
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::Default)], "PipelineDefault");
 #endif
 
@@ -3353,7 +3353,7 @@ void Engine3D::createPipelines()
         shader_stage_infos.emplace_back(loadShader(VS_TERRAIN_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
         shader_stage_infos.emplace_back(loadShader(FS_TERRAIN_EDITOR_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[1], &spec_info));
 
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(shader_modules[0], "TerrainVS");
         setDebugObjectName(shader_modules[1], "TerrainFS");
 #endif
@@ -3362,7 +3362,7 @@ void Engine3D::createPipelines()
         pipeline_create_info.pStages = shader_stage_infos.data();
 
         VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::Terrain)]);
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::Terrain)], "PipelineTerrain");
 #endif
 
@@ -3520,7 +3520,7 @@ void Engine3D::createPipelines()
         shader_stage_infos.emplace_back(loadShader(VS_TERRAIN_WIREFRAME_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
         shader_stage_infos.emplace_back(loadShader(FS_COLOR_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[1]));
 
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(shader_modules[0], "TerrainWireframeVS");
         setDebugObjectName(shader_modules[1], "TerrainWireframeFS");
 #endif
@@ -3529,7 +3529,7 @@ void Engine3D::createPipelines()
         pipeline_create_info.pStages = shader_stage_infos.data();
 
         VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::TerrainWireframe)]);
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::TerrainWireframe)], "PipelineTerrainWireframe");
 #endif
 
@@ -3688,7 +3688,7 @@ void Engine3D::createPipelines()
 
         shader_stage_infos.emplace_back(loadShader(VS_SKY_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
         shader_stage_infos.emplace_back(loadShader(FS_SKY_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[1]));
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(shader_modules[0], "SkyVS");
         setDebugObjectName(shader_modules[1], "SkyFS");
 #endif
@@ -3697,7 +3697,7 @@ void Engine3D::createPipelines()
         pipeline_create_info.pStages = shader_stage_infos.data();
 
         VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::Sky)]);
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::Sky)], "PipelineSky");
 #endif
 
@@ -3827,7 +3827,7 @@ void Engine3D::createPipelines()
 
         shader_stage_infos.emplace_back(loadShader(VS_SHADOWMAP_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
         shader_stage_infos.emplace_back(loadShader(GS_DIR_SHADOW_MAP_FILENAME, VK_SHADER_STAGE_GEOMETRY_BIT, &shader_modules[1]));
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(shader_modules[0], "DirShadowMapVS");
         setDebugObjectName(shader_modules[1], "DirShadowMapGS");
 #endif
@@ -3836,7 +3836,7 @@ void Engine3D::createPipelines()
         pipeline_create_info.pStages = shader_stage_infos.data();
 
         VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::DirShadowMap)]);
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::DirShadowMap)], "PipelineDirShadowMap");
 #endif
 
@@ -3965,7 +3965,7 @@ void Engine3D::createPipelines()
 
         shader_stage_infos.emplace_back(loadShader(VS_TERRAIN_SHADOWMAP_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
         shader_stage_infos.emplace_back(loadShader(GS_DIR_SHADOW_MAP_FILENAME, VK_SHADER_STAGE_GEOMETRY_BIT, &shader_modules[1]));
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(shader_modules[0], "TerrainDirShadowMapVS");
         setDebugObjectName(shader_modules[1], "TerrainDirShadowMapGS");
 #endif
@@ -3974,7 +3974,7 @@ void Engine3D::createPipelines()
         pipeline_create_info.pStages = shader_stage_infos.data();
 
         VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::TerrainDirShadowMap)]);
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::TerrainDirShadowMap)], "PipelineTerrainDirShadowMap");
 #endif
 
@@ -4105,7 +4105,7 @@ void Engine3D::createPipelines()
         shader_stage_infos.emplace_back(loadShader(VS_SHADOWMAP_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
         shader_stage_infos.emplace_back(loadShader(GS_POINT_SHADOW_MAP_FILENAME, VK_SHADER_STAGE_GEOMETRY_BIT, &shader_modules[1]));
         shader_stage_infos.emplace_back(loadShader(FS_POINT_SHADOW_MAP_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[2]));
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(shader_modules[0], "PointShadowMapVS");
         setDebugObjectName(shader_modules[1], "PointShadowMapGS");
         setDebugObjectName(shader_modules[2], "PointShadowMapFS");
@@ -4115,7 +4115,7 @@ void Engine3D::createPipelines()
         pipeline_create_info.pStages = shader_stage_infos.data();
 
         VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::PointShadowMap)]);
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::PointShadowMap)], "PipelinePointShadowMap");
 #endif
 
@@ -4245,7 +4245,7 @@ void Engine3D::createPipelines()
         shader_stage_infos.emplace_back(loadShader(VS_TERRAIN_SHADOWMAP_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
         shader_stage_infos.emplace_back(loadShader(GS_POINT_SHADOW_MAP_FILENAME, VK_SHADER_STAGE_GEOMETRY_BIT, &shader_modules[1]));
         shader_stage_infos.emplace_back(loadShader(FS_POINT_SHADOW_MAP_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[2]));
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(shader_modules[0], "TerrainPointShadowMapVS");
         setDebugObjectName(shader_modules[1], "TerrainPointShadowMapGS");
         setDebugObjectName(shader_modules[2], "TerrainPointShadowMapFS");
@@ -4255,7 +4255,7 @@ void Engine3D::createPipelines()
         pipeline_create_info.pStages = shader_stage_infos.data();
 
         VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::TerrainPointShadowMap)]);
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::TerrainPointShadowMap)], "PipelineTerrainPointShadowMap");
 #endif
 
@@ -4412,7 +4412,7 @@ void Engine3D::createPipelines()
 
         shader_stage_infos.emplace_back(loadShader(VS_HIGHLIGHT_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
         shader_stage_infos.emplace_back(loadShader(FS_COLOR_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[1]));
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(shader_modules[0], "HighlightVS");
         setDebugObjectName(shader_modules[1], "HighlightFS");
 #endif
@@ -4421,7 +4421,7 @@ void Engine3D::createPipelines()
         pipeline_create_info.pStages = shader_stage_infos.data();
 
         VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::Highlight)]);
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::Highlight)], "PipelineHighlight");
 #endif
 
@@ -4590,7 +4590,7 @@ void Engine3D::createPipelines()
         shader_stage_infos.emplace_back(loadShader(VS_BILLBOARD_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
         shader_stage_infos.emplace_back(loadShader(GS_BILLBOARD_FILENAME, VK_SHADER_STAGE_GEOMETRY_BIT, &shader_modules[1]));
         shader_stage_infos.emplace_back(loadShader(FS_BILLBOARD_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[2], &spec_info));
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(shader_modules[0], "BillboardVS");
         setDebugObjectName(shader_modules[1], "BillboardGS");
         setDebugObjectName(shader_modules[2], "BillboardFS");
@@ -4600,7 +4600,7 @@ void Engine3D::createPipelines()
         pipeline_create_info.pStages = shader_stage_infos.data();
 
         VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::Billboard)]);
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::Billboard)], "PipelineBillboard");
 #endif
 
@@ -4628,7 +4628,7 @@ void Engine3D::createCommandBuffers()
     for(uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++)
     {
         m_per_frame_data[i].cmd_buf = command_buffers[i];
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_per_frame_data[i].cmd_buf, "CmdBuf_" + std::to_string(i));
 #endif
     }
@@ -4636,7 +4636,7 @@ void Engine3D::createCommandBuffers()
     cmd_buf_alloc_info.commandBufferCount = 1;
     res = vkAllocateCommandBuffers(m_device, &cmd_buf_alloc_info, &m_transfer_cmd_buf);
     assertVkSuccess(res, "Failed to allocate transfer command buffer.");
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
     setDebugObjectName(m_transfer_cmd_buf, "TransferCmdBuf");
 #endif
 }
@@ -4666,7 +4666,7 @@ void Engine3D::createSynchronizationPrimitives()
         res = vkCreateSemaphore(m_device, &sem_create_info, NULL, &m_per_frame_data[i].rendering_finished_semaphore);
         assertVkSuccess(res, "Failed to create semaphore.");
 
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_per_frame_data[i].cmd_buf_ready_fence, "CmdBufReadyFence_" + std::to_string(i));
         setDebugObjectName(m_per_frame_data[i].image_acquire_semaphore, "ImgAcquireSemaphore_" + std::to_string(i));
         setDebugObjectName(m_per_frame_data[i].rendering_finished_semaphore, "RenderFinishedSemaphore_" + std::to_string(i));
@@ -4676,7 +4676,7 @@ void Engine3D::createSynchronizationPrimitives()
     fence_create_info.flags = 0;
     res = vkCreateFence(m_device, &fence_create_info, NULL, &m_transfer_cmd_buf_fence);
     assertVkSuccess(res, "Failed to create fence.");
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
     setDebugObjectName(m_transfer_cmd_buf_fence, "TransferCmdBufFence");
 #endif
 }
@@ -4768,7 +4768,7 @@ void Engine3D::createRenderTargets()
     for(size_t i = 0; i < m_render_targets.size(); i++)
     {
         m_render_targets[i].depth_img = createImage(depth_img_create_info, depth_img_view_create_info);
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_render_targets[i].depth_img.img, "MainDepthImg_" + std::to_string(i));
         setDebugObjectName(m_render_targets[i].depth_img.img_view, "MainDepthImgView_" + std::to_string(i));
         setDebugObjectName(m_render_targets[i].depth_img.mem, "MainDepthImgMem_" + std::to_string(i));
@@ -4777,7 +4777,7 @@ void Engine3D::createRenderTargets()
         if(m_sample_count != VK_SAMPLE_COUNT_1_BIT)
         {
             m_render_targets[i].color_img = createImage(img_create_info, img_view_create_info);
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_render_targets[i].color_img.img, "MainColorImg_" + std::to_string(i));
         setDebugObjectName(m_render_targets[i].color_img.img_view, "MainColorImgView_" + std::to_string(i));
         setDebugObjectName(m_render_targets[i].color_img.mem, "MainColorImgMem_" + std::to_string(i));
@@ -4797,7 +4797,7 @@ void Engine3D::createRenderTargets()
 
         res = vkCreateFramebuffer(m_device, &framebuffer_create_info, NULL, &m_render_targets[i].framebuffer);
         assertVkSuccess(res, "Failed to create framebuffer.");
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_render_targets[i].framebuffer, "MainFramebuffer_" + std::to_string(i));
 #endif
 
@@ -4836,7 +4836,7 @@ void Engine3D::createSamplers()
 
     VkResult res = vkCreateSampler(m_device, &sampler_create_info, NULL, &m_sampler);
     assertVkSuccess(res, "Failed to create sampler.");
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
     setDebugObjectName(m_sampler, "MainSampler");
 #endif
 
@@ -4861,7 +4861,7 @@ void Engine3D::createSamplers()
 
     res = vkCreateSampler(m_device, &sampler_create_info, NULL, &m_shadow_map_sampler);
     assertVkSuccess(res, "Failed to create shadow map sampler.");
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
     setDebugObjectName(m_shadow_map_sampler, "ShadowMapSampler");
 #endif
 }
@@ -4894,7 +4894,7 @@ void Engine3D::createBuffers()
 
         //TODO: when buffers are later destroyed and created anew when they need to be resized, we lose these debug names
         //should find a way to make sure we can set the debug names even after we recreate them later
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_per_frame_data[i].common_buffer->buf, "CommonBuffer_" + std::to_string(i));
         setDebugObjectName(m_per_frame_data[i].dir_light_buffer->buf, "DitLightBuffer_" + std::to_string(i));
         setDebugObjectName(m_per_frame_data[i].dir_light_valid_buffer->buf, "DirLightValidBuffer_" + std::to_string(i));
@@ -4905,7 +4905,7 @@ void Engine3D::createBuffers()
 #endif
     }
 
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
 //        setDebugObjectName(m_terrain_buffer->buf, "TerrainBuffer");
 #endif
 
@@ -5051,7 +5051,7 @@ uint32_t Engine3D::createDirShadowMap(const DirLight& light)
         shadow_map.render_pass_begin_info.pClearValues = &m_shadow_map_clear_value;
     }
 
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
     for(uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++)
     {
         setDebugObjectName(m_per_frame_data[i].dir_shadow_maps[shadow_map_id].framebuffer, "DirShadowMapFramebuffer_" + std::to_string(i) + "_" + std::to_string(shadow_map_id));
@@ -5237,7 +5237,7 @@ uint32_t Engine3D::createPointShadowMap(const PointLight& light)
         shadow_map.render_pass_begin_info.pClearValues = &m_shadow_map_clear_value;
     }
 
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
     for(uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++)
     {
         setDebugObjectName(m_per_frame_data[i].point_shadow_maps[shadow_map_id].framebuffer, "PointShadowMapFramebuffer_" + std::to_string(i) + "_" + std::to_string(shadow_map_id));
@@ -5309,7 +5309,7 @@ void Engine3D::updatePointShadowMap(const PointLightShaderData& light)
 
 void Engine3D::destroyInstance() noexcept
 {
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
     destroyDebugCallback();
 #endif
 
@@ -5444,7 +5444,7 @@ void Engine3D::destroyShadowMaps()
 
 /*---------------- debug callback ----------------*/
 
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
 VkBool32 debugReportCallback(
         VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
         VkDebugUtilsMessageTypeFlagsEXT messageTypes,
@@ -5502,7 +5502,7 @@ void Engine3D::destroyDebugCallback()
 
 void Engine3D::setDebugObjectName(VkObjectType object_type, uint64_t object_handle, std::string_view object_name)
 {
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
     VkDebugUtilsObjectNameInfoEXT name_info{};
     name_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
     name_info.pNext = NULL;
