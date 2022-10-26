@@ -4,18 +4,91 @@
 #include <fstream>
 #include <numeric>
 #include <iostream>
+#include <algorithm>
+
+void GameEngine::parseIni()
+{
+    std::ifstream ini("3dgame.ini");
+
+    if(!ini)
+    {
+        throw std::runtime_error("Failed to open ini file.");
+    }
+
+    for(std::array<char, 256> line; ini.getline(line.data(), line.size());)
+    {
+        const std::string_view s(line.data());
+
+        auto pos = s.find('=');
+
+        if((pos == std::string_view::npos) || (pos == 0) || (pos == s.size() - 1))
+        {
+            throw std::runtime_error("Invalid entry in ini file.");
+        }
+
+        const std::string_view param = s.substr(0, pos);
+        const std::string_view value = s.substr(pos + 1);
+
+        const auto invalid_value_error = [&]()
+        {
+            throw std::runtime_error("Invalid value for param " + std::string(param) + " in ini file: " + std::string(value));
+        };
+
+        try
+        {
+            if(param == "vsync")
+            {
+                if(value == "on")
+                {
+                    m_init_params.vsync = true;
+                }
+                else if(value == "off")
+                {
+                    m_init_params.vsync = false;
+                }
+                else
+                {
+                    invalid_value_error();
+                }
+            }
+            else if(param == "res_x")
+            {
+                m_init_params.res_x = std::stoul(std::string(value));
+                if(m_init_params.res_x == 0)
+                {
+                    invalid_value_error();
+                }
+            }
+            else if(param == "res_y")
+            {
+                m_init_params.res_y = std::stoul(std::string(value));
+                if(m_init_params.res_y == 0)
+                {
+                    invalid_value_error();
+                }
+            }
+        }
+        catch(...)
+        {
+            invalid_value_error();
+        }
+    }
+}
 
 GameEngine::GameEngine()
 {
+    parseIni();
+
     //TODO: set application name
     const std::string app_name = "3dgame";
     const std::string font_directory = "assets/fonts/";
 
     /*create the application window*/
-    m_window = std::make_unique<Window>(*this, app_name, 1920, 1080);
+    m_window = std::make_unique<Window>(*this, app_name, m_init_params.res_x, m_init_params.res_y);
 
     /*create 3D graphics engine*/
     m_engine3d = std::make_unique<Engine3D>(*m_window, app_name);
+    m_engine3d->enableVsync(m_init_params.vsync);
 
     m_fonts.emplace_back(font_directory + "font.ttf", 18);
 

@@ -460,7 +460,7 @@ private:
     uint8_t m_frame_id = 0;
     VkSampleCountFlagBits m_sample_count = VK_SAMPLE_COUNT_1_BIT;
     bool m_vsync_disable_support = false;
-    bool m_vsync = false;
+    bool m_vsync = true;
 
 /*---------------------------------------------------------------------------------------------------------*/
 /*------------------------------------------ render mode params -------------------------------------------*/
