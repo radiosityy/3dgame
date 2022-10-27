@@ -45,7 +45,7 @@ def main():
         sys.exit("Error: \"" + indir + "\" is not a directory.")
 
     if not os.path.isdir(outdir):
-        sys.exit("Error: \"" + outdir + "\" is not a directory.")
+        os.mkdir(outdir)
 
     if not os.path.isfile(compiler) or not os.access(compiler, os.X_OK):
         sys.exit("Error: \"" + compiler + "\" is not an executable file.")
