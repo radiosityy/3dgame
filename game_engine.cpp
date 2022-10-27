@@ -12,7 +12,11 @@ void GameEngine::parseIni()
 
     if(!ini)
     {
-        throw std::runtime_error("Failed to open ini file.");
+        std::ofstream ini("3dgame.ini");
+        ini << "vsync=off" << std::endl;
+        ini << "res_x=1920" << std::endl;
+        ini << "res_y=1080" << std::endl;
+        ini.close();
     }
 
     for(std::array<char, 256> line; ini.getline(line.data(), line.size());)
