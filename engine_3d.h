@@ -24,7 +24,7 @@ using PointLightId = uint32_t;
 
 struct VertexBuffer : VkBufferWrapper
 {
-    VertexBuffer() : VkBufferWrapper(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false)
+    VertexBuffer() : VkBufferWrapper(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT)
     {}
 };
 
@@ -170,8 +170,6 @@ class Engine3D
         std::unique_ptr<VkBufferWrapper> dir_light_valid_buffer;
         std::unique_ptr<VkBufferWrapper> point_light_buffer;
         std::unique_ptr<VkBufferWrapper> point_light_valid_buffer;
-        std::unique_ptr<VkBufferWrapper> dir_shadow_map_buffer;
-        std::unique_ptr<VkBufferWrapper> point_shadow_map_buffer;
     };
 
     struct BufferUpdateReq
@@ -223,6 +221,8 @@ public:
     void freeBoneTransformBufferAllocation(uint32_t bone_id, uint32_t bone_count);
     void freeTerrainBufferAllocation();
 
+    void requestBufferUpdate(VkBufferWrapper* buf, uint64_t data_offset, uint64_t data_size, const void* data);
+    //TODO: rename these to request*Update
     void updateVertexData(VertexBuffer* vb, uint64_t data_offset, uint64_t data_size, const void* data);
     void updateInstanceVertexData(uint32_t instance_id, uint32_t instance_count, const void* data);
     void updateBoneTransformData(uint32_t bone_offset, uint32_t bone_count, const mat4x4* data);
@@ -260,8 +260,7 @@ private:
     VkImageWrapper createImage(const VkImageCreateInfo&, VkImageViewCreateInfo&) const;
     void destroyImage(VkImageWrapper&) const noexcept;
 
-    //TODO: figure something out with how we create transfer buffers
-    void createBuffer(VkBufferWrapper&, VkDeviceSize size, bool force_transfer_buffer = true) const;
+    void createBuffer(VkBufferWrapper&, VkDeviceSize size);
     void destroyBuffer(VkBufferWrapper&) const noexcept;
 
     void updateBuffer(VkBufferWrapper&, size_t data_size, const std::function<void(void*)>&, VkCommandBuffer = VK_NULL_HANDLE);
@@ -437,6 +436,8 @@ private:
     VertexBuffer m_instance_vertex_buffer;
 
     /*--- buffers ---*/
+    VkBufferWrapper m_dir_shadow_map_buffer;
+    VkBufferWrapper m_point_shadow_map_buffer;
     VkBufferWrapper m_bone_transform_buffer;
 
     /*--- dir lights ---*/
@@ -461,6 +462,9 @@ private:
     VkSampleCountFlagBits m_sample_count = VK_SAMPLE_COUNT_1_BIT;
     bool m_vsync_disable_support = false;
     bool m_vsync = true;
+
+    std::vector<VkSemaphore> m_wait_semaphores;
+    std::vector<VkPipelineStageFlags> m_submit_wait_flags;
 
 /*---------------------------------------------------------------------------------------------------------*/
 /*------------------------------------------ render mode params -------------------------------------------*/

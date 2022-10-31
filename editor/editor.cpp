@@ -785,17 +785,20 @@ void Editor::updatePointLightBillboards()
     /*point light billboards*/
     m_vertex_billboard_data.resize(m_scene.staticPointLights().size());
 
-    for(size_t i = 0; i < m_scene.staticPointLights().size(); i++)
+    if(!m_scene.staticPointLights().empty())
     {
-        auto& v = m_vertex_billboard_data[i];
-        v.color = m_selected_point_light_id && i == *m_selected_point_light_id ? ColorRGBA(1.0f, 1.0f, 1.0f, 1.0f) : ColorRGBA(0.5f, 0.5f, 0.5f, 1.0f);
-        v.tex_id = m_engine3d.loadTexture("point_light.png");
-        v.layer_id = 0;
-        v.center_pos = m_scene.staticPointLights()[i].pos;
-        v.size = vec2(m_billboard_size_x, m_billboard_size_y);
-    }
+        for(size_t i = 0; i < m_scene.staticPointLights().size(); i++)
+        {
+            auto& v = m_vertex_billboard_data[i];
+            v.color = m_selected_point_light_id && i == *m_selected_point_light_id ? ColorRGBA(1.0f, 1.0f, 1.0f, 1.0f) : ColorRGBA(0.5f, 0.5f, 0.5f, 1.0f);
+            v.tex_id = m_engine3d.loadTexture("point_light.png");
+            v.layer_id = 0;
+            v.center_pos = m_scene.staticPointLights()[i].pos;
+            v.size = vec2(m_billboard_size_x, m_billboard_size_y);
+        }
 
-    m_engine3d.updateVertexData(m_billboard_vb_alloc.vb, m_billboard_vb_alloc.data_offset, sizeof(VertexBillboard) * m_vertex_billboard_data.size(), m_vertex_billboard_data.data());
+        m_engine3d.updateVertexData(m_billboard_vb_alloc.vb, m_billboard_vb_alloc.data_offset, sizeof(VertexBillboard) * m_vertex_billboard_data.size(), m_vertex_billboard_data.data());
+    }
 }
 
 #endif //EDITOR_ENABLE

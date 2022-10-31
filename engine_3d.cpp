@@ -11,7 +11,9 @@
 
 #include <png.h>
 
+#if VULKAN_VALIDATION_ENABLE
 static VkBool32 debugReportCallback(VkDebugUtilsMessageSeverityFlagBitsEXT, VkDebugUtilsMessageTypeFlagsEXT, const VkDebugUtilsMessengerCallbackDataEXT*, void*);
+#endif
 
 /*---------------- helper methods ----------------*/
 static void checkIfLayersAndExtensionsAvailable(const std::vector<const char*>& layers, const std::vector<const char*>& extensions)
@@ -242,7 +244,7 @@ void Engine3D::destroyImage(VkImageWrapper& image) const noexcept
     image.mem = VK_NULL_HANDLE;
 }
 
-void Engine3D::createBuffer(VkBufferWrapper& buffer, VkDeviceSize size, bool force_transfer_buffer) const
+void Engine3D::createBuffer(VkBufferWrapper& buffer, VkDeviceSize size)
 {
     if(buffer.transfer_buffer)
     {
@@ -290,10 +292,38 @@ void Engine3D::createBuffer(VkBufferWrapper& buffer, VkDeviceSize size, bool for
 
     buffer.size = size;
 
-    if(force_transfer_buffer || (!buffer.host_visible && buffer.size > SMALL_BUFFER_SIZE))
+    if(buffer.use_transfer_buffer && !buffer.host_visible)
     {
-        buffer.transfer_buffer = std::make_unique<VkBufferWrapper>(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, true);
-        createBuffer(*buffer.transfer_buffer, size, false);
+        buffer.transfer_buffer = std::make_unique<VkBufferWrapper>(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, true, false);
+        createBuffer(*buffer.transfer_buffer, size);
+
+        VkCommandBufferAllocateInfo cmd_buf_alloc_info{};
+        cmd_buf_alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        cmd_buf_alloc_info.pNext = NULL;
+        //TODO: consider using a different command pool for that, which might use a different queue family (specifically a transfer one)
+        cmd_buf_alloc_info.commandPool = m_command_pool;
+        cmd_buf_alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        //TODO: consider allocating all the command buffers for this in bulk, rather than 1 at a time for each buffer, if possible
+        cmd_buf_alloc_info.commandBufferCount = 1;
+
+        res = vkAllocateCommandBuffers(m_device, &cmd_buf_alloc_info, &buffer.cmd_buf);
+        assertVkSuccess(res, "Failed to allocate a buffer command buffer.");
+
+        VkFenceCreateInfo fence_create_info{};
+        fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+        fence_create_info.pNext = NULL;
+        fence_create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+        res = vkCreateFence(m_device, &fence_create_info, NULL, &buffer.fence);
+        assertVkSuccess(res, "Failed to create a buffer fence.");
+
+        VkSemaphoreCreateInfo sem_create_info{};
+        sem_create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+        sem_create_info.pNext = NULL;
+        sem_create_info.flags = 0;
+
+        res = vkCreateSemaphore(m_device, &sem_create_info, NULL, &buffer.semaphore);
+        assertVkSuccess(res, "Failed to create a buffer semaphore.");
     }
 }
 
@@ -302,10 +332,15 @@ void Engine3D::destroyBuffer(VkBufferWrapper& buffer) const noexcept
     vkFreeMemory(m_device, buffer.mem, NULL);
     vkDestroyBufferView(m_device, buffer.buf_view, NULL);
     vkDestroyBuffer(m_device, buffer.buf, NULL);
+    vkDestroyFence(m_device, buffer.fence, NULL);
+    vkDestroySemaphore(m_device, buffer.semaphore, NULL);
 
     buffer.buf = VK_NULL_HANDLE;
     buffer.buf_view = VK_NULL_HANDLE;
     buffer.mem = VK_NULL_HANDLE;
+    buffer.fence = VK_NULL_HANDLE;
+    buffer.semaphore = VK_NULL_HANDLE;
+    buffer.cmd_buf = VK_NULL_HANDLE;
     buffer.size = 0;
     buffer.req_size = 0;
 
@@ -313,93 +348,6 @@ void Engine3D::destroyBuffer(VkBufferWrapper& buffer) const noexcept
     {
         destroyBuffer(*buffer.transfer_buffer);
     }
-}
-
-void Engine3D::updateBuffer(VkBufferWrapper& buffer, size_t data_size, const std::function<void(void*)>& copy_fun, VkCommandBuffer cmd_buf)
-{
-    if(buffer.size < data_size)
-    {
-        destroyBuffer(buffer);
-        createBuffer(buffer, data_size);
-    }
-
-    if(buffer.host_visible)
-    {
-        void* ptr;
-        VkResult res = vkMapMemory(m_device, buffer.mem, 0, buffer.size, 0, &ptr);
-        assertVkSuccess(res, "Failed to map buffer memory.");
-
-        copy_fun(ptr);
-
-        vkUnmapMemory(m_device, buffer.mem);
-    }
-    else if(buffer.size <= SMALL_BUFFER_SIZE)
-    {
-        std::vector<uint8_t> data_buf(buffer.size);
-        copy_fun(data_buf.data());
-
-        vkCmdUpdateBuffer(cmd_buf, buffer.buf, 0, data_buf.size(), data_buf.data());
-    }
-    else
-    {
-        void* ptr;
-        VkResult res = vkMapMemory(m_device, buffer.transfer_buffer->mem, 0, buffer.size, 0, &ptr);
-        assertVkSuccess(res, "Failed to map buffer memory.");
-
-        copy_fun(ptr);
-
-        vkUnmapMemory(m_device, buffer.transfer_buffer->mem);
-
-        VkBufferCopy buf_cpy_region{0, 0, buffer.size};
-
-        vkCmdCopyBuffer(cmd_buf, buffer.transfer_buffer->buf, buffer.buf, 1, &buf_cpy_region);
-    }
-
-    //TODO: if we vkMapMemory here and the buffer is not host coherent, then we need to flush
-    //this may be better handled in bulk in updateAndRender() that updates multiple buffer and could only flush once at the end
-    //(also, maybe we can use a barrier instead of a flush in updateAndRender() ?)
-}
-
-void Engine3D::updateBuffer(VkBufferWrapper& buffer, size_t data_size, const void* data, VkCommandBuffer cmd_buf)
-{
-    if(buffer.size < data_size)
-    {
-        destroyBuffer(buffer);
-        createBuffer(buffer, data_size);
-    }
-
-    if(buffer.host_visible)
-    {
-        void* ptr;
-        VkResult res = vkMapMemory(m_device, buffer.mem, 0, buffer.size, 0, &ptr);
-        assertVkSuccess(res, "Failed to map buffer memory.");
-
-        std::memcpy(ptr, data, data_size);
-
-        vkUnmapMemory(m_device, buffer.mem);
-    }
-    else if(buffer.size <= SMALL_BUFFER_SIZE)
-    {
-        vkCmdUpdateBuffer(cmd_buf, buffer.buf, 0, data_size, data);
-    }
-    else
-    {
-        void* ptr;
-        VkResult res = vkMapMemory(m_device, buffer.transfer_buffer->mem, 0, buffer.size, 0, &ptr);
-        assertVkSuccess(res, "Failed to map buffer memory.");
-
-        std::memcpy(ptr, data, data_size);
-
-        vkUnmapMemory(m_device, buffer.transfer_buffer->mem);
-
-        VkBufferCopy buf_cpy_region{0, 0, buffer.size};
-
-        vkCmdCopyBuffer(cmd_buf, buffer.transfer_buffer->buf, buffer.buf, 1, &buf_cpy_region);
-    }
-
-    //TODO: if we vkMapMemory here and the buffer is not host coherent, then we need to flush
-    //this may be better handled in bulk in updateAndRender() that updates multiple buffer and could only flush once at the end
-    //(also, maybe we can use a barrier instead of a flush in updateAndRender() ?)
 }
 
 uint32_t Engine3D::loadTexture(std::string_view texture_filename)
@@ -538,7 +486,7 @@ std::vector<uint32_t> Engine3D::loadTexturesGeneric(const std::vector<std::strin
     and read all the png files raw data and copy it to the vulkan buffer;
     then we'll have to copy the image data from the vulkan buffer to the
     respective vulkan images for each texture*/
-    VkBufferWrapper tex_buf(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, true);
+    VkBufferWrapper tex_buf(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, true, false);
     createBuffer(tex_buf, total_size * 4);
 
     /*having created the texture buffer and allocated and bound memory to it
@@ -768,8 +716,10 @@ std::vector<uint32_t> Engine3D::loadTexturesGeneric(const std::vector<std::strin
 
 Engine3D::Engine3D(const Window& window, std::string_view app_name)
     : m_render_batches(10000)
-    , m_bone_transform_buffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false)
-    , m_terrain_buffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, true)
+    , m_dir_shadow_map_buffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT)
+    , m_point_shadow_map_buffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT)
+    , m_bone_transform_buffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT)
+    , m_terrain_buffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT)
 {
     try
     {
@@ -822,8 +772,6 @@ void Engine3D::destroy() noexcept
             destroyBuffer(*per_frame_data.dir_light_valid_buffer);
             destroyBuffer(*per_frame_data.point_light_buffer);
             destroyBuffer(*per_frame_data.point_light_valid_buffer);
-            destroyBuffer(*per_frame_data.dir_shadow_map_buffer);
-            destroyBuffer(*per_frame_data.point_shadow_map_buffer);
         }
 
         for(auto& vb : m_vertex_buffers)
@@ -832,6 +780,8 @@ void Engine3D::destroy() noexcept
         }
 
         destroyBuffer(m_instance_vertex_buffer);
+        destroyBuffer(m_dir_shadow_map_buffer);
+        destroyBuffer(m_point_shadow_map_buffer);
         destroyBuffer(m_bone_transform_buffer);
         destroyBuffer(m_terrain_buffer);
 
@@ -863,6 +813,13 @@ void Engine3D::resizeBuffers()
 
         if(buf->req_size > buf->size)
         {
+            //TODO: this is a hack - currently only vertex buffers don't use descriptors so this works,
+            //but we should use a more robust way of checking if resizing/recreating a buffer requires a descriptor update
+            if(!(buf->usage_flags & VK_BUFFER_USAGE_VERTEX_BUFFER_BIT))
+            {
+                m_update_descriptors = true;
+            }
+
             //TODO: do this first time creation elsewhere?
             if(buf->buf == VK_NULL_HANDLE)
             {
@@ -879,7 +836,8 @@ void Engine3D::resizeBuffers()
                 assertVkSuccess(res, "Failed to map buffer memory");
                 req.second.insert(req.second.begin(), {0, old_buf->size, old_data});
 
-                m_per_frame_data[(m_frame_id + 1) % FRAMES_IN_FLIGHT].bufs_to_destroy.push_back(old_buf);
+                const uint8_t prev_frame_id = (m_frame_id == 0) ? (FRAMES_IN_FLIGHT - 1) : (m_frame_id - 1);
+                m_per_frame_data[prev_frame_id].bufs_to_destroy.push_back(old_buf);
             }
         }
     }
@@ -889,22 +847,57 @@ void Engine3D::updateBuffers()
 {
     for(auto& mapping : m_buffer_update_reqs)
     {
-        if(!mapping.second.empty())
+        VkBufferWrapper* buf = mapping.first;
+
+        void* dst = nullptr;
+        VkResult res = vkMapMemory(m_device, buf->transfer_buffer->mem, 0, buf->size, 0, &dst);
+        assertVkSuccess(res, "Failed to map buffer memory");
+
+        res = vkWaitForFences(m_device, 1, &buf->fence, VK_TRUE, UINT64_MAX);
+        assertVkSuccess(res, "An error occured while waiting for a buffer fence.");
+
+        VkCommandBufferBeginInfo begin_info{};
+        begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        begin_info.pNext = NULL;
+        begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        begin_info.pInheritanceInfo = NULL;
+
+        res = vkBeginCommandBuffer(buf->cmd_buf, &begin_info);
+        assertVkSuccess(res, "An error occurred while begining a buffer transfer command buffer.");
+
+        for(auto& req : mapping.second)
         {
-            auto buf = mapping.first;
+            void* const offset_dst = reinterpret_cast<void*>(reinterpret_cast<std::uintptr_t>(dst) + req.data_offset);
+            std::memcpy(offset_dst, req.data, req.data_size);
 
-            void* dst = nullptr;
-            VkResult res = vkMapMemory(m_device, buf->transfer_buffer->mem, 0, buf->size, 0, &dst);
-            assertVkSuccess(res, "Failed to map buffer memory");
-
-            for(auto& req : mapping.second)
-            {
-                void* const offset_dst = reinterpret_cast<void*>(reinterpret_cast<std::uintptr_t>(dst) + req.data_offset);
-                std::memcpy(offset_dst, req.data, req.data_size);
-            }
-
-            vkUnmapMemory(m_device, buf->transfer_buffer->mem);
+            VkBufferCopy buf_copy = {req.data_offset, req.data_offset, req.data_size};
+            vkCmdCopyBuffer(buf->cmd_buf, buf->transfer_buffer->buf, buf->buf, 1, &buf_copy);
         }
+
+        res = vkEndCommandBuffer(buf->cmd_buf);
+        assertVkSuccess(res, "An error occurred when ending a buffer transfer command buffer.");
+
+        vkUnmapMemory(m_device, buf->transfer_buffer->mem);
+
+        VkSubmitInfo submit_info{};
+        submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submit_info.pNext = NULL;
+        submit_info.waitSemaphoreCount = 0;
+        submit_info.pWaitSemaphores = NULL;
+        submit_info.pWaitDstStageMask = 0;
+        submit_info.commandBufferCount = 1;
+        submit_info.pCommandBuffers = &buf->cmd_buf;
+        submit_info.signalSemaphoreCount = 1;
+        submit_info.pSignalSemaphores = &buf->semaphore;
+
+        res = vkResetFences(m_device, 1, &buf->fence);
+        assertVkSuccess(res, "An error occurred while reseting a buffer fence.");
+
+        res = vkQueueSubmit(m_queue, 1, &submit_info, buf->fence);
+        assertVkSuccess(res, "Failed to submit buffer transfer commands.");
+
+        m_wait_semaphores.push_back(buf->semaphore);
+        m_submit_wait_flags.push_back(buf->wait_stage);
     }
 }
 
@@ -912,6 +905,7 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
 {
     m_frame_id = (m_frame_id + 1) % FRAMES_IN_FLIGHT;
     auto& per_frame_data = m_per_frame_data[m_frame_id];
+    VkResult res;
 
     m_common_buffer_data.VP = camera.viewProj();
     m_common_buffer_data.V = camera.view();
@@ -930,32 +924,23 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
     m_common_buffer_data.terrain_patch_size_x = render_data.terrain_patch_size_x;
     m_common_buffer_data.terrain_patch_size_z = render_data.terrain_patch_size_z;
 
-    for(auto buf_to_destroy : per_frame_data.bufs_to_destroy)
+    //update all dir shadow maps every frame as they depend on the camera and we can assume the camera will change every frame
+    //TODO: verify the above, as it may no longer be true
+    for(DirLightId i = 0; i < m_common_buffer_data.dir_light_count; i++)
     {
-        destroyBuffer(*buf_to_destroy);
+        if(m_dir_lights_valid[i] && m_dir_lights[i].shadow_map_count)
+        {
+            updateDirShadowMap(camera, m_dir_lights[i]);
+        }
     }
-    per_frame_data.bufs_to_destroy.clear();
 
-    //TODO: synch here before resizing and updating buffers
-    deviceWaitIdle();
-    //TODO: set m_update_descriptors = true if we resized any buffers that we have descriptors for
-    resizeBuffers();
-    updateBuffers();
-
-    if(m_update_descriptors)
+    //only update point shadow maps for the point lights that have changed this frame
+    for(PointLightId id : per_frame_data.point_lights_to_update)
     {
-        deviceWaitIdle();
-
-        destroyPipelines();
-        destroyPipelineLayout();
-        destroyDescriptorSets();
-
-        createDescriptorSets();
-        createPipelineLayout();
-        createPipelines();
-        updateDescriptorSets();
-
-        m_update_descriptors = false;
+        if(m_point_lights_valid[id] && m_point_lights[id].shadow_map_res)
+        {
+            updatePointShadowMap(m_point_lights[id]);
+        }
     }
 
     std::vector<bool> cull(m_render_batch_count);
@@ -976,29 +961,6 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
             cull[i] = false;
         }
     }
-
-    //update all dir shadow maps every frame as they depend on the camera and we can assume the camera will change every frame
-    for(DirLightId i = 0; i < m_common_buffer_data.dir_light_count; i++)
-    {
-        if(m_dir_lights_valid[i] && m_dir_lights[i].shadow_map_count)
-        {
-            updateDirShadowMap(camera, m_dir_lights[i]);
-        }
-    }
-
-    //only update point shadow maps for the point lights that have changed this frame
-    for(PointLightId id : per_frame_data.point_lights_to_update)
-    {
-        if(m_point_lights_valid[id] && m_point_lights[id].shadow_map_res)
-        {
-            updatePointShadowMap(m_point_lights[id]);
-        }
-    }
-
-    VkCommandBuffer cmd_buf = per_frame_data.cmd_buf;
-
-    VkResult res = vkWaitForFences(m_device, 1, &per_frame_data.cmd_buf_ready_fence, VK_TRUE, UINT64_MAX);
-    assertVkSuccess(res, "An error occured while waiting for a fence.");
 
     for(auto id : per_frame_data.dir_shadow_maps_to_destroy)
     {
@@ -1036,22 +998,25 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
     }
     per_frame_data.point_shadow_maps_to_destroy.clear();
 
-    const size_t dir_shadow_map_data_size = MAX_DIR_SHADOW_MAP_PARTITIONS * m_dir_shadow_map_count * sizeof(DirShadowMapData);
-    const size_t point_shadow_map_data_size = m_point_shadow_map_count * sizeof(PointShadowMapData);
+    resizeBuffers();
+    updateBuffers();
+    m_buffer_update_reqs.clear();
 
-    //dir shadow map data copy callback
-    const auto copy_dir_shadow_map_data = [&](void* ptr)
+    if(m_update_descriptors)
     {
-        uint8_t* dst = reinterpret_cast<uint8_t*>(ptr);
-        std::memcpy(dst, m_dir_shadow_map_data.data(), dir_shadow_map_data_size);
-    };
+        deviceWaitIdle();
 
-    //point shadow map data copy callback
-    const auto copy_point_shadow_map_data = [&](void* ptr)
-    {
-        uint8_t* dst = reinterpret_cast<uint8_t*>(ptr);
-        std::memcpy(dst, m_point_shadow_map_data.data(), point_shadow_map_data_size);
-    };
+        destroyPipelines();
+        destroyPipelineLayout();
+        destroyDescriptorSets();
+
+        createDescriptorSets();
+        createPipelineLayout();
+        createPipelines();
+        updateDescriptorSets();
+
+        m_update_descriptors = false;
+    }
 
     uint32_t image_id;
     res = vkAcquireNextImageKHR(m_device, m_swapchain, 0, per_frame_data.image_acquire_semaphore, VK_NULL_HANDLE, &image_id);
@@ -1068,6 +1033,17 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
             throw std::runtime_error(errorMsg("Failed to aqcuire swapchain image.", res));
         }
     }
+
+    VkCommandBuffer cmd_buf = per_frame_data.cmd_buf;
+
+    res = vkWaitForFences(m_device, 1, &per_frame_data.cmd_buf_ready_fence, VK_TRUE, UINT64_MAX);
+    assertVkSuccess(res, "An error occured while waiting for a fence.");
+
+    for(auto buf_to_destroy : per_frame_data.bufs_to_destroy)
+    {
+        destroyBuffer(*buf_to_destroy);
+    }
+    per_frame_data.bufs_to_destroy.clear();
 
     /*--------------------- command recording begin ---------------------*/
     VkCommandBufferBeginInfo begin_info{};
@@ -1087,22 +1063,6 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
         VkBufferMemoryBarrier buf_mem_bar = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER, NULL, 0, VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, common_buf, 0, sizeof(m_common_buffer_data)};
         vkCmdPipelineBarrier(cmd_buf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, 0, 0, NULL, 1, &buf_mem_bar, 0, NULL);
     }
-
-    for(const auto& req : m_buffer_update_reqs)
-    {
-        auto buffer = req.first;
-
-        VkBufferCopy buf_cpy_region{0, 0, buffer->size};
-        vkCmdCopyBuffer(cmd_buf, buffer->transfer_buffer->buf, buffer->buf, 1, &buf_cpy_region);
-
-        //TODO: add appropriate barriers here! barriers should depend on buffer type/usage so will have to figure something out here
-        //might for instance store the relevant pipeline stages/accesses used in a barrier inside the VkBufferWrapper struct and generically
-        //do barriers for reach buffer here
-        //ALSO: the buffer transfer here will need to be synchronized between frames (with access to the buffers in the subsequent frames)
-        //and so we'll need to add some synchronization code here, possibly even move the transfer to a separate command buffer
-        //(in that case the barriers won't be necessary?)
-    }
-    m_buffer_update_reqs.clear();
 
     if(!per_frame_data.dir_lights_to_update.empty())
     {
@@ -1124,25 +1084,6 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
 
         VkBufferMemoryBarrier buf_mem_bar = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER, NULL, 0, VK_ACCESS_SHADER_READ_BIT, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, per_frame_data.point_light_buffer->buf, 0, m_common_buffer_data.point_light_count * sizeof(PointLightShaderData)};
         vkCmdPipelineBarrier(cmd_buf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, NULL, 1, &buf_mem_bar, 0, NULL);
-    }
-
-    if(dir_shadow_map_data_size != 0)
-    {
-        VkBufferWrapper& shadow_map_buffer = *per_frame_data.dir_shadow_map_buffer;
-
-        updateBuffer(shadow_map_buffer, dir_shadow_map_data_size, copy_dir_shadow_map_data, cmd_buf);
-        VkBufferMemoryBarrier buf_mem_bar = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER, NULL, 0, VK_ACCESS_SHADER_READ_BIT, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, shadow_map_buffer.buf, 0, dir_shadow_map_data_size};
-        vkCmdPipelineBarrier(cmd_buf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT, 0, 0, NULL, 1, &buf_mem_bar, 0, NULL);
-    }
-
-    //TODO:only update point shadow maps for point lights that got updated this frame
-    if(point_shadow_map_data_size != 0)
-    {
-        VkBufferWrapper& shadow_map_buffer = *per_frame_data.point_shadow_map_buffer;
-
-        updateBuffer(shadow_map_buffer, point_shadow_map_data_size, copy_point_shadow_map_data, cmd_buf);
-        VkBufferMemoryBarrier buf_mem_bar = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER, NULL, 0, VK_ACCESS_SHADER_READ_BIT, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, shadow_map_buffer.buf, 0, point_shadow_map_data_size};
-        vkCmdPipelineBarrier(cmd_buf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT, 0, 0, NULL, 1, &buf_mem_bar, 0, NULL);
     }
 
     //TODO: set some flag if we need to update light valid buffers if we actually change any lights
@@ -1353,14 +1294,15 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
     assertVkSuccess(res, "Failed to record command buffer.");
     /*--------------------- command recording end ---------------------*/
 
-    VkPipelineStageFlags submit_wait_flags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    m_wait_semaphores.push_back(per_frame_data.image_acquire_semaphore);
+    m_submit_wait_flags.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 
     VkSubmitInfo submit_info{};
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submit_info.pNext = NULL;
-    submit_info.waitSemaphoreCount = 1;
-    submit_info.pWaitSemaphores = &per_frame_data.image_acquire_semaphore;
-    submit_info.pWaitDstStageMask = &submit_wait_flags;
+    submit_info.waitSemaphoreCount = m_wait_semaphores.size();
+    submit_info.pWaitSemaphores = m_wait_semaphores.data();
+    submit_info.pWaitDstStageMask = m_submit_wait_flags.data();
     submit_info.commandBufferCount = 1;
     submit_info.pCommandBuffers = &cmd_buf;
     submit_info.signalSemaphoreCount = 1;
@@ -1371,6 +1313,9 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
 
     res = vkQueueSubmit(m_queue, 1, &submit_info, per_frame_data.cmd_buf_ready_fence);
     assertVkSuccess(res, "Failed to submit commands.");
+
+    m_wait_semaphores.clear();
+    m_submit_wait_flags.clear();
 
     VkPresentInfoKHR present_info{};
     present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -1462,7 +1407,7 @@ void Engine3D::loadFonts(const std::vector<const Font*>& fonts)
         const uint32_t tex_width = font->texWidth();
         const uint32_t tex_height = font->texHeight();
 
-        auto& tex_buf = tex_buffers.emplace_back(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, true);
+        auto& tex_buf = tex_buffers.emplace_back(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, true, false);
         createBuffer(tex_buf, bitmaps.size() * tex_width * tex_height);
 
         /*having created the texture buffer and allocated and bound memory to it
@@ -1656,24 +1601,29 @@ void Engine3D::freeTerrainBufferAllocation()
     m_terrain_buffer.free(0, m_terrain_buffer.size);
 }
 
+void Engine3D::requestBufferUpdate(VkBufferWrapper* buf, uint64_t data_offset, uint64_t data_size, const void* data)
+{
+    m_buffer_update_reqs[buf].emplace_back(data_offset, data_size, data);
+}
+
 void Engine3D::updateVertexData(VertexBuffer* vb, uint64_t data_offset, uint64_t data_size, const void* data)
 {
-    m_buffer_update_reqs[vb].emplace_back(data_offset, data_size, data);
+    requestBufferUpdate(vb, data_offset, data_size, data);
 }
 
 void Engine3D::updateInstanceVertexData(uint32_t instance_id, uint32_t instance_count, const void* data)
 {
-    m_buffer_update_reqs[&m_instance_vertex_buffer].emplace_back(instance_id * sizeof(InstanceVertexData), instance_count * sizeof(InstanceVertexData), data);
+    requestBufferUpdate(&m_instance_vertex_buffer, instance_id * sizeof(InstanceVertexData), instance_count * sizeof(InstanceVertexData), data);
 }
 
 void Engine3D::updateBoneTransformData(uint32_t bone_offset, uint32_t bone_count, const mat4x4* data)
 {
-    m_buffer_update_reqs[&m_bone_transform_buffer].emplace_back(bone_offset * sizeof(mat4x4), bone_count * sizeof(mat4x4), data);
+    requestBufferUpdate(&m_bone_transform_buffer, bone_offset * sizeof(mat4x4), bone_count * sizeof(mat4x4), data);
 }
 
 void Engine3D::updateTerrainData(void* data, uint64_t offset, uint64_t size)
 {
-    m_buffer_update_reqs[&m_terrain_buffer].emplace_back(offset, size, data);
+    requestBufferUpdate(&m_terrain_buffer, offset, size, data);
 }
 
 void Engine3D::draw(RenderMode render_mode, VertexBuffer* vb, uint32_t vertex_offset, uint32_t vertex_count, uint32_t instance_id, std::optional<Sphere> bounding_sphere, std::optional<Quad> scissor)
@@ -1873,11 +1823,7 @@ void Engine3D::updateDescriptorSets() noexcept
         point_light_buf_infos[i] = {m_per_frame_data[i].point_light_buffer->buf, 0, VK_WHOLE_SIZE};
     }
 
-    std::vector<VkDescriptorBufferInfo> dir_shadow_map_buf_infos(FRAMES_IN_FLIGHT);
-    for(uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++)
-    {
-        dir_shadow_map_buf_infos[i] = {m_per_frame_data[i].dir_shadow_map_buffer->buf, 0, VK_WHOLE_SIZE};
-    }
+    VkDescriptorBufferInfo dir_shadow_map_buf_info = {m_dir_shadow_map_buffer.buf, 0, m_dir_shadow_map_buffer.size};
 
     std::vector<std::vector<VkDescriptorImageInfo>> dir_shadow_map_img_infos(FRAMES_IN_FLIGHT);
     for(uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++)
@@ -1889,11 +1835,7 @@ void Engine3D::updateDescriptorSets() noexcept
         }
     }
 
-    std::vector<VkDescriptorBufferInfo> point_shadow_map_buf_infos(FRAMES_IN_FLIGHT);
-    for(uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++)
-    {
-        point_shadow_map_buf_infos[i] = {m_per_frame_data[i].point_shadow_map_buffer->buf, 0, VK_WHOLE_SIZE};
-    }
+    VkDescriptorBufferInfo point_shadow_map_buf_info = {m_point_shadow_map_buffer.buf, 0, m_point_shadow_map_buffer.size};
 
     std::vector<std::vector<VkDescriptorImageInfo>> point_shadow_map_img_infos(FRAMES_IN_FLIGHT);
     for(uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++)
@@ -1930,7 +1872,7 @@ void Engine3D::updateDescriptorSets() noexcept
         desc_set_writes.emplace_back(VkWriteDescriptorSet{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, NULL, m_per_frame_data[i].descriptor_set, DIR_LIGHTS_VALID_BINDING,    0, m_dir_lights_valid_desc_count, m_dir_lights_valid_desc_type, NULL, NULL, &m_per_frame_data[i].dir_light_valid_buffer->buf_view});
         desc_set_writes.emplace_back(VkWriteDescriptorSet{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, NULL, m_per_frame_data[i].descriptor_set, POINT_LIGHTS_BINDING,        0, m_point_lights_desc_count,   m_point_lights_desc_type, NULL, &point_light_buf_infos[i], NULL});
         desc_set_writes.emplace_back(VkWriteDescriptorSet{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, NULL, m_per_frame_data[i].descriptor_set, POINT_LIGHTS_VALID_BINDING,  0, m_point_lights_valid_desc_count, m_point_lights_valid_desc_type, NULL, NULL, &m_per_frame_data[i].point_light_valid_buffer->buf_view});
-        desc_set_writes.emplace_back(VkWriteDescriptorSet{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, NULL, m_per_frame_data[i].descriptor_set, DIR_SM_BUF_BINDING,          0, m_dir_sm_buf_desc_count,     m_dir_sm_buf_desc_type, NULL, &dir_shadow_map_buf_infos[i], NULL});
+        desc_set_writes.emplace_back(VkWriteDescriptorSet{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, NULL, m_per_frame_data[i].descriptor_set, DIR_SM_BUF_BINDING,          0, m_dir_sm_buf_desc_count,     m_dir_sm_buf_desc_type, NULL, &dir_shadow_map_buf_info, NULL});
 
         const uint32_t valid_dir_sm_desc_count = static_cast<uint32_t>(dir_shadow_map_img_infos[i].size());
         if(valid_dir_sm_desc_count > 0)
@@ -1938,7 +1880,7 @@ void Engine3D::updateDescriptorSets() noexcept
             desc_set_writes.emplace_back(VkWriteDescriptorSet{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, NULL, m_per_frame_data[i].descriptor_set, DIR_SM_BINDING, 0, valid_dir_sm_desc_count, m_dir_sm_desc_type, dir_shadow_map_img_infos[i].data(), NULL, NULL});
         }
 
-        desc_set_writes.emplace_back(VkWriteDescriptorSet{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, NULL, m_per_frame_data[i].descriptor_set, POINT_SM_BUF_BINDING, 0, m_point_sm_buf_desc_count, m_point_sm_buf_desc_type, NULL, &point_shadow_map_buf_infos[i], NULL});
+        desc_set_writes.emplace_back(VkWriteDescriptorSet{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, NULL, m_per_frame_data[i].descriptor_set, POINT_SM_BUF_BINDING, 0, m_point_sm_buf_desc_count, m_point_sm_buf_desc_type, NULL, &point_shadow_map_buf_info, NULL});
 
         const uint32_t valid_point_sm_desc_count = static_cast<uint32_t>(point_shadow_map_img_infos[i].size());
         if(valid_point_sm_desc_count > 0)
@@ -2359,7 +2301,7 @@ void Engine3D::createCommandPool()
     pool_create_info.queueFamilyIndex = m_queue_family_index;
 
     VkResult res = vkCreateCommandPool(m_device, &pool_create_info, NULL, &m_command_pool);
-    assertVkSuccess(res, "Failed to create command pool.");
+    assertVkSuccess(res, "Failed to create a command pool.");
 }
 
 void Engine3D::createMainRenderPass()
@@ -2581,7 +2523,7 @@ void Engine3D::createDescriptorSets()
     std::vector<VkDescriptorPoolSize> desc_pool_sizes =
     {
           {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, (m_tex_desc_count + m_font_desc_count + m_dir_sm_desc_count + m_point_sm_desc_count + m_normal_map_desc_count) * FRAMES_IN_FLIGHT}
-        , {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, (m_common_buf_desc_count + m_dir_lights_desc_count + m_point_lights_desc_count + m_dir_sm_buf_desc_count + m_point_sm_buf_desc_count) * FRAMES_IN_FLIGHT}
+        , {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, (m_common_buf_desc_count + m_dir_lights_desc_count + m_point_lights_desc_count) * FRAMES_IN_FLIGHT + m_dir_sm_buf_desc_count + m_point_sm_buf_desc_count}
         , {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, (m_dir_lights_valid_desc_count + m_point_lights_valid_desc_count) * FRAMES_IN_FLIGHT}
         , {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, m_terrain_desc_count * FRAMES_IN_FLIGHT + m_bone_transform_buf_desc_count}
     };
@@ -4871,26 +4813,20 @@ void Engine3D::createBuffers()
     //create buffers
     for(size_t i = 0; i < FRAMES_IN_FLIGHT; i++)
     {
-        m_per_frame_data[i].common_buffer = std::make_unique<VkBufferWrapper>(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false);
-        createBuffer(*m_per_frame_data[i].common_buffer , sizeof(m_common_buffer_data));
+        m_per_frame_data[i].common_buffer = std::make_unique<VkBufferWrapper>(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, false);
+        createBuffer(*m_per_frame_data[i].common_buffer, sizeof(m_common_buffer_data));
 
-        m_per_frame_data[i].dir_light_buffer = std::make_unique<VkBufferWrapper>(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false);
-        createBuffer(*m_per_frame_data[i].dir_light_buffer , SMALL_BUFFER_SIZE);
+        m_per_frame_data[i].dir_light_buffer = std::make_unique<VkBufferWrapper>(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, false);
+        createBuffer(*m_per_frame_data[i].dir_light_buffer, MAX_DIR_LIGHT_COUNT * sizeof(DirLightShaderData));
 
-        m_per_frame_data[i].dir_light_valid_buffer = std::make_unique<VkBufferWrapper>(VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, VK_FORMAT_R8_UINT);
-        createBuffer(*m_per_frame_data[i].dir_light_valid_buffer , MAX_DIR_LIGHT_COUNT);
+        m_per_frame_data[i].dir_light_valid_buffer = std::make_unique<VkBufferWrapper>(VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, VK_FORMAT_R8_UINT, false);
+        createBuffer(*m_per_frame_data[i].dir_light_valid_buffer, MAX_DIR_LIGHT_COUNT);
 
-        m_per_frame_data[i].point_light_buffer = std::make_unique<VkBufferWrapper>(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false);
-        createBuffer(*m_per_frame_data[i].point_light_buffer , SMALL_BUFFER_SIZE);
+        m_per_frame_data[i].point_light_buffer = std::make_unique<VkBufferWrapper>(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, false);
+        createBuffer(*m_per_frame_data[i].point_light_buffer, MAX_POINT_LIGHT_COUNT * sizeof(PointLightShaderData));
 
-        m_per_frame_data[i].point_light_valid_buffer = std::make_unique<VkBufferWrapper>(VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, VK_FORMAT_R8_UINT);
-        createBuffer(*m_per_frame_data[i].point_light_valid_buffer , MAX_POINT_LIGHT_COUNT);
-
-        m_per_frame_data[i].dir_shadow_map_buffer = std::make_unique<VkBufferWrapper>(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false);
-        createBuffer(*m_per_frame_data[i].dir_shadow_map_buffer , SMALL_BUFFER_SIZE);
-
-        m_per_frame_data[i].point_shadow_map_buffer = std::make_unique<VkBufferWrapper>(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false);
-        createBuffer(*m_per_frame_data[i].point_shadow_map_buffer , SMALL_BUFFER_SIZE);
+        m_per_frame_data[i].point_light_valid_buffer = std::make_unique<VkBufferWrapper>(VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, VK_FORMAT_R8_UINT, false);
+        createBuffer(*m_per_frame_data[i].point_light_valid_buffer, MAX_POINT_LIGHT_COUNT);
 
         //TODO: when buffers are later destroyed and created anew when they need to be resized, we lose these debug names
         //should find a way to make sure we can set the debug names even after we recreate them later
@@ -4900,13 +4836,16 @@ void Engine3D::createBuffers()
         setDebugObjectName(m_per_frame_data[i].dir_light_valid_buffer->buf, "DirLightValidBuffer_" + std::to_string(i));
         setDebugObjectName(m_per_frame_data[i].point_light_buffer->buf, "PointLightBuffer_" + std::to_string(i));
         setDebugObjectName(m_per_frame_data[i].point_light_valid_buffer->buf, "PointLightValidBuffer_" + std::to_string(i));
-        setDebugObjectName(m_per_frame_data[i].dir_shadow_map_buffer->buf, "DirShadowMapBuffer_" + std::to_string(i));
-        setDebugObjectName(m_per_frame_data[i].point_shadow_map_buffer->buf, "PointShadowMapBuffer_" + std::to_string(i));
 #endif
     }
 
+    createBuffer(m_dir_shadow_map_buffer, sizeof(m_dir_shadow_map_data));
+    createBuffer(m_point_shadow_map_buffer, sizeof(m_point_shadow_map_data));
+
 #if VULKAN_VALIDATION_ENABLE
-//        setDebugObjectName(m_terrain_buffer->buf, "TerrainBuffer");
+    setDebugObjectName(m_dir_shadow_map_buffer.buf, "DirShadowMapBuffer");
+    setDebugObjectName(m_point_shadow_map_buffer.buf, "PointShadowMapBuffer");
+//    setDebugObjectName(m_terrain_buffer.buf, "TerrainBuffer");
 #endif
 
     //initialize buffers
@@ -4933,7 +4872,7 @@ void Engine3D::createBuffers()
     {
         const auto identity = glm::identity<mat4x4>();
         m_bone_transform_buffer.req_size = sizeof(mat4x4);
-        createBuffer(m_bone_transform_buffer, sizeof(mat4x4), true);
+        createBuffer(m_bone_transform_buffer, sizeof(mat4x4));
         void* data;
         vkMapMemory(m_device, m_bone_transform_buffer.transfer_buffer->mem, 0, sizeof(mat4x4), 0, &data);
         std::memcpy(data, &identity, sizeof(mat4x4));
@@ -5159,6 +5098,8 @@ void Engine3D::updateDirShadowMap(Camera& camera, const DirLightShaderData& ligh
 
         shadow_map_data[i].tex_P = to_tex_coords * shadow_map_data[i].P;
     }
+
+    requestBufferUpdate(&m_dir_shadow_map_buffer, light.shadow_map_id * sizeof(shadow_map_data), shadow_map_count * sizeof(DirShadowMapData), shadow_map_data.data());
 }
 
 uint32_t Engine3D::createPointShadowMap(const PointLight& light)
@@ -5303,6 +5244,8 @@ void Engine3D::updatePointShadowMap(const PointLightShaderData& light)
     shadow_map_data.P[3] = proj * glm::lookAtLH(light.pos, light.pos + vec3(0.0f, -1.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f));
     shadow_map_data.P[4] = proj * glm::lookAtLH(light.pos, light.pos + vec3(0.0f, 0.0f, 1.0f), vec3(0.0f, 1.0f, 0.0f));
     shadow_map_data.P[5] = proj * glm::lookAtLH(light.pos, light.pos + vec3(0.0f, 0.0f, -1.0f), vec3(0.0f, 1.0f, 0.0f));
+
+    requestBufferUpdate(&m_point_shadow_map_buffer, light.shadow_map_id * sizeof(PointShadowMapData), sizeof(PointShadowMapData), &shadow_map_data);
 }
 
 /*---------------- destroy methods ----------------*/

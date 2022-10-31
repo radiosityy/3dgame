@@ -8,7 +8,10 @@
 class VkBufferWrapper
 {
 public:
-    VkBufferWrapper(VkBufferUsageFlags _usage_flags, bool _host_visible_required, VkFormat _buf_view_format = VK_FORMAT_UNDEFINED);
+    VkBufferWrapper(VkBufferUsageFlags usage_flags_, bool host_visible_required_);
+    VkBufferWrapper(VkBufferUsageFlags usage_flags_, bool host_visible_required_, VkPipelineStageFlags wait_stage_);
+    VkBufferWrapper(VkBufferUsageFlags usage_flags_, bool host_visible_required_, VkFormat buf_view_format_);
+    VkBufferWrapper(VkBufferUsageFlags usage_flags_, bool host_visible_required_, VkFormat buf_view_format_, VkPipelineStageFlags wait_stage_);
     VkBufferWrapper(VkBufferWrapper&& other);
 
     uint64_t allocate(uint64_t size);
@@ -25,8 +28,14 @@ public:
     const VkBufferUsageFlags usage_flags;
     const bool host_visible_required;
     const VkFormat buf_view_format;
+    const VkPipelineStageFlags wait_stage;
+    const bool use_transfer_buffer;
 
     std::unique_ptr<VkBufferWrapper> transfer_buffer;
+
+    VkCommandBuffer cmd_buf = VK_NULL_HANDLE;
+    VkFence fence = VK_NULL_HANDLE;
+    VkSemaphore semaphore = VK_NULL_HANDLE;
 
 private:
     struct FreeSpace

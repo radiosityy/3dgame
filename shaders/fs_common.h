@@ -67,7 +67,7 @@ struct DirShadowMapData
 
 layout(set = 0, binding = DIR_SM_BUF_BINDING) uniform readonly restrict DirShadowMapBuffer
 {
-    DirShadowMapData data[100 * MAX_DIR_SHADOW_MAP_PARTITIONS];
+    DirShadowMapData data[MAX_DIR_SHADOW_MAP_COUNT * MAX_DIR_SHADOW_MAP_PARTITIONS];
 } dir_shadow_map_buf;
 
 void shadeDefault()
