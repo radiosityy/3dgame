@@ -29,10 +29,10 @@ public:
     virtual void setScissor(Quad scissor) override;
 
 private:
-    void updateTransform();
+    void updateVertex();
 
     float m_x, m_y, m_width, m_height;
-    VertexQuad m_vertex;
+    VertexUi m_vertex;
     VertexBufferAllocation m_vb_alloc;
 
     std::optional<Quad> m_scissor;

@@ -4,8 +4,8 @@ layout(set = 0, binding = COMMON_BUF_BINDING) uniform readonly restrict CommonBu
 {
     mat4x4 VP;
     mat4x4 V;
-    mat4x4 guiT;
     vec3 camera_pos;
+    vec3 camera_up;
     uint dir_light_count;
     uint point_light_count;
     vec3 visual_sun_pos;
@@ -15,6 +15,7 @@ layout(set = 0, binding = COMMON_BUF_BINDING) uniform readonly restrict CommonBu
     uint cur_terrain_intersection;
     float terrain_patch_size_x;
     float terrain_patch_size_z;
+    vec2 ui_scale;
     vec4 editor_highlight_color;
     float editor_terrain_tool_inner_radius;
     float editor_terrain_tool_outer_radius;

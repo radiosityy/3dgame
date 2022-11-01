@@ -7,42 +7,62 @@
 #include <vulkan.h>
 #include <ranges>
 
-/*-------------------------------------- vertex constraints --------------------------------------*/
+/*----------------------------------------- Vertex Ui ------------------------------------------*/
 
-template<class T>
-concept Vertex = !std::is_polymorphic_v<T> && (sizeof(T) % 16 == 0);
-
-template<class T>
-concept VertexContainer = std::ranges::contiguous_range<T> && requires {typename T::value_type;} && Vertex<typename T::value_type>;
-
-/*----------------------------------------- Vertex Quad ------------------------------------------*/
-
-struct VertexQuad
+struct VertexUi
 {
-    VertexQuad() = default;
-    VertexQuad(const mat3x3& _t, const ColorRGBA& _color, uint32_t _tex_id, uint32_t _layer_id, uint32_t _use_texture)
-        : T(_t)
+    VertexUi() = default;
+    VertexUi(const vec2& top_left_pos_, const vec2& size_, const ColorRGBA& _color, uint32_t _tex_id, uint32_t _layer_id, uint32_t _use_texture)
+        : top_left_pos(top_left_pos_)
+        , size(size_)
         , color(_color)
         , tex_id(_tex_id)
         , layer_id(_layer_id)
         , use_texture(_use_texture)
     {}
 
-    mat4x4 T;
+    vec2 top_left_pos;
+    vec2 size;
     ColorRGBA color = {1, 1, 1, 1};
     uint32_t tex_id;
     uint32_t layer_id;
     uint32_t use_texture = 1;
 };
 
-inline const std::vector<VkVertexInputAttributeDescription> vertex_quad_attr_desc
+inline const std::vector<VkVertexInputAttributeDescription> vertex_ui_attr_desc
 {
-    {0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0}, // 4x4 transform matrix (mat4x4) - col0
-    {1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 16}, // 4x4 transform matrix (mat4x4) - col1
-    {2, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 32}, // 4x4 transform matrix (mat4x4) - col2
-    {3, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 48}, // 4x4 transform matrix (mat4x4) - col3
-    {4, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 64}, // rgba color
-    {5, 0, VK_FORMAT_R32G32B32_UINT, 80}, // tex_id, layer_id, use_texture (uvec3)
+    {0, 0, VK_FORMAT_R32G32_SFLOAT, 0}, // top left pos
+    {1, 0, VK_FORMAT_R32G32_SFLOAT, 8}, // size
+    {2, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 16}, // rgba color
+    {3, 0, VK_FORMAT_R32G32B32_UINT, 32}, // tex_id, layer_id, use_texture (uvec3)
+};
+
+/*----------------------------------------- Vertex Billboard ------------------------------------------*/
+
+struct VertexBillboard
+{
+    VertexBillboard() = default;
+    VertexBillboard(const vec3& center_pos_, const vec2& size_, uint32_t tex_id_, uint32_t layer_id_, const ColorRGBA& color_)
+        : center_pos(center_pos_)
+        , size(size_)
+        , color(color_)
+        , tex_id(tex_id_)
+        , layer_id(layer_id_)
+    {}
+
+    vec3 center_pos;
+    vec2 size;
+    ColorRGBA color = {1, 1, 1, 1};
+    uint32_t tex_id;
+    uint32_t layer_id;
+};
+
+inline const std::vector<VkVertexInputAttributeDescription> vertex_billboard_attr_desc
+{
+    {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0}, // center pos
+    {1, 0, VK_FORMAT_R32G32_SFLOAT, 12}, // size
+    {2, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 20}, // color
+    {3, 0, VK_FORMAT_R32G32_UINT, 36}, // tex_id
 };
 
 /*----------------------------------------- Vertex Default ------------------------------------------*/

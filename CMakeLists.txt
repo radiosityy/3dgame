@@ -10,6 +10,11 @@ if(EDITOR_ENABLE)
     add_compile_definitions(EDITOR_ENABLE=1)
 endif()
 
+option(VULKAN_VALIDATION_ENABLE "Enable Vulkan validation" OFF)
+if(VULKAN_VALIDATION_ENABLE)
+    add_compile_definitions(VULKAN_VALIDATION_ENABLE=1)
+endif()
+
 file(GLOB SOURCES
     *.h
     *.cpp

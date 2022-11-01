@@ -106,12 +106,15 @@ Model::Model(Engine3D& engine3d, std::string_view filename)
         m_model_datas.emplace(filename, m_model_data);
     }
 
-    m_src_key_frames.resize(m_model_data->bone_count, nullptr);
-    m_dst_key_frames.resize(m_model_data->bone_count, nullptr);
-    m_curr_pose.resize(m_model_data->bone_count);
-    m_bone_transforms.resize(m_model_data->bone_count);
-    resetPose();
-    engine3d.updateBoneTransformData(m_model_data->bone_offset, m_model_data->bone_count, m_bone_transforms.data());
+    if(m_model_data->bone_count != 0)
+    {
+        m_src_key_frames.resize(m_model_data->bone_count, nullptr);
+        m_dst_key_frames.resize(m_model_data->bone_count, nullptr);
+        m_curr_pose.resize(m_model_data->bone_count);
+        m_bone_transforms.resize(m_model_data->bone_count);
+        resetPose();
+        engine3d.updateBoneTransformData(m_model_data->bone_offset, m_model_data->bone_count, m_bone_transforms.data());
+    }
 }
 
 const std::vector<Mesh>& Model::mehes() const

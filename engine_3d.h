@@ -19,16 +19,12 @@
 #include "shader_data.h"
 #include "vk_buffer_wrapper.h"
 
-#if DEBUG
-#define VALIDATION_ENABLE 1
-#endif
-
 using DirLightId = uint32_t;
 using PointLightId = uint32_t;
 
 struct VertexBuffer : VkBufferWrapper
 {
-    VertexBuffer() : VkBufferWrapper(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false)
+    VertexBuffer() : VkBufferWrapper(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT)
     {}
 };
 
@@ -174,8 +170,6 @@ class Engine3D
         std::unique_ptr<VkBufferWrapper> dir_light_valid_buffer;
         std::unique_ptr<VkBufferWrapper> point_light_buffer;
         std::unique_ptr<VkBufferWrapper> point_light_valid_buffer;
-        std::unique_ptr<VkBufferWrapper> dir_shadow_map_buffer;
-        std::unique_ptr<VkBufferWrapper> point_shadow_map_buffer;
     };
 
     struct BufferUpdateReq
@@ -227,6 +221,8 @@ public:
     void freeBoneTransformBufferAllocation(uint32_t bone_id, uint32_t bone_count);
     void freeTerrainBufferAllocation();
 
+    void requestBufferUpdate(VkBufferWrapper* buf, uint64_t data_offset, uint64_t data_size, const void* data);
+    //TODO: rename these to request*Update
     void updateVertexData(VertexBuffer* vb, uint64_t data_offset, uint64_t data_size, const void* data);
     void updateInstanceVertexData(uint32_t instance_id, uint32_t instance_count, const void* data);
     void updateBoneTransformData(uint32_t bone_offset, uint32_t bone_count, const mat4x4* data);
@@ -264,8 +260,7 @@ private:
     VkImageWrapper createImage(const VkImageCreateInfo&, VkImageViewCreateInfo&) const;
     void destroyImage(VkImageWrapper&) const noexcept;
 
-    //TODO: figure something out with how we create transfer buffers
-    void createBuffer(VkBufferWrapper&, VkDeviceSize size, bool force_transfer_buffer = true) const;
+    void createBuffer(VkBufferWrapper&, VkDeviceSize size);
     void destroyBuffer(VkBufferWrapper&) const noexcept;
 
     void updateBuffer(VkBufferWrapper&, size_t data_size, const std::function<void(void*)>&, VkCommandBuffer = VK_NULL_HANDLE);
@@ -441,6 +436,8 @@ private:
     VertexBuffer m_instance_vertex_buffer;
 
     /*--- buffers ---*/
+    VkBufferWrapper m_dir_shadow_map_buffer;
+    VkBufferWrapper m_point_shadow_map_buffer;
     VkBufferWrapper m_bone_transform_buffer;
 
     /*--- dir lights ---*/
@@ -466,6 +463,9 @@ private:
     bool m_vsync_disable_support = false;
     bool m_vsync = true;
 
+    std::vector<VkSemaphore> m_wait_semaphores;
+    std::vector<VkPipelineStageFlags> m_submit_wait_flags;
+
 /*---------------------------------------------------------------------------------------------------------*/
 /*------------------------------------------ render mode params -------------------------------------------*/
     uint32_t m_font_count = 0;
@@ -474,8 +474,8 @@ private:
     {
         mat4x4 VP;
         mat4x4 V;
-        mat4x4 guiT;
         alignas(16) vec3 camera_pos;
+        alignas(16) vec3 camera_up;
         uint32_t dir_light_count = 0;
         uint32_t point_light_count = 0;
         alignas(16) vec3 visual_sun_pos;
@@ -485,6 +485,7 @@ private:
                     uint32_t cur_terrain_intersection;
         alignas(16) float terrain_patch_size_x;
                     float terrain_patch_size_z;
+                    vec2 ui_scale;
         alignas(16) vec4 editor_highlight_color;
                     float editor_terrain_tool_inner_radius;
                     float editor_terrain_tool_outer_radius;
@@ -503,7 +504,7 @@ private:
     };
 
     /*---------------------- debug -----------------------*/
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
     PFN_vkSetDebugUtilsObjectNameEXT m_set_debug_utils_object_name_function = VK_NULL_HANDLE;
     VkDebugUtilsMessengerEXT m_debug_report_callback = VK_NULL_HANDLE;
     PFN_vkDestroyDebugUtilsMessengerEXT m_destroy_debug_utils_messenger_function = nullptr;

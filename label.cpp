@@ -385,13 +385,13 @@ void Label::update(Engine3D& engine3d, float dt)
     {
         m_vb_alloc_vertex_count = m_vertices.size();
         //TODO: free up current allocation or find some other way to not waste current allocation
-        m_vb_alloc = engine3d.requestVertexBufferAllocation<VertexQuad>(m_vb_alloc_vertex_count);
+        m_vb_alloc = engine3d.requestVertexBufferAllocation<VertexUi>(m_vb_alloc_vertex_count);
     }
     //TODO: for some reason we call updateVertexData() with empty string and without checking for empty m_vertices here we crash
     //I have no idea why we do that, should check
     if(m_vertex_data_updated && !m_vertices.empty())
     {
-        engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexQuad) * m_vertices.size(), m_vertices.data());
+        engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexUi) * m_vertices.size(), m_vertices.data());
     }
 
     m_background_rect.update(engine3d, dt);
@@ -618,7 +618,8 @@ void Label::updateVertexData()
 
         v.tex_id = 0;
         v.layer_id = m_font->glyphInfo(c).tex_id;
-        v.T = glm::scale(translate(vec3(std::truncf(x + bx), std::truncf(y + d), 0.0f)), vec3(w, h, 1.0f));
+        v.top_left_pos = vec2(std::truncf(x + bx), std::truncf(y + d));
+        v.size = vec2(w, h);
 
         x += a + k;
     }

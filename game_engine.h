@@ -29,11 +29,19 @@ public:
     void onWindowDestroyEvent() noexcept;
 
 private:
+    void parseIni();
     void setupGui();
 
     void stop() noexcept;
 
     void processConsoleCmd(const std::string&);
+
+    struct InitParams
+    {
+        uint32_t res_x;
+        uint32_t res_y;
+        bool vsync;
+    } m_init_params;
 
     std::unique_ptr<Window> m_window;
     std::unique_ptr<Engine3D> m_engine3d;

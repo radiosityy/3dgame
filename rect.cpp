@@ -6,12 +6,12 @@ Rect::Rect(Engine3D& engine3d, float x, float y, float w, float h, ColorRGBA col
     , m_width(w)
     , m_height(h)
 {
-    m_vb_alloc = engine3d.requestVertexBufferAllocation<VertexQuad>(1);
+    m_vb_alloc = engine3d.requestVertexBufferAllocation<VertexUi>(1);
 
     m_vertex.use_texture = 0;
     setFocusable(false);
     setColor(color);
-    updateTransform();
+    updateVertex();
 }
 
 Rect::Rect(Engine3D& engine3d, float x, float y, float w, float h, TexId tex_id, ColorRGBA color)
@@ -20,18 +20,18 @@ Rect::Rect(Engine3D& engine3d, float x, float y, float w, float h, TexId tex_id,
     , m_width(w)
     , m_height(h)
 {
-    m_vb_alloc = engine3d.requestVertexBufferAllocation<VertexQuad>(1);
+    m_vb_alloc = engine3d.requestVertexBufferAllocation<VertexUi>(1);
 
     setFocusable(false);
     setColor(color);
     setTexture(tex_id);
-    updateTransform();
+    updateVertex();
 }
 
 void Rect::update(Engine3D& engine3d, float dt)
 {
     //TODO: only update vertex data when it changes
-    engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexQuad), &m_vertex);
+    engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexUi), &m_vertex);
 }
 
 void Rect::draw(Engine3D& engine3d)
@@ -46,7 +46,7 @@ void Rect::onResolutionChange(float scale_x, float scale_y, const Font&)
     m_y *= scale_y;
     m_height *= scale_y;
 
-    updateTransform();
+    updateVertex();
 
     if(m_scissor)
     {
@@ -80,7 +80,7 @@ void Rect::move(vec2 xy)
     m_x += xy.x;
     m_y += xy.y;
 
-    updateTransform();
+    updateVertex();
 }
 
 void Rect::setPosAndSize(float x, float y, float width, float height)
@@ -90,7 +90,7 @@ void Rect::setPosAndSize(float x, float y, float width, float height)
     m_width = width;
     m_height = height;
 
-    updateTransform();
+    updateVertex();
 }
 
 void Rect::setScissor(Quad scissor)
@@ -98,7 +98,8 @@ void Rect::setScissor(Quad scissor)
     m_scissor = scissor;
 }
 
-void Rect::updateTransform()
+void Rect::updateVertex()
 {
-    m_vertex.T = glm::translate(vec3(m_x, m_y, 0.0f)) * glm::scale(vec3(m_width, m_height, 1.0f));
+    m_vertex.size = vec2(m_width, m_height);
+    m_vertex.top_left_pos = vec2(m_x, m_y);
 }

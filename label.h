@@ -68,7 +68,7 @@ private:
     HorizontalAlignment m_horizontal_alignment;
     VerticalAlignment m_vertical_alignment;
 
-    std::vector<VertexQuad> m_vertices;
+    std::vector<VertexUi> m_vertices;
 
     bool m_fixed_rect = false;
     Rect m_background_rect;

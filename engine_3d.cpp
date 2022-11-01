@@ -11,7 +11,9 @@
 
 #include <png.h>
 
+#if VULKAN_VALIDATION_ENABLE
 static VkBool32 debugReportCallback(VkDebugUtilsMessageSeverityFlagBitsEXT, VkDebugUtilsMessageTypeFlagsEXT, const VkDebugUtilsMessengerCallbackDataEXT*, void*);
+#endif
 
 /*---------------- helper methods ----------------*/
 static void checkIfLayersAndExtensionsAvailable(const std::vector<const char*>& layers, const std::vector<const char*>& extensions)
@@ -242,7 +244,7 @@ void Engine3D::destroyImage(VkImageWrapper& image) const noexcept
     image.mem = VK_NULL_HANDLE;
 }
 
-void Engine3D::createBuffer(VkBufferWrapper& buffer, VkDeviceSize size, bool force_transfer_buffer) const
+void Engine3D::createBuffer(VkBufferWrapper& buffer, VkDeviceSize size)
 {
     if(buffer.transfer_buffer)
     {
@@ -290,10 +292,38 @@ void Engine3D::createBuffer(VkBufferWrapper& buffer, VkDeviceSize size, bool for
 
     buffer.size = size;
 
-    if(force_transfer_buffer || (!buffer.host_visible && buffer.size > SMALL_BUFFER_SIZE))
+    if(buffer.use_transfer_buffer && !buffer.host_visible)
     {
-        buffer.transfer_buffer = std::make_unique<VkBufferWrapper>(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, true);
-        createBuffer(*buffer.transfer_buffer, size, false);
+        buffer.transfer_buffer = std::make_unique<VkBufferWrapper>(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, true, false);
+        createBuffer(*buffer.transfer_buffer, size);
+
+        VkCommandBufferAllocateInfo cmd_buf_alloc_info{};
+        cmd_buf_alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        cmd_buf_alloc_info.pNext = NULL;
+        //TODO: consider using a different command pool for that, which might use a different queue family (specifically a transfer one)
+        cmd_buf_alloc_info.commandPool = m_command_pool;
+        cmd_buf_alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        //TODO: consider allocating all the command buffers for this in bulk, rather than 1 at a time for each buffer, if possible
+        cmd_buf_alloc_info.commandBufferCount = 1;
+
+        res = vkAllocateCommandBuffers(m_device, &cmd_buf_alloc_info, &buffer.cmd_buf);
+        assertVkSuccess(res, "Failed to allocate a buffer command buffer.");
+
+        VkFenceCreateInfo fence_create_info{};
+        fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+        fence_create_info.pNext = NULL;
+        fence_create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+        res = vkCreateFence(m_device, &fence_create_info, NULL, &buffer.fence);
+        assertVkSuccess(res, "Failed to create a buffer fence.");
+
+        VkSemaphoreCreateInfo sem_create_info{};
+        sem_create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+        sem_create_info.pNext = NULL;
+        sem_create_info.flags = 0;
+
+        res = vkCreateSemaphore(m_device, &sem_create_info, NULL, &buffer.semaphore);
+        assertVkSuccess(res, "Failed to create a buffer semaphore.");
     }
 }
 
@@ -302,10 +332,15 @@ void Engine3D::destroyBuffer(VkBufferWrapper& buffer) const noexcept
     vkFreeMemory(m_device, buffer.mem, NULL);
     vkDestroyBufferView(m_device, buffer.buf_view, NULL);
     vkDestroyBuffer(m_device, buffer.buf, NULL);
+    vkDestroyFence(m_device, buffer.fence, NULL);
+    vkDestroySemaphore(m_device, buffer.semaphore, NULL);
 
     buffer.buf = VK_NULL_HANDLE;
     buffer.buf_view = VK_NULL_HANDLE;
     buffer.mem = VK_NULL_HANDLE;
+    buffer.fence = VK_NULL_HANDLE;
+    buffer.semaphore = VK_NULL_HANDLE;
+    buffer.cmd_buf = VK_NULL_HANDLE;
     buffer.size = 0;
     buffer.req_size = 0;
 
@@ -313,93 +348,6 @@ void Engine3D::destroyBuffer(VkBufferWrapper& buffer) const noexcept
     {
         destroyBuffer(*buffer.transfer_buffer);
     }
-}
-
-void Engine3D::updateBuffer(VkBufferWrapper& buffer, size_t data_size, const std::function<void(void*)>& copy_fun, VkCommandBuffer cmd_buf)
-{
-    if(buffer.size < data_size)
-    {
-        destroyBuffer(buffer);
-        createBuffer(buffer, data_size);
-    }
-
-    if(buffer.host_visible)
-    {
-        void* ptr;
-        VkResult res = vkMapMemory(m_device, buffer.mem, 0, buffer.size, 0, &ptr);
-        assertVkSuccess(res, "Failed to map buffer memory.");
-
-        copy_fun(ptr);
-
-        vkUnmapMemory(m_device, buffer.mem);
-    }
-    else if(buffer.size <= SMALL_BUFFER_SIZE)
-    {
-        std::vector<uint8_t> data_buf(buffer.size);
-        copy_fun(data_buf.data());
-
-        vkCmdUpdateBuffer(cmd_buf, buffer.buf, 0, data_buf.size(), data_buf.data());
-    }
-    else
-    {
-        void* ptr;
-        VkResult res = vkMapMemory(m_device, buffer.transfer_buffer->mem, 0, buffer.size, 0, &ptr);
-        assertVkSuccess(res, "Failed to map buffer memory.");
-
-        copy_fun(ptr);
-
-        vkUnmapMemory(m_device, buffer.transfer_buffer->mem);
-
-        VkBufferCopy buf_cpy_region{0, 0, buffer.size};
-
-        vkCmdCopyBuffer(cmd_buf, buffer.transfer_buffer->buf, buffer.buf, 1, &buf_cpy_region);
-    }
-
-    //TODO: if we vkMapMemory here and the buffer is not host coherent, then we need to flush
-    //this may be better handled in bulk in updateAndRender() that updates multiple buffer and could only flush once at the end
-    //(also, maybe we can use a barrier instead of a flush in updateAndRender() ?)
-}
-
-void Engine3D::updateBuffer(VkBufferWrapper& buffer, size_t data_size, const void* data, VkCommandBuffer cmd_buf)
-{
-    if(buffer.size < data_size)
-    {
-        destroyBuffer(buffer);
-        createBuffer(buffer, data_size);
-    }
-
-    if(buffer.host_visible)
-    {
-        void* ptr;
-        VkResult res = vkMapMemory(m_device, buffer.mem, 0, buffer.size, 0, &ptr);
-        assertVkSuccess(res, "Failed to map buffer memory.");
-
-        std::memcpy(ptr, data, data_size);
-
-        vkUnmapMemory(m_device, buffer.mem);
-    }
-    else if(buffer.size <= SMALL_BUFFER_SIZE)
-    {
-        vkCmdUpdateBuffer(cmd_buf, buffer.buf, 0, data_size, data);
-    }
-    else
-    {
-        void* ptr;
-        VkResult res = vkMapMemory(m_device, buffer.transfer_buffer->mem, 0, buffer.size, 0, &ptr);
-        assertVkSuccess(res, "Failed to map buffer memory.");
-
-        std::memcpy(ptr, data, data_size);
-
-        vkUnmapMemory(m_device, buffer.transfer_buffer->mem);
-
-        VkBufferCopy buf_cpy_region{0, 0, buffer.size};
-
-        vkCmdCopyBuffer(cmd_buf, buffer.transfer_buffer->buf, buffer.buf, 1, &buf_cpy_region);
-    }
-
-    //TODO: if we vkMapMemory here and the buffer is not host coherent, then we need to flush
-    //this may be better handled in bulk in updateAndRender() that updates multiple buffer and could only flush once at the end
-    //(also, maybe we can use a barrier instead of a flush in updateAndRender() ?)
 }
 
 uint32_t Engine3D::loadTexture(std::string_view texture_filename)
@@ -538,7 +486,7 @@ std::vector<uint32_t> Engine3D::loadTexturesGeneric(const std::vector<std::strin
     and read all the png files raw data and copy it to the vulkan buffer;
     then we'll have to copy the image data from the vulkan buffer to the
     respective vulkan images for each texture*/
-    VkBufferWrapper tex_buf(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, true);
+    VkBufferWrapper tex_buf(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, true, false);
     createBuffer(tex_buf, total_size * 4);
 
     /*having created the texture buffer and allocated and bound memory to it
@@ -768,8 +716,10 @@ std::vector<uint32_t> Engine3D::loadTexturesGeneric(const std::vector<std::strin
 
 Engine3D::Engine3D(const Window& window, std::string_view app_name)
     : m_render_batches(10000)
-    , m_bone_transform_buffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false)
-    , m_terrain_buffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, true)
+    , m_dir_shadow_map_buffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT)
+    , m_point_shadow_map_buffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT)
+    , m_bone_transform_buffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT)
+    , m_terrain_buffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT)
 {
     try
     {
@@ -822,8 +772,6 @@ void Engine3D::destroy() noexcept
             destroyBuffer(*per_frame_data.dir_light_valid_buffer);
             destroyBuffer(*per_frame_data.point_light_buffer);
             destroyBuffer(*per_frame_data.point_light_valid_buffer);
-            destroyBuffer(*per_frame_data.dir_shadow_map_buffer);
-            destroyBuffer(*per_frame_data.point_shadow_map_buffer);
         }
 
         for(auto& vb : m_vertex_buffers)
@@ -832,6 +780,8 @@ void Engine3D::destroy() noexcept
         }
 
         destroyBuffer(m_instance_vertex_buffer);
+        destroyBuffer(m_dir_shadow_map_buffer);
+        destroyBuffer(m_point_shadow_map_buffer);
         destroyBuffer(m_bone_transform_buffer);
         destroyBuffer(m_terrain_buffer);
 
@@ -863,6 +813,13 @@ void Engine3D::resizeBuffers()
 
         if(buf->req_size > buf->size)
         {
+            //TODO: this is a hack - currently only vertex buffers don't use descriptors so this works,
+            //but we should use a more robust way of checking if resizing/recreating a buffer requires a descriptor update
+            if(!(buf->usage_flags & VK_BUFFER_USAGE_VERTEX_BUFFER_BIT))
+            {
+                m_update_descriptors = true;
+            }
+
             //TODO: do this first time creation elsewhere?
             if(buf->buf == VK_NULL_HANDLE)
             {
@@ -879,7 +836,8 @@ void Engine3D::resizeBuffers()
                 assertVkSuccess(res, "Failed to map buffer memory");
                 req.second.insert(req.second.begin(), {0, old_buf->size, old_data});
 
-                m_per_frame_data[(m_frame_id + 1) % FRAMES_IN_FLIGHT].bufs_to_destroy.push_back(old_buf);
+                const uint8_t prev_frame_id = (m_frame_id == 0) ? (FRAMES_IN_FLIGHT - 1) : (m_frame_id - 1);
+                m_per_frame_data[prev_frame_id].bufs_to_destroy.push_back(old_buf);
             }
         }
     }
@@ -889,22 +847,57 @@ void Engine3D::updateBuffers()
 {
     for(auto& mapping : m_buffer_update_reqs)
     {
-        if(!mapping.second.empty())
+        VkBufferWrapper* buf = mapping.first;
+
+        void* dst = nullptr;
+        VkResult res = vkMapMemory(m_device, buf->transfer_buffer->mem, 0, buf->size, 0, &dst);
+        assertVkSuccess(res, "Failed to map buffer memory");
+
+        res = vkWaitForFences(m_device, 1, &buf->fence, VK_TRUE, UINT64_MAX);
+        assertVkSuccess(res, "An error occured while waiting for a buffer fence.");
+
+        VkCommandBufferBeginInfo begin_info{};
+        begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        begin_info.pNext = NULL;
+        begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        begin_info.pInheritanceInfo = NULL;
+
+        res = vkBeginCommandBuffer(buf->cmd_buf, &begin_info);
+        assertVkSuccess(res, "An error occurred while begining a buffer transfer command buffer.");
+
+        for(auto& req : mapping.second)
         {
-            auto buf = mapping.first;
+            void* const offset_dst = reinterpret_cast<void*>(reinterpret_cast<std::uintptr_t>(dst) + req.data_offset);
+            std::memcpy(offset_dst, req.data, req.data_size);
 
-            void* dst = nullptr;
-            VkResult res = vkMapMemory(m_device, buf->transfer_buffer->mem, 0, buf->size, 0, &dst);
-            assertVkSuccess(res, "Failed to map buffer memory");
-
-            for(auto& req : mapping.second)
-            {
-                void* const offset_dst = reinterpret_cast<void*>(reinterpret_cast<std::uintptr_t>(dst) + req.data_offset);
-                std::memcpy(offset_dst, req.data, req.data_size);
-            }
-
-            vkUnmapMemory(m_device, buf->transfer_buffer->mem);
+            VkBufferCopy buf_copy = {req.data_offset, req.data_offset, req.data_size};
+            vkCmdCopyBuffer(buf->cmd_buf, buf->transfer_buffer->buf, buf->buf, 1, &buf_copy);
         }
+
+        res = vkEndCommandBuffer(buf->cmd_buf);
+        assertVkSuccess(res, "An error occurred when ending a buffer transfer command buffer.");
+
+        vkUnmapMemory(m_device, buf->transfer_buffer->mem);
+
+        VkSubmitInfo submit_info{};
+        submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submit_info.pNext = NULL;
+        submit_info.waitSemaphoreCount = 0;
+        submit_info.pWaitSemaphores = NULL;
+        submit_info.pWaitDstStageMask = 0;
+        submit_info.commandBufferCount = 1;
+        submit_info.pCommandBuffers = &buf->cmd_buf;
+        submit_info.signalSemaphoreCount = 1;
+        submit_info.pSignalSemaphores = &buf->semaphore;
+
+        res = vkResetFences(m_device, 1, &buf->fence);
+        assertVkSuccess(res, "An error occurred while reseting a buffer fence.");
+
+        res = vkQueueSubmit(m_queue, 1, &submit_info, buf->fence);
+        assertVkSuccess(res, "Failed to submit buffer transfer commands.");
+
+        m_wait_semaphores.push_back(buf->semaphore);
+        m_submit_wait_flags.push_back(buf->wait_stage);
     }
 }
 
@@ -912,12 +905,14 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
 {
     m_frame_id = (m_frame_id + 1) % FRAMES_IN_FLIGHT;
     auto& per_frame_data = m_per_frame_data[m_frame_id];
+    VkResult res;
 
     m_common_buffer_data.VP = camera.viewProj();
     m_common_buffer_data.V = camera.view();
-    //TODO: this guiT field can only be calculated once I guess, for a given surface size, no need to recalculate it every frame
-    m_common_buffer_data.guiT = scale(vec3(1.0f / static_cast<float>(m_surface_width), 1.0f / static_cast<float>(m_surface_height), 1.0f));
+    //TODO: the ui_scale field can only be calculated once I guess, for a given surface size, no need to recalculate it every frame
+    m_common_buffer_data.ui_scale = vec2(1.0f / static_cast<float>(m_surface_width), 1.0f / static_cast<float>(m_surface_height));
     m_common_buffer_data.camera_pos = camera.pos();
+    m_common_buffer_data.camera_up = camera.up();
     m_common_buffer_data.visual_sun_pos = render_data.visual_sun_pos;
     m_common_buffer_data.effective_sun_pos = render_data.effective_sun_pos;
     m_common_buffer_data.sun_radius = render_data.sun_radius;
@@ -929,32 +924,23 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
     m_common_buffer_data.terrain_patch_size_x = render_data.terrain_patch_size_x;
     m_common_buffer_data.terrain_patch_size_z = render_data.terrain_patch_size_z;
 
-    for(auto buf_to_destroy : per_frame_data.bufs_to_destroy)
+    //update all dir shadow maps every frame as they depend on the camera and we can assume the camera will change every frame
+    //TODO: verify the above, as it may no longer be true
+    for(DirLightId i = 0; i < m_common_buffer_data.dir_light_count; i++)
     {
-        destroyBuffer(*buf_to_destroy);
+        if(m_dir_lights_valid[i] && m_dir_lights[i].shadow_map_count)
+        {
+            updateDirShadowMap(camera, m_dir_lights[i]);
+        }
     }
-    per_frame_data.bufs_to_destroy.clear();
 
-    //TODO: synch here before resizing and updating buffers
-    deviceWaitIdle();
-    //TODO: set m_update_descriptors = true if we resized any buffers that we have descriptors for
-    resizeBuffers();
-    updateBuffers();
-
-    if(m_update_descriptors)
+    //only update point shadow maps for the point lights that have changed this frame
+    for(PointLightId id : per_frame_data.point_lights_to_update)
     {
-        deviceWaitIdle();
-
-        destroyPipelines();
-        destroyPipelineLayout();
-        destroyDescriptorSets();
-
-        createDescriptorSets();
-        createPipelineLayout();
-        createPipelines();
-        updateDescriptorSets();
-
-        m_update_descriptors = false;
+        if(m_point_lights_valid[id] && m_point_lights[id].shadow_map_res)
+        {
+            updatePointShadowMap(m_point_lights[id]);
+        }
     }
 
     std::vector<bool> cull(m_render_batch_count);
@@ -975,29 +961,6 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
             cull[i] = false;
         }
     }
-
-    //update all dir shadow maps every frame as they depend on the camera and we can assume the camera will change every frame
-    for(DirLightId i = 0; i < m_common_buffer_data.dir_light_count; i++)
-    {
-        if(m_dir_lights_valid[i] && m_dir_lights[i].shadow_map_count)
-        {
-            updateDirShadowMap(camera, m_dir_lights[i]);
-        }
-    }
-
-    //only update point shadow maps for the point lights that have changed this frame
-    for(PointLightId id : per_frame_data.point_lights_to_update)
-    {
-        if(m_point_lights_valid[id] && m_point_lights[id].shadow_map_res)
-        {
-            updatePointShadowMap(m_point_lights[id]);
-        }
-    }
-
-    VkCommandBuffer cmd_buf = per_frame_data.cmd_buf;
-
-    VkResult res = vkWaitForFences(m_device, 1, &per_frame_data.cmd_buf_ready_fence, VK_TRUE, UINT64_MAX);
-    assertVkSuccess(res, "An error occured while waiting for a fence.");
 
     for(auto id : per_frame_data.dir_shadow_maps_to_destroy)
     {
@@ -1035,22 +998,25 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
     }
     per_frame_data.point_shadow_maps_to_destroy.clear();
 
-    const size_t dir_shadow_map_data_size = MAX_DIR_SHADOW_MAP_PARTITIONS * m_dir_shadow_map_count * sizeof(DirShadowMapData);
-    const size_t point_shadow_map_data_size = m_point_shadow_map_count * sizeof(PointShadowMapData);
+    resizeBuffers();
+    updateBuffers();
+    m_buffer_update_reqs.clear();
 
-    //dir shadow map data copy callback
-    const auto copy_dir_shadow_map_data = [&](void* ptr)
+    if(m_update_descriptors)
     {
-        uint8_t* dst = reinterpret_cast<uint8_t*>(ptr);
-        std::memcpy(dst, m_dir_shadow_map_data.data(), dir_shadow_map_data_size);
-    };
+        deviceWaitIdle();
 
-    //point shadow map data copy callback
-    const auto copy_point_shadow_map_data = [&](void* ptr)
-    {
-        uint8_t* dst = reinterpret_cast<uint8_t*>(ptr);
-        std::memcpy(dst, m_point_shadow_map_data.data(), point_shadow_map_data_size);
-    };
+        destroyPipelines();
+        destroyPipelineLayout();
+        destroyDescriptorSets();
+
+        createDescriptorSets();
+        createPipelineLayout();
+        createPipelines();
+        updateDescriptorSets();
+
+        m_update_descriptors = false;
+    }
 
     uint32_t image_id;
     res = vkAcquireNextImageKHR(m_device, m_swapchain, 0, per_frame_data.image_acquire_semaphore, VK_NULL_HANDLE, &image_id);
@@ -1067,6 +1033,17 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
             throw std::runtime_error(errorMsg("Failed to aqcuire swapchain image.", res));
         }
     }
+
+    VkCommandBuffer cmd_buf = per_frame_data.cmd_buf;
+
+    res = vkWaitForFences(m_device, 1, &per_frame_data.cmd_buf_ready_fence, VK_TRUE, UINT64_MAX);
+    assertVkSuccess(res, "An error occured while waiting for a fence.");
+
+    for(auto buf_to_destroy : per_frame_data.bufs_to_destroy)
+    {
+        destroyBuffer(*buf_to_destroy);
+    }
+    per_frame_data.bufs_to_destroy.clear();
 
     /*--------------------- command recording begin ---------------------*/
     VkCommandBufferBeginInfo begin_info{};
@@ -1086,22 +1063,6 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
         VkBufferMemoryBarrier buf_mem_bar = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER, NULL, 0, VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, common_buf, 0, sizeof(m_common_buffer_data)};
         vkCmdPipelineBarrier(cmd_buf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, 0, 0, NULL, 1, &buf_mem_bar, 0, NULL);
     }
-
-    for(const auto& req : m_buffer_update_reqs)
-    {
-        auto buffer = req.first;
-
-        VkBufferCopy buf_cpy_region{0, 0, buffer->size};
-        vkCmdCopyBuffer(cmd_buf, buffer->transfer_buffer->buf, buffer->buf, 1, &buf_cpy_region);
-
-        //TODO: add appropriate barriers here! barriers should depend on buffer type/usage so will have to figure something out here
-        //might for instance store the relevant pipeline stages/accesses used in a barrier inside the VkBufferWrapper struct and generically
-        //do barriers for reach buffer here
-        //ALSO: the buffer transfer here will need to be synchronized between frames (with access to the buffers in the subsequent frames)
-        //and so we'll need to add some synchronization code here, possibly even move the transfer to a separate command buffer
-        //(in that case the barriers won't be necessary?)
-    }
-    m_buffer_update_reqs.clear();
 
     if(!per_frame_data.dir_lights_to_update.empty())
     {
@@ -1123,25 +1084,6 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
 
         VkBufferMemoryBarrier buf_mem_bar = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER, NULL, 0, VK_ACCESS_SHADER_READ_BIT, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, per_frame_data.point_light_buffer->buf, 0, m_common_buffer_data.point_light_count * sizeof(PointLightShaderData)};
         vkCmdPipelineBarrier(cmd_buf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, NULL, 1, &buf_mem_bar, 0, NULL);
-    }
-
-    if(dir_shadow_map_data_size != 0)
-    {
-        VkBufferWrapper& shadow_map_buffer = *per_frame_data.dir_shadow_map_buffer;
-
-        updateBuffer(shadow_map_buffer, dir_shadow_map_data_size, copy_dir_shadow_map_data, cmd_buf);
-        VkBufferMemoryBarrier buf_mem_bar = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER, NULL, 0, VK_ACCESS_SHADER_READ_BIT, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, shadow_map_buffer.buf, 0, dir_shadow_map_data_size};
-        vkCmdPipelineBarrier(cmd_buf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT, 0, 0, NULL, 1, &buf_mem_bar, 0, NULL);
-    }
-
-    //TODO:only update point shadow maps for point lights that got updated this frame
-    if(point_shadow_map_data_size != 0)
-    {
-        VkBufferWrapper& shadow_map_buffer = *per_frame_data.point_shadow_map_buffer;
-
-        updateBuffer(shadow_map_buffer, point_shadow_map_data_size, copy_point_shadow_map_data, cmd_buf);
-        VkBufferMemoryBarrier buf_mem_bar = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER, NULL, 0, VK_ACCESS_SHADER_READ_BIT, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, shadow_map_buffer.buf, 0, point_shadow_map_data_size};
-        vkCmdPipelineBarrier(cmd_buf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT, 0, 0, NULL, 1, &buf_mem_bar, 0, NULL);
     }
 
     //TODO: set some flag if we need to update light valid buffers if we actually change any lights
@@ -1352,14 +1294,15 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
     assertVkSuccess(res, "Failed to record command buffer.");
     /*--------------------- command recording end ---------------------*/
 
-    VkPipelineStageFlags submit_wait_flags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    m_wait_semaphores.push_back(per_frame_data.image_acquire_semaphore);
+    m_submit_wait_flags.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 
     VkSubmitInfo submit_info{};
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submit_info.pNext = NULL;
-    submit_info.waitSemaphoreCount = 1;
-    submit_info.pWaitSemaphores = &per_frame_data.image_acquire_semaphore;
-    submit_info.pWaitDstStageMask = &submit_wait_flags;
+    submit_info.waitSemaphoreCount = m_wait_semaphores.size();
+    submit_info.pWaitSemaphores = m_wait_semaphores.data();
+    submit_info.pWaitDstStageMask = m_submit_wait_flags.data();
     submit_info.commandBufferCount = 1;
     submit_info.pCommandBuffers = &cmd_buf;
     submit_info.signalSemaphoreCount = 1;
@@ -1370,6 +1313,9 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
 
     res = vkQueueSubmit(m_queue, 1, &submit_info, per_frame_data.cmd_buf_ready_fence);
     assertVkSuccess(res, "Failed to submit commands.");
+
+    m_wait_semaphores.clear();
+    m_submit_wait_flags.clear();
 
     VkPresentInfoKHR present_info{};
     present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -1461,7 +1407,7 @@ void Engine3D::loadFonts(const std::vector<const Font*>& fonts)
         const uint32_t tex_width = font->texWidth();
         const uint32_t tex_height = font->texHeight();
 
-        auto& tex_buf = tex_buffers.emplace_back(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, true);
+        auto& tex_buf = tex_buffers.emplace_back(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, true, false);
         createBuffer(tex_buf, bitmaps.size() * tex_width * tex_height);
 
         /*having created the texture buffer and allocated and bound memory to it
@@ -1655,24 +1601,29 @@ void Engine3D::freeTerrainBufferAllocation()
     m_terrain_buffer.free(0, m_terrain_buffer.size);
 }
 
+void Engine3D::requestBufferUpdate(VkBufferWrapper* buf, uint64_t data_offset, uint64_t data_size, const void* data)
+{
+    m_buffer_update_reqs[buf].emplace_back(data_offset, data_size, data);
+}
+
 void Engine3D::updateVertexData(VertexBuffer* vb, uint64_t data_offset, uint64_t data_size, const void* data)
 {
-    m_buffer_update_reqs[vb].emplace_back(data_offset, data_size, data);
+    requestBufferUpdate(vb, data_offset, data_size, data);
 }
 
 void Engine3D::updateInstanceVertexData(uint32_t instance_id, uint32_t instance_count, const void* data)
 {
-    m_buffer_update_reqs[&m_instance_vertex_buffer].emplace_back(instance_id * sizeof(InstanceVertexData), instance_count * sizeof(InstanceVertexData), data);
+    requestBufferUpdate(&m_instance_vertex_buffer, instance_id * sizeof(InstanceVertexData), instance_count * sizeof(InstanceVertexData), data);
 }
 
 void Engine3D::updateBoneTransformData(uint32_t bone_offset, uint32_t bone_count, const mat4x4* data)
 {
-    m_buffer_update_reqs[&m_bone_transform_buffer].emplace_back(bone_offset * sizeof(mat4x4), bone_count * sizeof(mat4x4), data);
+    requestBufferUpdate(&m_bone_transform_buffer, bone_offset * sizeof(mat4x4), bone_count * sizeof(mat4x4), data);
 }
 
 void Engine3D::updateTerrainData(void* data, uint64_t offset, uint64_t size)
 {
-    m_buffer_update_reqs[&m_terrain_buffer].emplace_back(offset, size, data);
+    requestBufferUpdate(&m_terrain_buffer, offset, size, data);
 }
 
 void Engine3D::draw(RenderMode render_mode, VertexBuffer* vb, uint32_t vertex_offset, uint32_t vertex_count, uint32_t instance_id, std::optional<Sphere> bounding_sphere, std::optional<Quad> scissor)
@@ -1872,11 +1823,7 @@ void Engine3D::updateDescriptorSets() noexcept
         point_light_buf_infos[i] = {m_per_frame_data[i].point_light_buffer->buf, 0, VK_WHOLE_SIZE};
     }
 
-    std::vector<VkDescriptorBufferInfo> dir_shadow_map_buf_infos(FRAMES_IN_FLIGHT);
-    for(uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++)
-    {
-        dir_shadow_map_buf_infos[i] = {m_per_frame_data[i].dir_shadow_map_buffer->buf, 0, VK_WHOLE_SIZE};
-    }
+    VkDescriptorBufferInfo dir_shadow_map_buf_info = {m_dir_shadow_map_buffer.buf, 0, m_dir_shadow_map_buffer.size};
 
     std::vector<std::vector<VkDescriptorImageInfo>> dir_shadow_map_img_infos(FRAMES_IN_FLIGHT);
     for(uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++)
@@ -1888,11 +1835,7 @@ void Engine3D::updateDescriptorSets() noexcept
         }
     }
 
-    std::vector<VkDescriptorBufferInfo> point_shadow_map_buf_infos(FRAMES_IN_FLIGHT);
-    for(uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++)
-    {
-        point_shadow_map_buf_infos[i] = {m_per_frame_data[i].point_shadow_map_buffer->buf, 0, VK_WHOLE_SIZE};
-    }
+    VkDescriptorBufferInfo point_shadow_map_buf_info = {m_point_shadow_map_buffer.buf, 0, m_point_shadow_map_buffer.size};
 
     std::vector<std::vector<VkDescriptorImageInfo>> point_shadow_map_img_infos(FRAMES_IN_FLIGHT);
     for(uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++)
@@ -1929,7 +1872,7 @@ void Engine3D::updateDescriptorSets() noexcept
         desc_set_writes.emplace_back(VkWriteDescriptorSet{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, NULL, m_per_frame_data[i].descriptor_set, DIR_LIGHTS_VALID_BINDING,    0, m_dir_lights_valid_desc_count, m_dir_lights_valid_desc_type, NULL, NULL, &m_per_frame_data[i].dir_light_valid_buffer->buf_view});
         desc_set_writes.emplace_back(VkWriteDescriptorSet{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, NULL, m_per_frame_data[i].descriptor_set, POINT_LIGHTS_BINDING,        0, m_point_lights_desc_count,   m_point_lights_desc_type, NULL, &point_light_buf_infos[i], NULL});
         desc_set_writes.emplace_back(VkWriteDescriptorSet{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, NULL, m_per_frame_data[i].descriptor_set, POINT_LIGHTS_VALID_BINDING,  0, m_point_lights_valid_desc_count, m_point_lights_valid_desc_type, NULL, NULL, &m_per_frame_data[i].point_light_valid_buffer->buf_view});
-        desc_set_writes.emplace_back(VkWriteDescriptorSet{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, NULL, m_per_frame_data[i].descriptor_set, DIR_SM_BUF_BINDING,          0, m_dir_sm_buf_desc_count,     m_dir_sm_buf_desc_type, NULL, &dir_shadow_map_buf_infos[i], NULL});
+        desc_set_writes.emplace_back(VkWriteDescriptorSet{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, NULL, m_per_frame_data[i].descriptor_set, DIR_SM_BUF_BINDING,          0, m_dir_sm_buf_desc_count,     m_dir_sm_buf_desc_type, NULL, &dir_shadow_map_buf_info, NULL});
 
         const uint32_t valid_dir_sm_desc_count = static_cast<uint32_t>(dir_shadow_map_img_infos[i].size());
         if(valid_dir_sm_desc_count > 0)
@@ -1937,7 +1880,7 @@ void Engine3D::updateDescriptorSets() noexcept
             desc_set_writes.emplace_back(VkWriteDescriptorSet{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, NULL, m_per_frame_data[i].descriptor_set, DIR_SM_BINDING, 0, valid_dir_sm_desc_count, m_dir_sm_desc_type, dir_shadow_map_img_infos[i].data(), NULL, NULL});
         }
 
-        desc_set_writes.emplace_back(VkWriteDescriptorSet{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, NULL, m_per_frame_data[i].descriptor_set, POINT_SM_BUF_BINDING, 0, m_point_sm_buf_desc_count, m_point_sm_buf_desc_type, NULL, &point_shadow_map_buf_infos[i], NULL});
+        desc_set_writes.emplace_back(VkWriteDescriptorSet{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, NULL, m_per_frame_data[i].descriptor_set, POINT_SM_BUF_BINDING, 0, m_point_sm_buf_desc_count, m_point_sm_buf_desc_type, NULL, &point_shadow_map_buf_info, NULL});
 
         const uint32_t valid_point_sm_desc_count = static_cast<uint32_t>(point_shadow_map_img_infos[i].size());
         if(valid_point_sm_desc_count > 0)
@@ -1967,7 +1910,7 @@ void Engine3D::createInstance(std::string_view app_name)
 {
     const std::vector<const char*> req_layer_names =
     {
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         "VK_LAYER_KHRONOS_validation"
 #endif
     };
@@ -1976,7 +1919,7 @@ void Engine3D::createInstance(std::string_view app_name)
     {
         VK_KHR_SURFACE_EXTENSION_NAME,
         VK_PLATFORM_SURFACE_EXTENSION_NAME
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         , VK_EXT_DEBUG_UTILS_EXTENSION_NAME
 #endif
     };
@@ -2013,7 +1956,7 @@ void Engine3D::createInstance(std::string_view app_name)
     ici.enabledExtensionCount = static_cast<uint32_t>(req_ext_names.size());
     ici.ppEnabledExtensionNames = req_ext_names.data();
 
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
     VkDebugUtilsMessengerCreateInfoEXT create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
     create_info.pNext = NULL;
@@ -2034,7 +1977,7 @@ void Engine3D::createInstance(std::string_view app_name)
     VkResult res = vkCreateInstance(&ici, NULL, &m_instance);
     assertVkSuccess(res, "Failed to create VkInstance");
 
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
     createDebugCallback(create_info);
 #endif
 }
@@ -2065,6 +2008,7 @@ void Engine3D::createDevice()
     CHECK_PHY_DEV_FEAT_2_SUPPORT(shaderSampledImageArrayDynamicIndexing);
     CHECK_PHY_DEV_FEAT_2_SUPPORT(fillModeNonSolid);
     CHECK_PHY_DEV_FEAT_2_SUPPORT(samplerAnisotropy);
+    CHECK_PHY_DEV_FEAT_2_SUPPORT(shaderImageGatherExtended);
     CHECK_PHY_DEV_VULKAN_1_2_FEAT_SUPPORT(descriptorBindingPartiallyBound);
 
 #undef CHECK_PHY_DEV_FEAT_2_SUPPORT
@@ -2088,7 +2032,7 @@ void Engine3D::createDevice()
     m_physical_device_features.sampleRateShading = VK_TRUE;
     m_physical_device_features.shaderSampledImageArrayDynamicIndexing = VK_TRUE;
     m_physical_device_features.samplerAnisotropy = VK_TRUE;
-    m_physical_device_features.tessellationShader = VK_TRUE;
+    m_physical_device_features.shaderImageGatherExtended = VK_TRUE;
 
     m_physical_device_12_features = {};
     m_physical_device_12_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
@@ -2357,7 +2301,7 @@ void Engine3D::createCommandPool()
     pool_create_info.queueFamilyIndex = m_queue_family_index;
 
     VkResult res = vkCreateCommandPool(m_device, &pool_create_info, NULL, &m_command_pool);
-    assertVkSuccess(res, "Failed to create command pool.");
+    assertVkSuccess(res, "Failed to create a command pool.");
 }
 
 void Engine3D::createMainRenderPass()
@@ -2443,7 +2387,7 @@ void Engine3D::createMainRenderPass()
 
     VkResult res = vkCreateRenderPass(m_device, &create_info, NULL, &m_main_render_pass);
     assertVkSuccess(res, "Failed to create render pass.");
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
     setDebugObjectName(m_main_render_pass, "MainRenderPass");
 #endif
 }
@@ -2490,7 +2434,7 @@ void Engine3D::createShadowMapRenderPass()
 
     VkResult res = vkCreateRenderPass(m_device, &create_info, NULL, &m_shadow_map_render_pass);
     assertVkSuccess(res, "Failed to create shadow map render pass.");
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
     setDebugObjectName(m_main_render_pass, "ShadowMapRenderPass");
 #endif
 }
@@ -2579,7 +2523,7 @@ void Engine3D::createDescriptorSets()
     std::vector<VkDescriptorPoolSize> desc_pool_sizes =
     {
           {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, (m_tex_desc_count + m_font_desc_count + m_dir_sm_desc_count + m_point_sm_desc_count + m_normal_map_desc_count) * FRAMES_IN_FLIGHT}
-        , {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, (m_common_buf_desc_count + m_dir_lights_desc_count + m_point_lights_desc_count + m_dir_sm_buf_desc_count + m_point_sm_buf_desc_count) * FRAMES_IN_FLIGHT}
+        , {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, (m_common_buf_desc_count + m_dir_lights_desc_count + m_point_lights_desc_count) * FRAMES_IN_FLIGHT + m_dir_sm_buf_desc_count + m_point_sm_buf_desc_count}
         , {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, (m_dir_lights_valid_desc_count + m_point_lights_valid_desc_count) * FRAMES_IN_FLIGHT}
         , {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, m_terrain_desc_count * FRAMES_IN_FLIGHT + m_bone_transform_buf_desc_count}
     };
@@ -2612,7 +2556,7 @@ void Engine3D::createDescriptorSets()
     for(uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++)
     {
         m_per_frame_data[i].descriptor_set = descriptor_sets[i];
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_per_frame_data[i].descriptor_set, "DescriptorSet_" + std::to_string(i));
 #endif
     }
@@ -2642,7 +2586,7 @@ void Engine3D::createPipelines()
         /*----------------------- vertex input state -----------------------*/
         VkVertexInputBindingDescription vertex_binding_desc{};
         vertex_binding_desc.binding = 0;
-        vertex_binding_desc.stride = sizeof(VertexQuad);
+        vertex_binding_desc.stride = sizeof(VertexUi);
         vertex_binding_desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
         VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info{};
@@ -2651,8 +2595,8 @@ void Engine3D::createPipelines()
         vertex_input_state_create_info.flags = 0;
         vertex_input_state_create_info.vertexBindingDescriptionCount = 1;
         vertex_input_state_create_info.pVertexBindingDescriptions = &vertex_binding_desc;
-        vertex_input_state_create_info.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertex_quad_attr_desc.size());
-        vertex_input_state_create_info.pVertexAttributeDescriptions = vertex_quad_attr_desc.data();
+        vertex_input_state_create_info.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertex_ui_attr_desc.size());
+        vertex_input_state_create_info.pVertexAttributeDescriptions = vertex_ui_attr_desc.data();
 
         /*----------------------- input assembly state -----------------------*/
         VkPipelineInputAssemblyStateCreateInfo input_assembly_state_create_info{};
@@ -2795,7 +2739,7 @@ void Engine3D::createPipelines()
         shader_stage_infos.emplace_back(loadShader(VS_QUAD_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
         shader_stage_infos.emplace_back(loadShader(GS_UI_FILENAME, VK_SHADER_STAGE_GEOMETRY_BIT, &shader_modules[1]));
         shader_stage_infos.emplace_back(loadShader(FS_UI_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[2], &spec_info));
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(shader_modules[0], "UiVS");
         setDebugObjectName(shader_modules[1], "UiGS");
         setDebugObjectName(shader_modules[2], "UiFS");
@@ -2805,7 +2749,7 @@ void Engine3D::createPipelines()
         pipeline_create_info.pStages = shader_stage_infos.data();
 
         VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::Ui)]);
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::Ui)], "PipelineUi");
 #endif
 
@@ -2822,7 +2766,7 @@ void Engine3D::createPipelines()
         /*----------------------- vertex input state -----------------------*/
         VkVertexInputBindingDescription vertex_binding_desc{};
         vertex_binding_desc.binding = 0;
-        vertex_binding_desc.stride = sizeof(VertexQuad);
+        vertex_binding_desc.stride = sizeof(VertexUi);
         vertex_binding_desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
         VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info{};
@@ -2831,8 +2775,8 @@ void Engine3D::createPipelines()
         vertex_input_state_create_info.flags = 0;
         vertex_input_state_create_info.vertexBindingDescriptionCount = 1;
         vertex_input_state_create_info.pVertexBindingDescriptions = &vertex_binding_desc;
-        vertex_input_state_create_info.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertex_quad_attr_desc.size());
-        vertex_input_state_create_info.pVertexAttributeDescriptions = vertex_quad_attr_desc.data();
+        vertex_input_state_create_info.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertex_ui_attr_desc.size());
+        vertex_input_state_create_info.pVertexAttributeDescriptions = vertex_ui_attr_desc.data();
 
         /*----------------------- input assembly state -----------------------*/
         VkPipelineInputAssemblyStateCreateInfo input_assembly_state_create_info{};
@@ -2974,7 +2918,7 @@ void Engine3D::createPipelines()
         shader_stage_infos.emplace_back(loadShader(VS_QUAD_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
         shader_stage_infos.emplace_back(loadShader(GS_UI_FILENAME, VK_SHADER_STAGE_GEOMETRY_BIT, &shader_modules[1]));
         shader_stage_infos.emplace_back(loadShader(FS_FONT_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[2], &spec_info));
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(shader_modules[0], "FontVS");
         setDebugObjectName(shader_modules[1], "FontGS");
         setDebugObjectName(shader_modules[2], "FontFS");
@@ -2984,7 +2928,7 @@ void Engine3D::createPipelines()
         pipeline_create_info.pStages = shader_stage_infos.data();
 
         VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::Font)]);
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::Font)], "PipelineFont");
 #endif
 
@@ -3163,7 +3107,7 @@ void Engine3D::createPipelines()
 
         shader_stage_infos.emplace_back(loadShader(VS_DEFAULT_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
         shader_stage_infos.emplace_back(loadShader(FS_DEFAULT_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[1], &spec_info));
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(shader_modules[0], "DefaultVS");
         setDebugObjectName(shader_modules[1], "DefaultFS");
 #endif
@@ -3172,7 +3116,7 @@ void Engine3D::createPipelines()
         pipeline_create_info.pStages = shader_stage_infos.data();
 
         VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::Default)]);
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::Default)], "PipelineDefault");
 #endif
 
@@ -3351,7 +3295,7 @@ void Engine3D::createPipelines()
         shader_stage_infos.emplace_back(loadShader(VS_TERRAIN_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
         shader_stage_infos.emplace_back(loadShader(FS_TERRAIN_EDITOR_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[1], &spec_info));
 
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(shader_modules[0], "TerrainVS");
         setDebugObjectName(shader_modules[1], "TerrainFS");
 #endif
@@ -3360,7 +3304,7 @@ void Engine3D::createPipelines()
         pipeline_create_info.pStages = shader_stage_infos.data();
 
         VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::Terrain)]);
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::Terrain)], "PipelineTerrain");
 #endif
 
@@ -3518,7 +3462,7 @@ void Engine3D::createPipelines()
         shader_stage_infos.emplace_back(loadShader(VS_TERRAIN_WIREFRAME_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
         shader_stage_infos.emplace_back(loadShader(FS_COLOR_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[1]));
 
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(shader_modules[0], "TerrainWireframeVS");
         setDebugObjectName(shader_modules[1], "TerrainWireframeFS");
 #endif
@@ -3527,7 +3471,7 @@ void Engine3D::createPipelines()
         pipeline_create_info.pStages = shader_stage_infos.data();
 
         VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::TerrainWireframe)]);
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::TerrainWireframe)], "PipelineTerrainWireframe");
 #endif
 
@@ -3686,7 +3630,7 @@ void Engine3D::createPipelines()
 
         shader_stage_infos.emplace_back(loadShader(VS_SKY_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
         shader_stage_infos.emplace_back(loadShader(FS_SKY_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[1]));
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(shader_modules[0], "SkyVS");
         setDebugObjectName(shader_modules[1], "SkyFS");
 #endif
@@ -3695,7 +3639,7 @@ void Engine3D::createPipelines()
         pipeline_create_info.pStages = shader_stage_infos.data();
 
         VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::Sky)]);
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::Sky)], "PipelineSky");
 #endif
 
@@ -3825,7 +3769,7 @@ void Engine3D::createPipelines()
 
         shader_stage_infos.emplace_back(loadShader(VS_SHADOWMAP_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
         shader_stage_infos.emplace_back(loadShader(GS_DIR_SHADOW_MAP_FILENAME, VK_SHADER_STAGE_GEOMETRY_BIT, &shader_modules[1]));
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(shader_modules[0], "DirShadowMapVS");
         setDebugObjectName(shader_modules[1], "DirShadowMapGS");
 #endif
@@ -3834,7 +3778,7 @@ void Engine3D::createPipelines()
         pipeline_create_info.pStages = shader_stage_infos.data();
 
         VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::DirShadowMap)]);
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::DirShadowMap)], "PipelineDirShadowMap");
 #endif
 
@@ -3963,7 +3907,7 @@ void Engine3D::createPipelines()
 
         shader_stage_infos.emplace_back(loadShader(VS_TERRAIN_SHADOWMAP_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
         shader_stage_infos.emplace_back(loadShader(GS_DIR_SHADOW_MAP_FILENAME, VK_SHADER_STAGE_GEOMETRY_BIT, &shader_modules[1]));
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(shader_modules[0], "TerrainDirShadowMapVS");
         setDebugObjectName(shader_modules[1], "TerrainDirShadowMapGS");
 #endif
@@ -3972,7 +3916,7 @@ void Engine3D::createPipelines()
         pipeline_create_info.pStages = shader_stage_infos.data();
 
         VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::TerrainDirShadowMap)]);
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::TerrainDirShadowMap)], "PipelineTerrainDirShadowMap");
 #endif
 
@@ -4103,7 +4047,7 @@ void Engine3D::createPipelines()
         shader_stage_infos.emplace_back(loadShader(VS_SHADOWMAP_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
         shader_stage_infos.emplace_back(loadShader(GS_POINT_SHADOW_MAP_FILENAME, VK_SHADER_STAGE_GEOMETRY_BIT, &shader_modules[1]));
         shader_stage_infos.emplace_back(loadShader(FS_POINT_SHADOW_MAP_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[2]));
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(shader_modules[0], "PointShadowMapVS");
         setDebugObjectName(shader_modules[1], "PointShadowMapGS");
         setDebugObjectName(shader_modules[2], "PointShadowMapFS");
@@ -4113,7 +4057,7 @@ void Engine3D::createPipelines()
         pipeline_create_info.pStages = shader_stage_infos.data();
 
         VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::PointShadowMap)]);
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::PointShadowMap)], "PipelinePointShadowMap");
 #endif
 
@@ -4243,7 +4187,7 @@ void Engine3D::createPipelines()
         shader_stage_infos.emplace_back(loadShader(VS_TERRAIN_SHADOWMAP_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
         shader_stage_infos.emplace_back(loadShader(GS_POINT_SHADOW_MAP_FILENAME, VK_SHADER_STAGE_GEOMETRY_BIT, &shader_modules[1]));
         shader_stage_infos.emplace_back(loadShader(FS_POINT_SHADOW_MAP_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[2]));
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(shader_modules[0], "TerrainPointShadowMapVS");
         setDebugObjectName(shader_modules[1], "TerrainPointShadowMapGS");
         setDebugObjectName(shader_modules[2], "TerrainPointShadowMapFS");
@@ -4253,7 +4197,7 @@ void Engine3D::createPipelines()
         pipeline_create_info.pStages = shader_stage_infos.data();
 
         VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::TerrainPointShadowMap)]);
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::TerrainPointShadowMap)], "PipelineTerrainPointShadowMap");
 #endif
 
@@ -4410,7 +4354,7 @@ void Engine3D::createPipelines()
 
         shader_stage_infos.emplace_back(loadShader(VS_HIGHLIGHT_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
         shader_stage_infos.emplace_back(loadShader(FS_COLOR_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[1]));
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(shader_modules[0], "HighlightVS");
         setDebugObjectName(shader_modules[1], "HighlightFS");
 #endif
@@ -4419,7 +4363,7 @@ void Engine3D::createPipelines()
         pipeline_create_info.pStages = shader_stage_infos.data();
 
         VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::Highlight)]);
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::Highlight)], "PipelineHighlight");
 #endif
 
@@ -4436,7 +4380,7 @@ void Engine3D::createPipelines()
         /*----------------------- vertex input state -----------------------*/
         VkVertexInputBindingDescription vertex_binding_desc{};
         vertex_binding_desc.binding = 0;
-        vertex_binding_desc.stride = sizeof(VertexQuad);
+        vertex_binding_desc.stride = sizeof(VertexBillboard);
         vertex_binding_desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
         VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info{};
@@ -4445,8 +4389,8 @@ void Engine3D::createPipelines()
         vertex_input_state_create_info.flags = 0;
         vertex_input_state_create_info.vertexBindingDescriptionCount = 1;
         vertex_input_state_create_info.pVertexBindingDescriptions = &vertex_binding_desc;
-        vertex_input_state_create_info.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertex_quad_attr_desc.size());
-        vertex_input_state_create_info.pVertexAttributeDescriptions = vertex_quad_attr_desc.data();
+        vertex_input_state_create_info.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertex_billboard_attr_desc.size());
+        vertex_input_state_create_info.pVertexAttributeDescriptions = vertex_billboard_attr_desc.data();
 
         /*----------------------- input assembly state -----------------------*/
         VkPipelineInputAssemblyStateCreateInfo input_assembly_state_create_info{};
@@ -4585,10 +4529,10 @@ void Engine3D::createPipelines()
         std::vector<VkShaderModule> shader_modules(3, VK_NULL_HANDLE);
         std::vector<VkPipelineShaderStageCreateInfo> shader_stage_infos;
 
-        shader_stage_infos.emplace_back(loadShader(VS_QUAD_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
+        shader_stage_infos.emplace_back(loadShader(VS_BILLBOARD_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
         shader_stage_infos.emplace_back(loadShader(GS_BILLBOARD_FILENAME, VK_SHADER_STAGE_GEOMETRY_BIT, &shader_modules[1]));
-        shader_stage_infos.emplace_back(loadShader(FS_UI_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[2], &spec_info));
-#if VALIDATION_ENABLE
+        shader_stage_infos.emplace_back(loadShader(FS_BILLBOARD_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[2], &spec_info));
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(shader_modules[0], "BillboardVS");
         setDebugObjectName(shader_modules[1], "BillboardGS");
         setDebugObjectName(shader_modules[2], "BillboardFS");
@@ -4598,7 +4542,7 @@ void Engine3D::createPipelines()
         pipeline_create_info.pStages = shader_stage_infos.data();
 
         VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::Billboard)]);
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::Billboard)], "PipelineBillboard");
 #endif
 
@@ -4626,7 +4570,7 @@ void Engine3D::createCommandBuffers()
     for(uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++)
     {
         m_per_frame_data[i].cmd_buf = command_buffers[i];
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_per_frame_data[i].cmd_buf, "CmdBuf_" + std::to_string(i));
 #endif
     }
@@ -4634,7 +4578,7 @@ void Engine3D::createCommandBuffers()
     cmd_buf_alloc_info.commandBufferCount = 1;
     res = vkAllocateCommandBuffers(m_device, &cmd_buf_alloc_info, &m_transfer_cmd_buf);
     assertVkSuccess(res, "Failed to allocate transfer command buffer.");
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
     setDebugObjectName(m_transfer_cmd_buf, "TransferCmdBuf");
 #endif
 }
@@ -4664,7 +4608,7 @@ void Engine3D::createSynchronizationPrimitives()
         res = vkCreateSemaphore(m_device, &sem_create_info, NULL, &m_per_frame_data[i].rendering_finished_semaphore);
         assertVkSuccess(res, "Failed to create semaphore.");
 
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_per_frame_data[i].cmd_buf_ready_fence, "CmdBufReadyFence_" + std::to_string(i));
         setDebugObjectName(m_per_frame_data[i].image_acquire_semaphore, "ImgAcquireSemaphore_" + std::to_string(i));
         setDebugObjectName(m_per_frame_data[i].rendering_finished_semaphore, "RenderFinishedSemaphore_" + std::to_string(i));
@@ -4674,7 +4618,7 @@ void Engine3D::createSynchronizationPrimitives()
     fence_create_info.flags = 0;
     res = vkCreateFence(m_device, &fence_create_info, NULL, &m_transfer_cmd_buf_fence);
     assertVkSuccess(res, "Failed to create fence.");
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
     setDebugObjectName(m_transfer_cmd_buf_fence, "TransferCmdBufFence");
 #endif
 }
@@ -4766,7 +4710,7 @@ void Engine3D::createRenderTargets()
     for(size_t i = 0; i < m_render_targets.size(); i++)
     {
         m_render_targets[i].depth_img = createImage(depth_img_create_info, depth_img_view_create_info);
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_render_targets[i].depth_img.img, "MainDepthImg_" + std::to_string(i));
         setDebugObjectName(m_render_targets[i].depth_img.img_view, "MainDepthImgView_" + std::to_string(i));
         setDebugObjectName(m_render_targets[i].depth_img.mem, "MainDepthImgMem_" + std::to_string(i));
@@ -4775,7 +4719,7 @@ void Engine3D::createRenderTargets()
         if(m_sample_count != VK_SAMPLE_COUNT_1_BIT)
         {
             m_render_targets[i].color_img = createImage(img_create_info, img_view_create_info);
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_render_targets[i].color_img.img, "MainColorImg_" + std::to_string(i));
         setDebugObjectName(m_render_targets[i].color_img.img_view, "MainColorImgView_" + std::to_string(i));
         setDebugObjectName(m_render_targets[i].color_img.mem, "MainColorImgMem_" + std::to_string(i));
@@ -4795,7 +4739,7 @@ void Engine3D::createRenderTargets()
 
         res = vkCreateFramebuffer(m_device, &framebuffer_create_info, NULL, &m_render_targets[i].framebuffer);
         assertVkSuccess(res, "Failed to create framebuffer.");
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_render_targets[i].framebuffer, "MainFramebuffer_" + std::to_string(i));
 #endif
 
@@ -4834,15 +4778,15 @@ void Engine3D::createSamplers()
 
     VkResult res = vkCreateSampler(m_device, &sampler_create_info, NULL, &m_sampler);
     assertVkSuccess(res, "Failed to create sampler.");
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
     setDebugObjectName(m_sampler, "MainSampler");
 #endif
 
     sampler_create_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     sampler_create_info.pNext = NULL;
     sampler_create_info.flags = 0;
-    sampler_create_info.magFilter = VK_FILTER_NEAREST;
-    sampler_create_info.minFilter = VK_FILTER_NEAREST;
+    sampler_create_info.magFilter = VK_FILTER_LINEAR;
+    sampler_create_info.minFilter = VK_FILTER_LINEAR;
     sampler_create_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
     sampler_create_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
     sampler_create_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
@@ -4850,8 +4794,8 @@ void Engine3D::createSamplers()
     sampler_create_info.mipLodBias = 0.0f;
     sampler_create_info.anisotropyEnable = VK_FALSE;
     sampler_create_info.maxAnisotropy = 0.0f;
-    sampler_create_info.compareEnable = VK_FALSE;
-    sampler_create_info.compareOp = VK_COMPARE_OP_ALWAYS;
+    sampler_create_info.compareEnable = VK_TRUE;
+    sampler_create_info.compareOp = VK_COMPARE_OP_LESS;
     sampler_create_info.minLod = 0.0f;
     sampler_create_info.maxLod = 1.0f;
     sampler_create_info.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
@@ -4859,7 +4803,7 @@ void Engine3D::createSamplers()
 
     res = vkCreateSampler(m_device, &sampler_create_info, NULL, &m_shadow_map_sampler);
     assertVkSuccess(res, "Failed to create shadow map sampler.");
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
     setDebugObjectName(m_shadow_map_sampler, "ShadowMapSampler");
 #endif
 }
@@ -4869,42 +4813,39 @@ void Engine3D::createBuffers()
     //create buffers
     for(size_t i = 0; i < FRAMES_IN_FLIGHT; i++)
     {
-        m_per_frame_data[i].common_buffer = std::make_unique<VkBufferWrapper>(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false);
-        createBuffer(*m_per_frame_data[i].common_buffer , sizeof(m_common_buffer_data));
+        m_per_frame_data[i].common_buffer = std::make_unique<VkBufferWrapper>(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, false);
+        createBuffer(*m_per_frame_data[i].common_buffer, sizeof(m_common_buffer_data));
 
-        m_per_frame_data[i].dir_light_buffer = std::make_unique<VkBufferWrapper>(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false);
-        createBuffer(*m_per_frame_data[i].dir_light_buffer , SMALL_BUFFER_SIZE);
+        m_per_frame_data[i].dir_light_buffer = std::make_unique<VkBufferWrapper>(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, false);
+        createBuffer(*m_per_frame_data[i].dir_light_buffer, MAX_DIR_LIGHT_COUNT * sizeof(DirLightShaderData));
 
-        m_per_frame_data[i].dir_light_valid_buffer = std::make_unique<VkBufferWrapper>(VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, VK_FORMAT_R8_UINT);
-        createBuffer(*m_per_frame_data[i].dir_light_valid_buffer , MAX_DIR_LIGHT_COUNT);
+        m_per_frame_data[i].dir_light_valid_buffer = std::make_unique<VkBufferWrapper>(VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, VK_FORMAT_R8_UINT, false);
+        createBuffer(*m_per_frame_data[i].dir_light_valid_buffer, MAX_DIR_LIGHT_COUNT);
 
-        m_per_frame_data[i].point_light_buffer = std::make_unique<VkBufferWrapper>(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false);
-        createBuffer(*m_per_frame_data[i].point_light_buffer , SMALL_BUFFER_SIZE);
+        m_per_frame_data[i].point_light_buffer = std::make_unique<VkBufferWrapper>(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, false);
+        createBuffer(*m_per_frame_data[i].point_light_buffer, MAX_POINT_LIGHT_COUNT * sizeof(PointLightShaderData));
 
-        m_per_frame_data[i].point_light_valid_buffer = std::make_unique<VkBufferWrapper>(VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, VK_FORMAT_R8_UINT);
-        createBuffer(*m_per_frame_data[i].point_light_valid_buffer , MAX_POINT_LIGHT_COUNT);
-
-        m_per_frame_data[i].dir_shadow_map_buffer = std::make_unique<VkBufferWrapper>(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false);
-        createBuffer(*m_per_frame_data[i].dir_shadow_map_buffer , SMALL_BUFFER_SIZE);
-
-        m_per_frame_data[i].point_shadow_map_buffer = std::make_unique<VkBufferWrapper>(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false);
-        createBuffer(*m_per_frame_data[i].point_shadow_map_buffer , SMALL_BUFFER_SIZE);
+        m_per_frame_data[i].point_light_valid_buffer = std::make_unique<VkBufferWrapper>(VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, VK_FORMAT_R8_UINT, false);
+        createBuffer(*m_per_frame_data[i].point_light_valid_buffer, MAX_POINT_LIGHT_COUNT);
 
         //TODO: when buffers are later destroyed and created anew when they need to be resized, we lose these debug names
         //should find a way to make sure we can set the debug names even after we recreate them later
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(m_per_frame_data[i].common_buffer->buf, "CommonBuffer_" + std::to_string(i));
         setDebugObjectName(m_per_frame_data[i].dir_light_buffer->buf, "DitLightBuffer_" + std::to_string(i));
         setDebugObjectName(m_per_frame_data[i].dir_light_valid_buffer->buf, "DirLightValidBuffer_" + std::to_string(i));
         setDebugObjectName(m_per_frame_data[i].point_light_buffer->buf, "PointLightBuffer_" + std::to_string(i));
         setDebugObjectName(m_per_frame_data[i].point_light_valid_buffer->buf, "PointLightValidBuffer_" + std::to_string(i));
-        setDebugObjectName(m_per_frame_data[i].dir_shadow_map_buffer->buf, "DirShadowMapBuffer_" + std::to_string(i));
-        setDebugObjectName(m_per_frame_data[i].point_shadow_map_buffer->buf, "PointShadowMapBuffer_" + std::to_string(i));
 #endif
     }
 
-#if VALIDATION_ENABLE
-//        setDebugObjectName(m_terrain_buffer->buf, "TerrainBuffer");
+    createBuffer(m_dir_shadow_map_buffer, sizeof(m_dir_shadow_map_data));
+    createBuffer(m_point_shadow_map_buffer, sizeof(m_point_shadow_map_data));
+
+#if VULKAN_VALIDATION_ENABLE
+    setDebugObjectName(m_dir_shadow_map_buffer.buf, "DirShadowMapBuffer");
+    setDebugObjectName(m_point_shadow_map_buffer.buf, "PointShadowMapBuffer");
+//    setDebugObjectName(m_terrain_buffer.buf, "TerrainBuffer");
 #endif
 
     //initialize buffers
@@ -4931,7 +4872,7 @@ void Engine3D::createBuffers()
     {
         const auto identity = glm::identity<mat4x4>();
         m_bone_transform_buffer.req_size = sizeof(mat4x4);
-        createBuffer(m_bone_transform_buffer, sizeof(mat4x4), true);
+        createBuffer(m_bone_transform_buffer, sizeof(mat4x4));
         void* data;
         vkMapMemory(m_device, m_bone_transform_buffer.transfer_buffer->mem, 0, sizeof(mat4x4), 0, &data);
         std::memcpy(data, &identity, sizeof(mat4x4));
@@ -5049,7 +4990,7 @@ uint32_t Engine3D::createDirShadowMap(const DirLight& light)
         shadow_map.render_pass_begin_info.pClearValues = &m_shadow_map_clear_value;
     }
 
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
     for(uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++)
     {
         setDebugObjectName(m_per_frame_data[i].dir_shadow_maps[shadow_map_id].framebuffer, "DirShadowMapFramebuffer_" + std::to_string(i) + "_" + std::to_string(shadow_map_id));
@@ -5075,7 +5016,7 @@ void Engine3D::updateDirShadowMap(Camera& camera, const DirLightShaderData& ligh
 
     for(uint32_t i = 0; i < shadow_map_count; i++)
     {
-        const vec3 light_pos = -1000.0f * light.dir;
+        const vec3 light_pos = -10000.0f * light.dir;
 
         const quat q = normalize(glm::rotation(light.dir, vec3(0.0f, 0.0f, 1.0f)));
         const auto world_to_light = mat4_cast(q) * translate(-light_pos);
@@ -5107,11 +5048,12 @@ void Engine3D::updateDirShadowMap(Camera& camera, const DirLightShaderData& ligh
         if(shadow_map_count - 1 == i)
         {
             far_wall = &view_frustum_points[4];
+            //TODO: consider renaming the below "z" to something like "far_z" as it's unclear what that z actually is
             shadow_map_data[i].z = camera.far();
         }
         else
         {
-            const float lambda = 0.95f;
+            const float lambda = 0.97f;
             const float i_over_N = static_cast<float>(i + 1) / static_cast<float>(shadow_map_count);
             const float z = lambda * camera.near() * std::pow(camera.far() / camera.near(), i_over_N) + (1.0f - lambda) * (camera.near() + i_over_N * (camera.far() - camera.near()));
             const float d = (z - camera.near()) / (camera.far() - camera.near());
@@ -5133,17 +5075,31 @@ void Engine3D::updateDirShadowMap(Camera& camera, const DirLightShaderData& ligh
             bb_max = max(bb_max, p);
         }
 
-        const auto orto = glm::orthoLH_ZO(bb_min.x, bb_max.x, bb_min.y, bb_max.y, 0.0f, bb_max.z);
+        bb_min = vec3(-25,-25, 9000);
+        bb_max = vec3(25, 25, 15000);
+        mat4x4 orto{};
+        orto[0][0] = 2.0f / (bb_max.x - bb_min.x);
+        orto[1][1] = 2.0f / (bb_max.y - bb_min.y);
+        orto[2][2] = 1.0f / (bb_max.z - 0.0f);
+        orto[3][2] = 0.0f / (0.0f - bb_max.z);
+        orto[3][3] = 1.0f;
+        shadow_map_data[0].z = 100;
+        shadow_map_data[1].z = 500;
+        shadow_map_data[2].z = 1000;
+        shadow_map_data[3].z = 1500;
 
-        shadow_map_data[i].P = orto * world_to_light;
+//        shadow_map_data[i].P = orto * world_to_light;
+        shadow_map_data[i].P = orto * glm::translate(vec3(-0.5f * (bb_max.x + bb_min.x), -0.5f * (bb_max.y + bb_min.y), 0.0f)) * world_to_light;
 
         constexpr mat4x4 to_tex_coords = mat4x4(0.5f, 0.0f, 0.0f, 0.0f,
-                                            0.0f, -0.5f, 0.0f, 0.0f,
-                                            0.0f, 0.0f, 1.0f, 0.0f,
-                                            0.5f, 0.5f, 0.0f, 1.0f);
+                                                0.0f, -0.5f, 0.0f, 0.0f,
+                                                0.0f, 0.0f, 1.0f, 0.0f,
+                                                0.5f, 0.5f, 0.0f, 1.0f);
 
         shadow_map_data[i].tex_P = to_tex_coords * shadow_map_data[i].P;
     }
+
+    requestBufferUpdate(&m_dir_shadow_map_buffer, light.shadow_map_id * sizeof(shadow_map_data), shadow_map_count * sizeof(DirShadowMapData), shadow_map_data.data());
 }
 
 uint32_t Engine3D::createPointShadowMap(const PointLight& light)
@@ -5222,7 +5178,7 @@ uint32_t Engine3D::createPointShadowMap(const PointLight& light)
         shadow_map.render_pass_begin_info.pClearValues = &m_shadow_map_clear_value;
     }
 
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
     for(uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++)
     {
         setDebugObjectName(m_per_frame_data[i].point_shadow_maps[shadow_map_id].framebuffer, "PointShadowMapFramebuffer_" + std::to_string(i) + "_" + std::to_string(shadow_map_id));
@@ -5288,13 +5244,15 @@ void Engine3D::updatePointShadowMap(const PointLightShaderData& light)
     shadow_map_data.P[3] = proj * glm::lookAtLH(light.pos, light.pos + vec3(0.0f, -1.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f));
     shadow_map_data.P[4] = proj * glm::lookAtLH(light.pos, light.pos + vec3(0.0f, 0.0f, 1.0f), vec3(0.0f, 1.0f, 0.0f));
     shadow_map_data.P[5] = proj * glm::lookAtLH(light.pos, light.pos + vec3(0.0f, 0.0f, -1.0f), vec3(0.0f, 1.0f, 0.0f));
+
+    requestBufferUpdate(&m_point_shadow_map_buffer, light.shadow_map_id * sizeof(PointShadowMapData), sizeof(PointShadowMapData), &shadow_map_data);
 }
 
 /*---------------- destroy methods ----------------*/
 
 void Engine3D::destroyInstance() noexcept
 {
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
     destroyDebugCallback();
 #endif
 
@@ -5429,7 +5387,7 @@ void Engine3D::destroyShadowMaps()
 
 /*---------------- debug callback ----------------*/
 
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
 VkBool32 debugReportCallback(
         VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
         VkDebugUtilsMessageTypeFlagsEXT messageTypes,
@@ -5487,7 +5445,7 @@ void Engine3D::destroyDebugCallback()
 
 void Engine3D::setDebugObjectName(VkObjectType object_type, uint64_t object_handle, std::string_view object_name)
 {
-#if VALIDATION_ENABLE
+#if VULKAN_VALIDATION_ENABLE
     VkDebugUtilsObjectNameInfoEXT name_info{};
     name_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
     name_info.pNext = NULL;
