@@ -8,6 +8,7 @@ layout(location = 3) in vec2 tex_coords_in;
 layout(location = 4) in uint bone_id_in;
 layout(location = 5) in mat4x4 W_in;
 layout(location = 9) in uvec2 tex_ids_in;
+layout(location = 10) in uint bone_offset_in;
 
 layout(location = 0) out vec3 norm_out;
 layout(location = 1) out vec3 tan_out;
@@ -24,7 +25,7 @@ layout(set = 0, binding = BONE_TRANSFORM_BUF_BINDING) buffer readonly restrict B
 
 void main()
 {
-    const mat4x4 W = W_in * bone_transforms.Ts[bone_id_in];
+    const mat4x4 W = W_in * bone_transforms.Ts[bone_offset_in + bone_id_in];
 
     norm_out = normalize(vec3(vec4(norm_in, 0.0f) * inverse(W)));
     tan_out = normalize(vec3(vec4(tan_in, 0.0f) * inverse(W)));

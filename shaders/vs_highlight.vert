@@ -8,6 +8,7 @@ layout(location = 3) in vec2 tex_coords_in;
 layout(location = 4) in uint bone_id_in;
 layout(location = 5) in mat4x4 W_in;
 layout(location = 9) in uvec2 tex_ids_in;
+layout(location = 10) in uint bone_offset_in;
 
 layout(location = 0) out vec4 col_out;
 
@@ -19,6 +20,6 @@ layout(set = 0, binding = BONE_TRANSFORM_BUF_BINDING) buffer readonly restrict B
 void main()
 {
     col_out = common_buf.editor_highlight_color;
-    const mat4x4 W = W_in * bone_transforms.Ts[bone_id_in];
+    const mat4x4 W = W_in * bone_transforms.Ts[bone_offset_in + bone_id_in];
     gl_Position = common_buf.VP * W * vec4(pos_in, 1.0f);
 }

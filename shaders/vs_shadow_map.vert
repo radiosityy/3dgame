@@ -4,6 +4,7 @@
 layout(location = 0) in vec3 pos_in;
 layout(location = 4) in uint bone_id_in;
 layout(location = 5) in mat4x4 W_in;
+layout(location = 10) in uint bone_offset_in;
 
 layout(set = 0, binding = BONE_TRANSFORM_BUF_BINDING) buffer readonly restrict BoneTransformData
 {
@@ -12,7 +13,7 @@ layout(set = 0, binding = BONE_TRANSFORM_BUF_BINDING) buffer readonly restrict B
 
 void main()
 {
-    const mat4x4 W = W_in * bone_transforms.Ts[bone_id_in];
+    const mat4x4 W = W_in * bone_transforms.Ts[bone_offset_in + bone_id_in];
 
     gl_Position = W * vec4(pos_in, 1.0f);
 }

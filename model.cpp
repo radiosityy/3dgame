@@ -21,8 +21,6 @@ Model::Model(Engine3D& engine3d, std::string_view filename)
 
         if(model_data->bone_count != 0)
         {
-            model_data->bone_offset = engine3d.requestBoneTransformBufferAllocation(model_data->bone_count);
-
             model_data->bone_parent_ids.resize(model_data->bone_count);
             model_file.read(reinterpret_cast<char*>(model_data->bone_parent_ids.data()), model_data->bone_count * sizeof(int8_t));
 
@@ -82,7 +80,7 @@ Model::Model(Engine3D& engine3d, std::string_view filename)
 
         for(uint64_t mesh_id = 0; mesh_id < mesh_count; mesh_id++)
         {
-            model_data->meshes.emplace_back(engine3d, model_file, model_data->bone_offset);
+            model_data->meshes.emplace_back(engine3d, model_file);
         }
 
         model_file.read(reinterpret_cast<char*>(&model_data->bounding_sphere), sizeof(Sphere));
@@ -106,6 +104,8 @@ Model::Model(Engine3D& engine3d, std::string_view filename)
         m_model_datas.emplace(filename, m_model_data);
     }
 
+    m_bone_offset = engine3d.requestBoneTransformBufferAllocation(m_model_data->bone_count);
+
     if(m_model_data->bone_count != 0)
     {
         m_src_key_frames.resize(m_model_data->bone_count, nullptr);
@@ -113,7 +113,7 @@ Model::Model(Engine3D& engine3d, std::string_view filename)
         m_curr_pose.resize(m_model_data->bone_count);
         m_bone_transforms.resize(m_model_data->bone_count);
         resetPose();
-        engine3d.updateBoneTransformData(m_model_data->bone_offset, m_model_data->bone_count, m_bone_transforms.data());
+        engine3d.updateBoneTransformData(m_bone_offset, m_model_data->bone_count, m_bone_transforms.data());
     }
 }
 
@@ -142,6 +142,10 @@ const std::vector<Sphere>& Model::spheres() const
     return m_model_data->spheres;
 }
 
+uint32_t Model::boneOffset() const
+{
+    return m_bone_offset;
+}
 
 void Model::resetPose()
 {
@@ -300,7 +304,7 @@ void Model::animationUpdate(Engine3D& engine3d, float dt)
     }
 
     //TODO: only update if data changed
-    engine3d.updateBoneTransformData(m_model_data->bone_offset, m_model_data->bone_count, m_bone_transforms.data());
+    engine3d.updateBoneTransformData(m_bone_offset, m_model_data->bone_count, m_bone_transforms.data());
 }
 
 bool Model::forPlayer1(std::string_view anim_name)
@@ -341,9 +345,9 @@ bool Model::rayIntersetion(const Ray& rayL, float min_d, float& d) const
                 }
                 else
                 {
-                    T0 = m_bone_transforms[mesh.vertexData()[v].bone_id - m_model_data->bone_offset];
-                    T1 = m_bone_transforms[mesh.vertexData()[v + 1].bone_id - m_model_data->bone_offset];
-                    T2 = m_bone_transforms[mesh.vertexData()[v + 2].bone_id - m_model_data->bone_offset];
+                    T0 = m_bone_transforms[mesh.vertexData()[v].bone_id];
+                    T1 = m_bone_transforms[mesh.vertexData()[v + 1].bone_id];
+                    T2 = m_bone_transforms[mesh.vertexData()[v + 2].bone_id];
                 }
 
                 const vec3 p0 = T0 * vec4(mesh.vertexData()[v].pos, 1.0f);

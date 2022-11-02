@@ -16,6 +16,11 @@ Object::Object(Engine3D& engine3d, std::ifstream& scene_file)
     m_instance_data.resize(m_model->mehes().size());
     m_instance_id = engine3d.requestInstanceVertexBufferAllocation(m_instance_data.size());
 
+    for(auto& instance_data : m_instance_data)
+    {
+        instance_data.bone_offset = m_model->boneOffset();
+    }
+
 #if EDITOR_ENABLE
     m_model_filename = model_filename;
 #endif
@@ -34,6 +39,11 @@ Object::Object(Engine3D& engine3d, std::string_view model_filename, RenderMode r
     m_model = std::make_unique<Model>(engine3d, model_filename);
     m_instance_data.resize(m_model->mehes().size());
     m_instance_id = engine3d.requestInstanceVertexBufferAllocation(m_instance_data.size());
+
+    for(auto& instance_data : m_instance_data)
+    {
+        instance_data.bone_offset = m_model->boneOffset();
+    }
 }
 
 void Object::update(Engine3D& engine3d, float dt)
@@ -183,6 +193,21 @@ void Object::setVisible(bool visible)
 bool Object::isVisible() const
 {
     return m_visible;
+}
+
+void Object::playAnimation(std::string_view anim_name)
+{
+    m_model->playAnimation(anim_name);
+}
+
+void Object::stopAnimation()
+{
+    m_model->stopAnimation();
+}
+
+void Object::setPose(std::string_view pose_name)
+{
+    m_model->setPose(pose_name);
 }
 
 #if EDITOR_ENABLE

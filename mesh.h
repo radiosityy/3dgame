@@ -11,7 +11,7 @@
 class Mesh
 {
 public:
-    Mesh(Engine3D& engine3d, std::ifstream& model_file, uint32_t bone_offset);
+    Mesh(Engine3D& engine3d, std::ifstream& model_file);
 
     uint32_t textureId() const;
     uint32_t normalMapId() const;

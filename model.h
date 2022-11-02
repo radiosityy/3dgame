@@ -34,7 +34,6 @@ class Model
 
         //animation
         uint8_t bone_count = 0;
-        uint32_t bone_offset = 0;
         std::vector<int8_t> bone_parent_ids;
         std::vector<mat4x4> bone_offset_transforms;
         std::vector<mat4x4> bone_to_root_transforms;
@@ -54,6 +53,8 @@ public:
     const std::vector<AABB>& aabbs() const;
     const std::vector<BoundingBox>& bbs() const;
     const std::vector<Sphere>& spheres() const;
+
+    uint32_t boneOffset() const;
 
     void playAnimation(std::string_view);
     void stopAnimation();
@@ -89,6 +90,7 @@ private:
     Pose m_curr_pose;
     Pose m_interrupt_pose;
 
+    uint32_t m_bone_offset = 0;
     std::vector<mat4x4> m_bone_transforms;
 };
 

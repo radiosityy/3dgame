@@ -48,6 +48,10 @@ public:
     void setVisible(bool);
     bool isVisible() const;
 
+    void playAnimation(std::string_view);
+    void stopAnimation();
+    void setPose(std::string_view);
+
 #if EDITOR_ENABLE
     bool isSerializable() const;
     void setSerializable(bool);

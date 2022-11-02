@@ -1,7 +1,7 @@
 #include "mesh.h"
 #include <fstream>
 
-Mesh::Mesh(Engine3D& engine3d, std::ifstream& model_file, uint32_t bone_offset)
+Mesh::Mesh(Engine3D& engine3d, std::ifstream& model_file)
 {
     uint8_t texture_filename_length = 0;
     model_file.read(reinterpret_cast<char*>(&texture_filename_length), sizeof(uint8_t));
@@ -30,11 +30,6 @@ Mesh::Mesh(Engine3D& engine3d, std::ifstream& model_file, uint32_t bone_offset)
 
     m_vertex_data.resize(vertex_count);
     model_file.read(reinterpret_cast<char*>(m_vertex_data.data()), vertex_count * sizeof(VertexDefault));
-
-    for(uint64_t i = 0; i < vertex_count; i++)
-    {
-        m_vertex_data[i].bone_id += bone_offset;
-    }
 
     m_vb_alloc = engine3d.requestVertexBufferAllocation<VertexDefault>(vertex_count);
     engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexDefault) * vertex_count, m_vertex_data.data());

@@ -7,6 +7,10 @@
 #include <vulkan.h>
 #include <ranges>
 
+//TODO: see if there's any benefit to limiting the number of locations for each vertex format
+//there are cases where we can for instance pack all uints into a single location even if they have nothing to do with each other
+//and I currently keep them at separate locations for clarity
+
 /*----------------------------------------- Vertex Ui ------------------------------------------*/
 
 struct VertexUi
@@ -72,6 +76,7 @@ struct InstanceVertexData
     mat4x4 W = glm::identity<mat4x4>();
     uint32_t tex_id = 0;
     uint32_t normal_map_id = 0;
+    uint32_t bone_offset = 0;
 };
 
 struct VertexDefault
@@ -96,6 +101,7 @@ inline const std::vector<VkVertexInputAttributeDescription> vertex_default_attr_
     {7, 1, VK_FORMAT_R32G32B32A32_SFLOAT, 32}, // world matrix row2
     {8, 1, VK_FORMAT_R32G32B32A32_SFLOAT, 48}, // world matrix row3
     {9, 1, VK_FORMAT_R32G32_UINT, 64}, // tex_id, normal_map_id
+    {10, 1, VK_FORMAT_R32_UINT, 72}, // bone_offset
 };
 
 /*----------------------------------------- Vertex Terrain ------------------------------------------*/
