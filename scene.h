@@ -87,7 +87,7 @@ private:
 
     /*gameplay*/
     Player* m_player = nullptr;
-    bool m_player_movement = false;
+    bool m_player_movement = true;
     float m_player_camera_radius = 5.0f;
     float m_player_camera_theta = pi_2; //inclination
     float m_player_camera_phi = -pi_2; //azimuth
