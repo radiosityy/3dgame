@@ -245,7 +245,7 @@ void Player::turnLeft(bool b)
 
 void Player::jump()
 {
-    setVelocity(velocity() + vec3(0.0f, 10.0f, 0.0f));
+    setVelocity(velocity() + vec3(0.0f, 6.0f, 0.0f));
 //    animateToPose("pose_jump_start");
 }
 
