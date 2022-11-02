@@ -104,8 +104,6 @@ Model::Model(Engine3D& engine3d, std::string_view filename)
         m_model_datas.emplace(filename, m_model_data);
     }
 
-    m_bone_offset = engine3d.requestBoneTransformBufferAllocation(m_model_data->bone_count);
-
     if(m_model_data->bone_count != 0)
     {
         m_src_key_frames.resize(m_model_data->bone_count, nullptr);
@@ -113,6 +111,7 @@ Model::Model(Engine3D& engine3d, std::string_view filename)
         m_curr_pose.resize(m_model_data->bone_count);
         m_bone_transforms.resize(m_model_data->bone_count);
         resetPose();
+        m_bone_offset = engine3d.requestBoneTransformBufferAllocation(m_model_data->bone_count);
         engine3d.updateBoneTransformData(m_bone_offset, m_model_data->bone_count, m_bone_transforms.data());
     }
 }
