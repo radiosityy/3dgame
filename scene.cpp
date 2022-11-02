@@ -39,6 +39,9 @@ Scene::Scene(Engine3D& engine3d, float aspect_ratio, const Font& font)
     updateSun();
 
     loadFromFile("scene.scn");
+
+    m_camera->setPos(vec3(0.0f, 66.0f, -70.0f));
+    m_camera->pitch(glm::radians(45.0f));
 }
 
 void Scene::loadFromFile(std::string_view filename)
@@ -118,46 +121,6 @@ void Scene::update(float dt, const InputState& input_state) noexcept
     {
         playerControls(input_state);
 
-        float dh = 5.0f;
-        AABB aabb = m_player->aabbs()[0];
-        vec3 player_velocity = m_player->velocity() + m_player->acceleration() * dt;
-        vec3 s = player_velocity * dt;
-        aabb.transform(m_player->pos() + s, m_player->scale());
-        const auto res  = m_terrain->collision(aabb, dh);
-        switch (res)
-        {
-        case CollisionResult::Collision:
-            if(player_velocity.y < 0.0f)
-            {
-                m_player->setAcceleration(vec3(0.0f, 0.0f, 0.0f));
-            }
-            player_velocity.y = 0.0f;
-            return;
-        case CollisionResult::ResolvedCollision:
-            if(player_velocity.y < 0.0f)
-            {
-                m_player->setAcceleration(vec3(0.0f, 0.0f, 0.0f));
-            }
-            player_velocity.y = 0.0f;
-            s.y = dh;
-            m_player->move(s);
-            break;
-        case CollisionResult::Airborne:
-            //first, if player has no vertical acceleration, check if the player is airborne
-            if(m_player->acceleration().y == 0.0f)
-            {
-//                if(!objectMoveCollision(m_player, vec3(0.0f, -0.001f, 0.0f)))
-                {
-                    m_player->setAcceleration(vec3(0.0f, -9.8f, 0.0f));
-                }
-            }
-            m_player->move(s);
-            break;
-        }
-
-        m_player->setVelocity(player_velocity);
-
-#if 0
         //TODO:should we rotate before translation or after?
         if(m_player->rotVelocity() != 0.0f)
         {
@@ -165,7 +128,6 @@ void Scene::update(float dt, const InputState& input_state) noexcept
         }
 
         tryPlayerMove(dt);
-#endif
 
         const vec3 player_camera_reference_point = m_player->pos() + vec3(0.0f, 5.0f, 0.0f);
 
@@ -238,13 +200,60 @@ void Scene::tryPlayerRotation(float dt)
 
 void Scene::tryPlayerMove(float dt)
 {
-    const float xd = 0.5f;
+    const float max_dh = 0.5f;
+    float total_dh = max_dh;
     vec3 player_velocity = m_player->velocity() + m_player->acceleration() * dt;
 
     for(uint8_t axis = 0; axis < 3; axis++)
     {
         vec3 s = {0.0f, 0.0f, 0.0f};
         s[axis] = player_velocity[axis] * dt;
+
+        AABB aabb = m_player->aabbs()[0];
+        aabb.transform(m_player->pos() + s, m_player->scale());
+        float dh = total_dh;
+        const auto res  = m_terrain->collision(aabb, dh);
+        switch (res)
+        {
+        case CollisionResult::Collision:
+            if(axis == 1)
+            {
+                if(player_velocity.y < 0.0f)
+                {
+                    m_player->setAcceleration(vec3(0.0f, 0.0f, 0.0f));
+                }
+                player_velocity.y = 0.0f;
+            }
+            continue;
+        case CollisionResult::ResolvedCollision:
+            if(player_velocity.y > 0 && dh < 0)
+            {
+                break;
+            }
+
+            if(axis == 1)
+            {
+                if(player_velocity.y < 0.0f)
+                {
+                    m_player->setAcceleration(vec3(0.0f, 0.0f, 0.0f));
+                }
+                player_velocity.y = 0.0f;
+            }
+
+            s.y += dh;
+            total_dh -= dh;
+            break;
+        case CollisionResult::Airborne:
+            //first, if player has no vertical acceleration, check if the player is airborne
+            if(m_player->acceleration().y == 0.0f)
+            {
+                if(!objectMoveCollision(m_player, vec3(0.0f, -0.001f, 0.0f)))
+                {
+                    m_player->setAcceleration(vec3(0.0f, -9.8f, 0.0f));
+                }
+            }
+            break;
+        }
 
         if(axis != 1)
         {
@@ -254,7 +263,7 @@ void Scene::tryPlayerMove(float dt)
             {
                 s.y += 0.05f;
 
-                if(s.y > xd)
+                if(s.y > total_dh)
                 {
                     collision = true;
                     break;
@@ -279,6 +288,7 @@ void Scene::tryPlayerMove(float dt)
 
             player_velocity.y = 0.0f;
         }
+
     }
 
     m_player->setVelocity(player_velocity);
