@@ -241,16 +241,24 @@ def exportObject(outfile, object):
         #    for v in f.verts:
         #        outfile.write(struct.pack('fff', v.co.x, v.co.z, v.co.y))
         #    outfile.write(struct.pack('fff', f.normal.x, f.normal.z, f.normal.y))
-        uv_size_y = abs(me.uv_layers.active.data[0].uv.y - me.uv_layers.active.data[1].uv.y)
+        min_uv_y = 100000.0
+        max_uv_y = -100000.0
+        for uv_data in me.uv_layers.active.data:
+            if uv_data.uv.y > max_uv_y:
+                max_uv_y = uv_data.uv.y
+            if uv_data.uv.y < min_uv_y:
+                min_uv_y = uv_data.uv.y
+            
+        uv_size_y = max_uv_y - min_uv_y
 
         me.calc_tangents()
         
         for poly in me.polygons:
             for index in poly.loop_indices:
                 loop = me.loops[index]
-                
-                v = me.vertices[loop.vertex_index].co
-                outfile.write(struct.pack('fff', v.x, v.z, v.y))
+                v = me.vertices[loop.vertex_index]
+                pos = v.co
+                outfile.write(struct.pack('fff', pos.x, pos.z, pos.y))
                 
                 n = loop.normal
                 t = loop.tangent
@@ -267,24 +275,35 @@ def exportObject(outfile, object):
                 #vertex bone id
                 #TODO: this is only for models with armatures - for now we have that with each vertex, even if no armature
                 #but in the future there should be a separate model format for models with no animation
-                if object.parent is not None and object.parent.type == 'ARMATURE':
-                    armature = object.parent
-                    bones = armature.data.bones
-                    bone_count = len(bones)
+                if object.parent_bone is not None and len(object.parent_bone) != 0:    
+                    if len(v.groups) != 0:
+                        raise Exception("Vertex has a parent_bone but also belongs to a vertex group at the same time!")
                     
-                    v = me.vertices[loop.vertex_index]
+                    bone_name = object.parent_bone
+                elif object.parent is not None and object.parent.type == 'ARMATURE':
                     if len(v.groups) != 1:
-                        raise Exception("Each vertex in a rigged mesh must belong to exactly one vertex group!")
+                        raise Exception("Each vertex in a rigged mesh, that doesn't have a parent_bone, must belong to exactly one vertex group!")
                 
                     vertex_group_id = v.groups[0].group
-                    vertex_group_name = object.vertex_groups[vertex_group_id].name
-                
-                    for i in range(0, bone_count):
-                        if bones[i].name == vertex_group_name:
-                            outfile.write(i.to_bytes(4, byteorder='little', signed=False))
-                            break
+                    bone_name = object.vertex_groups[vertex_group_id].name
                 else:
                     outfile.write((0).to_bytes(4, byteorder='little', signed=False))
+                    continue
+                    
+                armature = object.parent
+                bones = armature.data.bones
+                bone_count = len(bones)  
+                bone_found = False
+                
+                for i in range(0, bone_count):
+                    if bones[i].name == bone_name:
+                        bone_found = True
+                        outfile.write(i.to_bytes(4, byteorder='little', signed=False))
+                        break
+                
+                if not bone_found:
+                    raise Exception("Couldn't find a bone named: ." + bone_name)
+                
 
 #main export scene function
 def exportScene(context, outfile):
@@ -361,13 +380,18 @@ def exportScene(context, outfile):
          exportObject(outfile, object)
     
     #export collision data
-    object = context.scene.objects[0]
-    #bound sphere (frustum culling)
-    bb_min = object.bound_box[0]
-    bb_max = object.bound_box[0]
-    for i in range(1, len(object.bound_box)):
-        bb_min = np.minimum(object.bound_box[i], bb_min)
-        bb_max = np.maximum(object.bound_box[i], bb_max)
+    
+    #bound sphere (frustum culling)    
+    for object in context.scene.objects:
+        if isRenderable(object):
+            bb_min = object.bound_box[0]
+            bb_max = object.bound_box[0]
+            break
+    
+    for object in context.scene.objects:
+        for i in range(1, len(object.bound_box)):
+            bb_min = np.minimum(object.bound_box[i], bb_min)
+            bb_max = np.maximum(object.bound_box[i], bb_max)
             
     center = (bb_min + bb_max) / 2.0
     diagonal = bb_max - bb_min
@@ -381,8 +405,9 @@ def exportScene(context, outfile):
     bbs = []
     spheres = []
         
-    if object.rigid_body:
-        getObjectCollisionShapes(object, aabbs, bbs, spheres)
+    for object in context.scene.objects:
+        if object.rigid_body:
+            getObjectCollisionShapes(object, aabbs, bbs, spheres)
         
     outfile.write((len(aabbs)).to_bytes(1, byteorder='little', signed=False))
     for aabb in aabbs:
