@@ -94,6 +94,7 @@ private:
     ObjectAddPanel* m_object_add_panel = nullptr;
 
     static constexpr float m_terrain_tool_width = 0.5f;
+    static constexpr float m_min_terrain_tool_radius = 1.0f;
     float m_terrain_tool_radius = 10.0f;
     bool m_cur_terrain_intersection = false;
     vec3 m_cur_terrain_pos;

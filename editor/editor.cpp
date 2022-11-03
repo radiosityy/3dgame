@@ -33,9 +33,16 @@ void Editor::update(const InputState& input_state, float dt)
             m_cur_terrain_pos = ray.origin + d * ray.dir;
         }
 
-        if(m_cur_terrain_intersection && (input_state.mouse & LMB))
+        if(m_cur_terrain_intersection)
         {
-            m_scene.terrain().toolEdit(m_engine3d, m_cur_terrain_pos, m_terrain_tool_radius, 0.05f);
+            if(input_state.mouse & LMB)
+            {
+                m_scene.terrain().toolEdit(m_engine3d, m_cur_terrain_pos, m_terrain_tool_radius, 1.0f * dt);
+            }
+            else if(input_state.mouse & RMB)
+            {
+                m_scene.terrain().toolEdit(m_engine3d, m_cur_terrain_pos, m_terrain_tool_radius, -1.0f * dt);
+            }
         }
     }
     else if(Mode::Transform == m_mode)
@@ -142,6 +149,22 @@ void Editor::onInputEvent(const Event& event, const InputState& input_state)
     if(forwardEventToFocused(event, input_state))
     {
         return;
+    }
+
+    if(Mode::Terrain == m_mode)
+    {
+        if(event.event == EventType::MouseScrolledUp)
+        {
+            m_terrain_tool_radius += 1.0f;
+        }
+        else if(event.event == EventType::MouseScrolledDown)
+        {
+            m_terrain_tool_radius -= 1.0f;
+            if(m_terrain_tool_radius < m_min_terrain_tool_radius)
+            {
+                m_terrain_tool_radius = m_min_terrain_tool_radius;
+            }
+        }
     }
 
     if(event.event == EventType::MouseDragged)
