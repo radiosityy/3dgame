@@ -8,6 +8,7 @@ layout(location = 3) in vec2 tex_coords_in;
 layout(location = 4) in uint bone_id_in;
 layout(location = 5) in mat4x4 W_in;
 layout(location = 9) in uvec2 tex_ids_in;
+layout(location = 10) in uint bone_offset_in;
 
 layout(location = 0) out vec3 col_Yxy_out;
 layout(location = 1) out vec3 world_pos_out;
