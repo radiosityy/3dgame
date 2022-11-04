@@ -2,6 +2,7 @@
 #include <cstring>
 #include <cmath>
 #include <algorithm>
+#include <filesystem>
 
 #include "timer.h"
 #include <iostream>
@@ -27,7 +28,7 @@ Scene::Scene(Engine3D& engine3d, float aspect_ratio, const Font& font)
         label.setText(ss.str());
     });
 
-    m_camera = std::make_unique<Camera>(aspect_ratio, 0.1f, 5000.0f, degToRad(90.0f));
+    m_camera = std::make_unique<Camera>(aspect_ratio, 1.0f, 2000.0f, degToRad(90.0f));
 
     /*add sun*/
     m_sun.shadow_map_count = 4;
@@ -78,7 +79,7 @@ void Scene::loadFromFile(std::string_view filename)
     }
 
     /*add sky dome*/
-    auto sky_dome = std::make_unique<Object>(m_engine3d, "assets/meshes/sky_dome.3d", RenderMode::Sky, vec3(0.0f), vec3(4000.0f));
+    auto sky_dome = std::make_unique<Object>(m_engine3d, "assets/meshes/sky_dome.3d", RenderMode::Sky, vec3(0.0f), vec3(1000.0f));
 #if EDITOR_ENABLE
     sky_dome->setSerializable(false);
 #endif
@@ -664,6 +665,17 @@ std::vector<PointLight>& Scene::staticPointLights()
 
 void Scene::serialize(std::string_view filename) const
 {
+    //backup existing scene and terrain files
+    if(std::filesystem::exists(filename))
+    {
+        std::filesystem::copy_file(filename, std::string(filename) + ".bak", std::filesystem::copy_options::overwrite_existing);
+    }
+
+    if(std::filesystem::exists("terrain.dat"))
+    {
+        std::filesystem::copy_file("terrain.dat", "terrain.dat.bak", std::filesystem::copy_options::overwrite_existing);
+    }
+
     std::ofstream outfile(filename.data(), std::ios::binary);
 
     if(!outfile)
