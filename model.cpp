@@ -247,63 +247,66 @@ void Model::setPose(std::string_view pose_name)
 
 void Model::animationUpdate(Engine3D& engine3d, float dt)
 {
-    if(m_play_animation)
+    if(m_model_data->bone_count != 0)
     {
-        const float t = m_key_frame_elapsed_time / m_key_frame_time;
-
-        for(uint32_t bone_id = 0; bone_id < m_model_data->bone_count; bone_id++)
+        if(m_play_animation)
         {
-            const KeyFrame* src_key_frame = m_src_key_frames[bone_id];
-            const KeyFrame* dst_key_frame = m_dst_key_frames[bone_id];
+            const float t = m_key_frame_elapsed_time / m_key_frame_time;
 
-            m_curr_pose[bone_id].rot = glm::slerp(src_key_frame->rot, dst_key_frame->rot, t);
-            m_curr_pose[bone_id].pos  = glm::mix(src_key_frame->pos, dst_key_frame->pos, t);
-
-            const auto rot = mat4_cast(m_curr_pose[bone_id].rot);
-            const auto trans = glm::translate(m_curr_pose[bone_id].pos);
-
-            auto T = m_model_data->bone_to_root_transforms[bone_id] * trans * rot * m_model_data->bone_offset_transforms[bone_id];
-
-            m_bone_transforms[bone_id] = T;
-
-            if(m_model_data->bone_parent_ids[bone_id] != -1)
+            for(uint32_t bone_id = 0; bone_id < m_model_data->bone_count; bone_id++)
             {
-                m_bone_transforms[bone_id] = m_bone_transforms[static_cast<uint8_t>(m_model_data->bone_parent_ids[bone_id])] * m_bone_transforms[bone_id];
-            }
-        }
+                const KeyFrame* src_key_frame = m_src_key_frames[bone_id];
+                const KeyFrame* dst_key_frame = m_dst_key_frames[bone_id];
 
-        m_key_frame_elapsed_time += dt;
+                m_curr_pose[bone_id].rot = glm::slerp(src_key_frame->rot, dst_key_frame->rot, t);
+                m_curr_pose[bone_id].pos  = glm::mix(src_key_frame->pos, dst_key_frame->pos, t);
 
-        if(m_key_frame_elapsed_time > m_key_frame_time)
-        {
-            if(m_continue_animation)
-            {
-                if(m_curr_anim_keyframe + 1u == m_curr_anim->key_frame_times.size() - 1u)
+                const auto rot = mat4_cast(m_curr_pose[bone_id].rot);
+                const auto trans = glm::translate(m_curr_pose[bone_id].pos);
+
+                auto T = m_model_data->bone_to_root_transforms[bone_id] * trans * rot * m_model_data->bone_offset_transforms[bone_id];
+
+                m_bone_transforms[bone_id] = T;
+
+                if(m_model_data->bone_parent_ids[bone_id] != -1)
                 {
-                    if(m_loop_animation)
+                    m_bone_transforms[bone_id] = m_bone_transforms[static_cast<uint8_t>(m_model_data->bone_parent_ids[bone_id])] * m_bone_transforms[bone_id];
+                }
+            }
+
+            m_key_frame_elapsed_time += dt;
+
+            if(m_key_frame_elapsed_time > m_key_frame_time)
+            {
+                if(m_continue_animation)
+                {
+                    if(m_curr_anim_keyframe + 1u == m_curr_anim->key_frame_times.size() - 1u)
                     {
-                        setAnimKeyframe(0);
+                        if(m_loop_animation)
+                        {
+                            setAnimKeyframe(0);
+                        }
+                        else
+                        {
+                            stopAnimation();
+                            return;
+                        }
                     }
                     else
                     {
-                        stopAnimation();
-                        return;
+                        setAnimKeyframe(m_curr_anim_keyframe + 1);
                     }
                 }
                 else
                 {
-                    setAnimKeyframe(m_curr_anim_keyframe + 1);
+                    m_play_animation = false;
                 }
             }
-            else
-            {
-                m_play_animation = false;
-            }
         }
-    }
 
-    //TODO: only update if data changed
-    engine3d.updateBoneTransformData(m_bone_offset, m_model_data->bone_count, m_bone_transforms.data());
+        //TODO: only update if data changed
+        engine3d.updateBoneTransformData(m_bone_offset, m_model_data->bone_count, m_bone_transforms.data());
+    }
 }
 
 bool Model::forPlayer1(std::string_view anim_name)
