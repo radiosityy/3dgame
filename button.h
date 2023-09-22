@@ -9,7 +9,6 @@ public:
     Button(Engine3D& engine3d, float x, float y, float w, float h, const Font& font, const std::string& text, std::function<void()>&& mouse_pressed_callback, HorizontalAlignment = HorizontalAlignment::Center, VerticalAlignment = VerticalAlignment::Center);
 
 public:
-    virtual void onResolutionChange(float scale_x, float scale_y, const Font& font) override;
     void setUpdateCallback(std::function<void(Button&)>&&);
 
     virtual void update(Engine3D& engine3d, float dt) override;

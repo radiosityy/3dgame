@@ -27,25 +27,6 @@ public:
         updateHandle();
     }
 
-    virtual void onResolutionChange(float scale_x, float scale_y, const Font& font) override
-    {
-        m_x *= scale_x;
-        m_width *= scale_x;
-        m_y *= scale_y;
-        m_height *= scale_y;
-
-        if(m_scissor)
-        {
-            m_scissor->x *= scale_x;
-            m_scissor->width *= scale_x;
-            m_scissor->y *= scale_y;
-            m_scissor->height *= scale_y;
-        }
-
-        m_bar.onResolutionChange(scale_x, scale_y, font);
-        m_handle.onResolutionChange(scale_x, scale_y, font);
-    }
-
     virtual bool isPointInside(vec2 p) override
     {
         const auto d = p - vec2(m_x, m_y);

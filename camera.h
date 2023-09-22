@@ -55,12 +55,12 @@ public:
     std::array<vec4, 6> viewFrustumPlanesW() noexcept;
 
     /*updates and returns ViewProjection matrix*/
-    mat4x4 viewProj() noexcept;
+    mat4x4 VP() noexcept;
     /*updates and returns View matrix*/
-    const mat4x4& view() noexcept;
-    const mat4x4& invView() noexcept;
+    const mat4x4& V() noexcept;
+    const mat4x4& invV() noexcept;
     /*updates and returns Projection matrix*/
-    const mat4x4& proj() noexcept;
+    const mat4x4& P() noexcept;
 
     const vec3& pos() const noexcept;
     const vec3& forward() const noexcept;

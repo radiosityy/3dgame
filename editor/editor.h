@@ -36,13 +36,9 @@ public:
     Editor(Window& window, Scene& scene, Engine3D& engine3d, const Font& font);
 
     void update(const InputState& input_state, float dt);
-    void draw();
+    void draw(RenderData&);
     void onWindowResize(uint32_t width, uint32_t height, float scale_x, float scale_y);
     void onInputEvent(const Event& event, const InputState& input_state);
-
-    vec4 highlightColor() const;
-    void curTerrainPos(bool& cur_terrain_intersection, vec3& cur_terrain_pos) const;
-    void terrainToolRadii(float& inner, float& outer);
 
 private:
     PointLight& selectedPointLight();

@@ -52,26 +52,6 @@ void Console::draw(Engine3D& engine3d)
     m_text_input.draw(engine3d);
 }
 
-void Console::onResolutionChange(float scale_x, float scale_y, const Font& font)
-{
-    m_x *= scale_x;
-    m_width *= scale_x;
-    m_y *= scale_y;
-    m_height *= scale_y;
-
-    if(m_scissor)
-    {
-        m_scissor->x *= scale_x;
-        m_scissor->width *= scale_x;
-        m_scissor->y *= scale_y;
-        m_scissor->height *= scale_y;
-    }
-
-    m_rect.onResolutionChange(scale_x, scale_y, font);
-    m_text_input.onResolutionChange(scale_x, scale_y, font);
-    m_text_label.onResolutionChange(scale_x, scale_y, font);
-}
-
 void Console::print(const std::string& text)
 {
     if(m_text_label.text().empty())

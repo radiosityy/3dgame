@@ -137,11 +137,6 @@ bool ObjectAddPanel::isPointInside(vec2 p)
     return (d.x > 0) && (d.x <= m_width) && (d.y > 0) && (d.y <= m_height);
 }
 
-void ObjectAddPanel::onResolutionChange(float scale_x, float scale_y, const Font& font)
-{
-
-}
-
 void ObjectAddPanel::gotFocus()
 {
     setKeyboardFocus(m_text_input);

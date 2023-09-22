@@ -8,15 +8,24 @@
 
 void GameEngine::parseIni()
 {
-    std::ifstream ini("3dgame.ini");
+    const auto ini_filename = "game.ini";
 
+    std::ifstream ini(ini_filename);
+
+    //TODO: add better checking to see what actually failed - don't overwrite the file if it already exists but failed to open for other reason
     if(!ini)
     {
-        std::ofstream ini("3dgame.ini");
-        ini << "vsync=off" << std::endl;
-        ini << "res_x=1920" << std::endl;
-        ini << "res_y=1080" << std::endl;
-        ini.close();
+        std::ofstream default_ini(ini_filename);
+        default_ini << "vsync=off" << std::endl;
+        default_ini << "res_x=1920" << std::endl;
+        default_ini << "res_y=1080" << std::endl;
+        default_ini.close();
+
+        ini.open(ini_filename);
+        if(!ini)
+        {
+            throw std::runtime_error("Failed to open ini file.");
+        }
     }
 
     for(std::array<char, 256> line; ini.getline(line.data(), line.size());)
@@ -106,8 +115,6 @@ GameEngine::GameEngine()
     {
         scene_init_data.fonts.push_back(&font);
     }
-
-    scene_init_data.render_data = m_scene->renderData();
 
     m_engine3d->onSceneLoad(scene_init_data);
 
@@ -290,16 +297,12 @@ void GameEngine::run()
             }
         }
 
-        m_scene->draw();
-
-        RenderData render_data = m_scene->renderData();
+        RenderData render_data;
+        m_scene->draw(render_data);
 #if EDITOR_ENABLE
         if(m_edit_mode)
         {
-            m_editor->curTerrainPos(render_data.cur_terrain_intersection, render_data.cur_terrain_pos);
-            m_editor->terrainToolRadii(render_data.editor_terrain_tool_inner_radius, render_data.editor_terrain_tool_outer_radius);
-            render_data.editor_highlight_color = m_editor->highlightColor();
-            m_editor->draw();
+            m_editor->draw(render_data);
         }
 #endif
 
@@ -336,9 +339,6 @@ void GameEngine::onWindowResizeEvent(uint32_t width, uint32_t height, float scal
 
         m_gui_scale.x = static_cast<float>(width) / reference_resolution.x;
         m_gui_scale.y = static_cast<float>(height) / reference_resolution.y;
-
-        m_fps_label->onResolutionChange(scale_x, scale_y, m_fonts[0]);
-        m_console->onResolutionChange(scale_x, scale_y, m_fonts[0]);
 
         m_scene->onWindowResize(static_cast<float>(width) / static_cast<float>(height));
         m_engine3d->onWindowResize(width, height);

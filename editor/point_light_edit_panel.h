@@ -15,7 +15,6 @@ public:
     virtual void draw(Engine3D& engine3d) override;
     virtual bool isPointInside(vec2) override;
     virtual void setScissor(Quad scissor) override;
-    virtual void onResolutionChange(float scale_x, float scale_y, const Font& font) override;
     virtual void onInputEvent(const Event& event, const InputState& input_state) override;
 
 private:

@@ -334,36 +334,6 @@ void Label::onInputEvent(const Event& event, const InputState& input_state)
     }
 }
 
-void Label::onResolutionChange(float scale_x, float scale_y, const Font& font)
-{
-    m_font = &font;
-
-    m_reference_x *= scale_x;
-    m_reference_y *= scale_y;
-
-    m_x *= scale_x;
-    m_width *= scale_x;
-    m_y *= scale_y;
-    m_height *= scale_y;
-
-    if(m_parent_scissor)
-    {
-        m_parent_scissor->x *= scale_x;
-        m_parent_scissor->width *= scale_x;
-        m_parent_scissor->y *= scale_y;
-        m_parent_scissor->height *= scale_y;
-    }
-
-    m_background_rect.onResolutionChange(scale_x, scale_y, font);
-
-    updateVertexData();
-
-    if(m_editable)
-    {
-        updateCursor(m_cursor_position);
-    }
-}
-
 void Label::setUpdateCallback(std::function<void (Label&)>&& callback)
 {
     m_update_callback = std::move(callback);
@@ -413,7 +383,7 @@ void Label::draw(Engine3D& engine3d)
 
     if(!m_vertices.empty())
     {
-        engine3d.draw(RenderMode::Font, m_vb_alloc.vb, m_vb_alloc.vertex_offset, m_vertices.size(), 0, {}, m_scissor);
+        engine3d.drawUi(RenderModeUi::Font, m_vb_alloc.vb, m_vb_alloc.vertex_offset, m_vertices.size(), m_scissor);
     }
 }
 

@@ -5,7 +5,6 @@
 #include <cmath>
 #include <cstdint>
 #include <concepts>
-#include <glm/ext/quaternion_geometric.hpp>
 #include <numbers>
 
 inline constexpr float pi = std::numbers::pi_v<float>;
@@ -50,8 +49,14 @@ struct LineSegment
 };
 #endif
 
+//TODO: if Quad is only used for scissors then it should store ints/uints, not floats
 struct Quad
 {
+    static constexpr Quad defaultScissor()
+    {
+        return Quad{0.0f, 0.0f, std::numeric_limits<float>::max(), std::numeric_limits<float>::max()};
+    }
+
     float x;
     float y;
     float width;
@@ -60,10 +65,10 @@ struct Quad
 
 constexpr inline Quad quadOverlap(const Quad& q1, const Quad& q2)
 {
-    float min_x = std::max(q1.x, q2.x);
-    float max_x = std::min(q1.x + q1.width, q2.x + q2.width);
-    float min_y = std::max(q1.y, q2.y);
-    float max_y = std::min(q1.y + q1.height, q2.y + q2.height);
+    const float min_x = std::max(q1.x, q2.x);
+    const float max_x = std::min(q1.x + q1.width, q2.x + q2.width);
+    const float min_y = std::max(q1.y, q2.y);
+    const float max_y = std::min(q1.y + q1.height, q2.y + q2.height);
 
     return {min_x, min_y, max_x - min_x, max_y - min_y};
 }
@@ -105,6 +110,7 @@ auto min(T t0, T t1, Args... args)
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/matrix_inverse.hpp>
+#include <glm/ext/quaternion_geometric.hpp>
 #include <glm/gtx/rotate_vector.hpp>
 #include <glm/gtx/quaternion.hpp>
 

@@ -350,6 +350,16 @@ void Engine3D::destroyBuffer(VkBufferWrapper& buffer) const noexcept
     }
 }
 
+VkPipeline& Engine3D::getPipeline(RenderMode rm) noexcept
+{
+    return m_pipelines[static_cast<size_t>(rm)];
+}
+
+VkPipeline& Engine3D::getPipeline(RenderModeUi rm) noexcept
+{
+    return m_pipelines_ui[static_cast<size_t>(rm)];
+}
+
 uint32_t Engine3D::loadTexture(std::string_view texture_filename)
 {
     return loadTextures({texture_filename})[0];
@@ -716,6 +726,7 @@ std::vector<uint32_t> Engine3D::loadTexturesGeneric(const std::vector<std::strin
 
 Engine3D::Engine3D(const Window& window, std::string_view app_name)
     : m_render_batches(10000)
+    , m_render_batches_ui(10000)
     , m_dir_shadow_map_buffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT)
     , m_point_shadow_map_buffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT)
     , m_bone_transform_buffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT)
@@ -907,8 +918,8 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
     auto& per_frame_data = m_per_frame_data[m_frame_id];
     VkResult res;
 
-    m_common_buffer_data.VP = camera.viewProj();
-    m_common_buffer_data.V = camera.view();
+    m_common_buffer_data.VP = camera.VP();
+    m_common_buffer_data.V = camera.V();
     //TODO: the ui_scale field can only be calculated once I guess, for a given surface size, no need to recalculate it every frame
     m_common_buffer_data.ui_scale = vec2(1.0f / static_cast<float>(m_surface_width), 1.0f / static_cast<float>(m_surface_height));
     m_common_buffer_data.camera_pos = camera.pos();
@@ -1064,6 +1075,7 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
         vkCmdPipelineBarrier(cmd_buf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, 0, 0, NULL, 1, &buf_mem_bar, 0, NULL);
     }
 
+    //TODO: we can store the min and max index of the lights that actually changed this frame and update from the min to max instead of all
     if(!per_frame_data.dir_lights_to_update.empty())
     {
         for(DirLightId id : per_frame_data.dir_lights_to_update)
@@ -1075,6 +1087,7 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
         vkCmdPipelineBarrier(cmd_buf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, NULL, 1, &buf_mem_bar, 0, NULL);
     }
 
+    //TODO: we can store the min and max index of the lights that actually changed this frame and update from the min to max instead of all
     if(!per_frame_data.point_lights_to_update.empty())
     {
         for(PointLightId id : per_frame_data.point_lights_to_update)
@@ -1155,12 +1168,12 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
 
                 if(rb.render_mode == RenderMode::Default)
                 {
-                    vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[static_cast<uint32_t>(RenderMode::DirShadowMap)]);
+                    vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, getPipeline(RenderMode::DirShadowMap));
                     vkCmdBindVertexBuffers(cmd_buf, 0, 1, &m_vertex_buffers[sizeof(VertexDefault)].buf, &vb_offset);
                 }
                 else if(rb.render_mode == RenderMode::Terrain)
                 {
-                    vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[static_cast<uint32_t>(RenderMode::TerrainDirShadowMap)]);
+                    vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, getPipeline(RenderMode::TerrainDirShadowMap));
                     vkCmdBindVertexBuffers(cmd_buf, 0, 1, &m_vertex_buffers[sizeof(VertexTerrain)].buf, &vb_offset);
                 }
                 else
@@ -1182,7 +1195,7 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
 
     if(m_point_shadow_map_count != 0)
     {
-        vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[static_cast<uint32_t>(RenderMode::PointShadowMap)]);
+        vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, getPipeline(RenderMode::PointShadowMap));
         vkCmdBindVertexBuffers(cmd_buf, 0, 1, &m_vertex_buffers[sizeof(VertexDefault)].buf, &vb_offset);
 
         uint32_t prev_viewport_res = 0;
@@ -1221,12 +1234,12 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
 
                 if(rb.render_mode == RenderMode::Default)
                 {
-                    vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[static_cast<uint32_t>(RenderMode::PointShadowMap)]);
+                    vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, getPipeline(RenderMode::PointShadowMap));
                     vkCmdBindVertexBuffers(cmd_buf, 0, 1, &m_vertex_buffers[sizeof(VertexDefault)].buf, &vb_offset);
                 }
                 else if(rb.render_mode == RenderMode::Terrain)
                 {
-                    vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[static_cast<uint32_t>(RenderMode::TerrainPointShadowMap)]);
+                    vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, getPipeline(RenderMode::TerrainPointShadowMap));
                     vkCmdBindVertexBuffers(cmd_buf, 0, 1, &m_vertex_buffers[sizeof(VertexTerrain)].buf, &vb_offset);
                 }
                 else
@@ -1258,34 +1271,38 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
             if(!cull[i])
             {
                 vkCmdPushConstants(cmd_buf, m_pipeline_layout, push_const_ranges[0].stageFlags, 0, sizeof(push_const), &push_const);
-                vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[static_cast<uint32_t>(rb.render_mode)]);
+                vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, getPipeline(rb.render_mode));
                 vkCmdBindVertexBuffers(cmd_buf, 0, 1, &rb.vb->buf, &vb_offset);
-
-                if(RenderMode::Ui == rb.render_mode || RenderMode::Font == rb.render_mode)
-                {
-                    VkRect2D scissor;
-
-                    if(rb.scissor)
-                    {
-                        scissor.offset.x = static_cast<int>(std::clamp<float>(rb.scissor->x, 0, static_cast<float>(m_surface_width)));
-                        scissor.offset.y = static_cast<int>(std::clamp<float>(rb.scissor->y, 0, static_cast<float>(m_surface_height)));
-                        scissor.extent.width = static_cast<uint32_t>(std::clamp<float>(rb.scissor->width, 0, static_cast<float>(m_surface_width)));
-                        scissor.extent.height = static_cast<uint32_t>(std::clamp<float>(rb.scissor->height, 0, static_cast<float>(m_surface_height)));
-                    }
-                    else
-                    {
-                        scissor.offset = {0, 0};
-                        scissor.extent = {m_surface_width, m_surface_height};
-                    }
-
-                    vkCmdSetScissor(cmd_buf, 0, 1, &scissor);
-                }
 
                 vkCmdDraw(cmd_buf, rb.vertex_count, 1, rb.vertex_offset, rb.instance_id);
             }
         }
 
         m_render_batch_count = 0;
+    }
+
+    if(m_render_batch_ui_count != 0)
+    {
+        for(uint32_t i = 0; i < m_render_batch_ui_count; i++)
+        {
+            const auto& rb = m_render_batches_ui[i];
+
+            vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, getPipeline(rb.render_mode));
+            vkCmdBindVertexBuffers(cmd_buf, 0, 1, &rb.vb->buf, &vb_offset);
+
+            //TODO: don't clamp?
+            VkRect2D scissor;
+            scissor.offset.x = static_cast<int>(std::clamp<float>(rb.scissor.x, 0, static_cast<float>(m_surface_width)));
+            scissor.offset.y = static_cast<int>(std::clamp<float>(rb.scissor.y, 0, static_cast<float>(m_surface_height)));
+            scissor.extent.width = static_cast<uint32_t>(std::clamp<float>(rb.scissor.width, 0, static_cast<float>(m_surface_width)));
+            scissor.extent.height = static_cast<uint32_t>(std::clamp<float>(rb.scissor.height, 0, static_cast<float>(m_surface_height)));
+
+            vkCmdSetScissor(cmd_buf, 0, 1, &scissor);
+
+            vkCmdDraw(cmd_buf, rb.vertex_count, 1, rb.vertex_offset, 0);
+        }
+
+        m_render_batch_ui_count = 0;
     }
 
     vkCmdEndRenderPass(cmd_buf);
@@ -1519,13 +1536,11 @@ void Engine3D::destroyFontTextures() noexcept
 
 void Engine3D::setSampleCount(VkSampleCountFlagBits sample_count)
 {
-    /*if the sample count doesn't change return immediately*/
     if(sample_count == m_sample_count)
     {
         return;
     }
 
-    /*update the sample count member variable*/
     m_sample_count = sample_count;
 
     deviceWaitIdle();
@@ -1626,10 +1641,16 @@ void Engine3D::updateTerrainData(void* data, uint64_t offset, uint64_t size)
     requestBufferUpdate(&m_terrain_buffer, offset, size, data);
 }
 
-void Engine3D::draw(RenderMode render_mode, VertexBuffer* vb, uint32_t vertex_offset, uint32_t vertex_count, uint32_t instance_id, std::optional<Sphere> bounding_sphere, std::optional<Quad> scissor)
+void Engine3D::draw(RenderMode render_mode, VertexBuffer* vb, uint32_t vertex_offset, uint32_t vertex_count, uint32_t instance_id, std::optional<Sphere> bounding_sphere)
 {
-    m_render_batches[m_render_batch_count] = RenderBatch(render_mode, vb, vertex_offset, vertex_count, instance_id, bounding_sphere, scissor);
+    m_render_batches[m_render_batch_count] = RenderBatch(render_mode, vb, vertex_offset, vertex_count, instance_id, bounding_sphere);
     m_render_batch_count++;
+}
+
+void Engine3D::drawUi(RenderModeUi render_mode, VertexBuffer* vb, uint32_t vertex_offset, uint32_t vertex_count, const Quad& scissor)
+{
+    m_render_batches_ui[m_render_batch_ui_count] = RenderBatchUi(render_mode, vb, vertex_offset, vertex_count, scissor);
+    m_render_batch_ui_count++;
 }
 
 DirLightId Engine3D::addDirLight(const DirLight& dir_light)
@@ -2580,6 +2601,7 @@ void Engine3D::createPipelineLayout()
 void Engine3D::createPipelines()
 {
     m_pipelines.resize(static_cast<size_t>(RENDER_MODE_COUNT));
+    m_pipelines_ui.resize(static_cast<size_t>(RENDER_MODE_UI_COUNT));
 
     /*--- Ui ---*/
     {
@@ -2748,9 +2770,9 @@ void Engine3D::createPipelines()
         pipeline_create_info.stageCount = static_cast<uint32_t>(shader_stage_infos.size());
         pipeline_create_info.pStages = shader_stage_infos.data();
 
-        VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::Ui)]);
+        VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &getPipeline(RenderModeUi::Ui));
 #if VULKAN_VALIDATION_ENABLE
-        setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::Ui)], "PipelineUi");
+        setDebugObjectName(getPipeline(RenderModeUi::Ui), "PipelineUi");
 #endif
 
         for(auto& sm : shader_modules)
@@ -2927,9 +2949,9 @@ void Engine3D::createPipelines()
         pipeline_create_info.stageCount = static_cast<uint32_t>(shader_stage_infos.size());
         pipeline_create_info.pStages = shader_stage_infos.data();
 
-        VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::Font)]);
+        VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &getPipeline(RenderModeUi::Font));
 #if VULKAN_VALIDATION_ENABLE
-        setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::Font)], "PipelineFont");
+        setDebugObjectName(getPipeline(RenderModeUi::Font), "PipelineFont");
 #endif
 
         for(auto& sm : shader_modules)
@@ -3115,9 +3137,9 @@ void Engine3D::createPipelines()
         pipeline_create_info.stageCount = static_cast<uint32_t>(shader_stage_infos.size());
         pipeline_create_info.pStages = shader_stage_infos.data();
 
-        VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::Default)]);
+        VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &getPipeline(RenderMode::Default));
 #if VULKAN_VALIDATION_ENABLE
-        setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::Default)], "PipelineDefault");
+        setDebugObjectName(getPipeline(RenderMode::Default), "PipelineDefault");
 #endif
 
         for(auto& sm : shader_modules)
@@ -3303,9 +3325,9 @@ void Engine3D::createPipelines()
         pipeline_create_info.stageCount = static_cast<uint32_t>(shader_stage_infos.size());
         pipeline_create_info.pStages = shader_stage_infos.data();
 
-        VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::Terrain)]);
+        VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &getPipeline(RenderMode::Terrain));
 #if VULKAN_VALIDATION_ENABLE
-        setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::Terrain)], "PipelineTerrain");
+        setDebugObjectName(getPipeline(RenderMode::Terrain), "PipelineTerrain");
 #endif
 
         for(auto& sm : shader_modules)
@@ -3470,9 +3492,9 @@ void Engine3D::createPipelines()
         pipeline_create_info.stageCount = static_cast<uint32_t>(shader_stage_infos.size());
         pipeline_create_info.pStages = shader_stage_infos.data();
 
-        VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::TerrainWireframe)]);
+        VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &getPipeline(RenderMode::TerrainWireframe));
 #if VULKAN_VALIDATION_ENABLE
-        setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::TerrainWireframe)], "PipelineTerrainWireframe");
+        setDebugObjectName(getPipeline(RenderMode::TerrainWireframe), "PipelineTerrainWireframe");
 #endif
 
         for(auto& sm : shader_modules)
@@ -3638,9 +3660,9 @@ void Engine3D::createPipelines()
         pipeline_create_info.stageCount = static_cast<uint32_t>(shader_stage_infos.size());
         pipeline_create_info.pStages = shader_stage_infos.data();
 
-        VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::Sky)]);
+        VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &getPipeline(RenderMode::Sky));
 #if VULKAN_VALIDATION_ENABLE
-        setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::Sky)], "PipelineSky");
+        setDebugObjectName(getPipeline(RenderMode::Sky), "PipelineSky");
 #endif
 
         for(auto& sm : shader_modules)
@@ -3777,9 +3799,9 @@ void Engine3D::createPipelines()
         pipeline_create_info.stageCount = static_cast<uint32_t>(shader_stage_infos.size());
         pipeline_create_info.pStages = shader_stage_infos.data();
 
-        VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::DirShadowMap)]);
+        VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &getPipeline(RenderMode::DirShadowMap));
 #if VULKAN_VALIDATION_ENABLE
-        setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::DirShadowMap)], "PipelineDirShadowMap");
+        setDebugObjectName(getPipeline(RenderMode::DirShadowMap), "PipelineDirShadowMap");
 #endif
 
         for(auto& sm : shader_modules)
@@ -3915,9 +3937,9 @@ void Engine3D::createPipelines()
         pipeline_create_info.stageCount = static_cast<uint32_t>(shader_stage_infos.size());
         pipeline_create_info.pStages = shader_stage_infos.data();
 
-        VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::TerrainDirShadowMap)]);
+        VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &getPipeline(RenderMode::TerrainDirShadowMap));
 #if VULKAN_VALIDATION_ENABLE
-        setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::TerrainDirShadowMap)], "PipelineTerrainDirShadowMap");
+        setDebugObjectName(getPipeline(RenderMode::TerrainDirShadowMap), "PipelineTerrainDirShadowMap");
 #endif
 
         for(auto& sm : shader_modules)
@@ -4056,9 +4078,9 @@ void Engine3D::createPipelines()
         pipeline_create_info.stageCount = static_cast<uint32_t>(shader_stage_infos.size());
         pipeline_create_info.pStages = shader_stage_infos.data();
 
-        VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::PointShadowMap)]);
+        VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &getPipeline(RenderMode::PointShadowMap));
 #if VULKAN_VALIDATION_ENABLE
-        setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::PointShadowMap)], "PipelinePointShadowMap");
+        setDebugObjectName(getPipeline(RenderMode::PointShadowMap), "PipelinePointShadowMap");
 #endif
 
         for(auto& sm : shader_modules)
@@ -4196,9 +4218,9 @@ void Engine3D::createPipelines()
         pipeline_create_info.stageCount = static_cast<uint32_t>(shader_stage_infos.size());
         pipeline_create_info.pStages = shader_stage_infos.data();
 
-        VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::TerrainPointShadowMap)]);
+        VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &getPipeline(RenderMode::TerrainPointShadowMap));
 #if VULKAN_VALIDATION_ENABLE
-        setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::TerrainPointShadowMap)], "PipelineTerrainPointShadowMap");
+        setDebugObjectName(getPipeline(RenderMode::TerrainPointShadowMap), "PipelineTerrainPointShadowMap");
 #endif
 
         for(auto& sm : shader_modules)
@@ -4362,9 +4384,9 @@ void Engine3D::createPipelines()
         pipeline_create_info.stageCount = static_cast<uint32_t>(shader_stage_infos.size());
         pipeline_create_info.pStages = shader_stage_infos.data();
 
-        VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::Highlight)]);
+        VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &getPipeline(RenderMode::Highlight));
 #if VULKAN_VALIDATION_ENABLE
-        setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::Highlight)], "PipelineHighlight");
+        setDebugObjectName(getPipeline(RenderMode::Highlight), "PipelineHighlight");
 #endif
 
         for(auto& sm : shader_modules)
@@ -4541,9 +4563,9 @@ void Engine3D::createPipelines()
         pipeline_create_info.stageCount = static_cast<uint32_t>(shader_stage_infos.size());
         pipeline_create_info.pStages = shader_stage_infos.data();
 
-        VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &m_pipelines[static_cast<size_t>(RenderMode::Billboard)]);
+        VkResult res = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_create_info, NULL, &getPipeline(RenderMode::Billboard));
 #if VULKAN_VALIDATION_ENABLE
-        setDebugObjectName(m_pipelines[static_cast<size_t>(RenderMode::Billboard)], "PipelineBillboard");
+        setDebugObjectName(getPipeline(RenderMode::Billboard), "PipelineBillboard");
 #endif
 
         for(auto& sm : shader_modules)
@@ -5322,8 +5344,13 @@ void Engine3D::destroyPipelines() noexcept
     {
         vkDestroyPipeline(m_device, p, NULL);
     }
-
     m_pipelines.clear();
+
+    for(auto& p : m_pipelines_ui)
+    {
+        vkDestroyPipeline(m_device, p, NULL);
+    }
+    m_pipelines_ui.clear();
 }
 
 void Engine3D::destroySynchronizationPrimitives() noexcept

@@ -462,11 +462,6 @@ void PointLightEditPanel::setScissor(Quad scissor)
     }
 }
 
-void PointLightEditPanel::onResolutionChange(float scale_x, float scale_y, const Font& font)
-{
-
-}
-
 void PointLightEditPanel::onInputEvent(const Event& event, const InputState& input_state)
 {
     determineFocus(m_children, event, input_state);

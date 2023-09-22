@@ -110,7 +110,7 @@ void Camera::pitch(float angle) noexcept
     m_dirty_view = true;
 }
 
-mat4x4 Camera::viewProj() noexcept
+mat4x4 Camera::VP() noexcept
 {
     updateView();
     updateProj();
@@ -220,19 +220,19 @@ void Camera::updateProj() noexcept
     m_proj = glm::perspectiveLH_ZO(m_vfov, m_aspect_ratio, m_near, m_far);
 }
 
-const mat4x4& Camera::view() noexcept
+const mat4x4& Camera::V() noexcept
 {
     updateView();
     return m_view;
 }
 
-const mat4x4& Camera::invView() noexcept
+const mat4x4& Camera::invV() noexcept
 {
     updateView();
     return m_inv_view;
 }
 
-const mat4x4& Camera::proj() noexcept
+const mat4x4& Camera::P() noexcept
 {
     updateProj();
     return m_proj;
@@ -260,5 +260,5 @@ const vec3& Camera::right() const noexcept
 
 vec3 Camera::cursorProjW(const vec2& cur_pos_ndc) noexcept
 {
-    return invView() * vec4(cur_pos_ndc.x * m_aspect_ratio, cur_pos_ndc.y, imagePlaneDistance(), 0);
+    return invV() * vec4(cur_pos_ndc.x * m_aspect_ratio, cur_pos_ndc.y, imagePlaneDistance(), 0);
 }

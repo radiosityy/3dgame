@@ -57,13 +57,6 @@ void GuiObject::scale(vec2)
 {
 }
 
-//void GuiObject::setScissor(Quad scissor)
-//{
-    //FIX: this currenlty won't work if objects don't implement these functions (x(), y(), etc.)
-//    const Quad q = {x(), y(), width(), height()};
-//    m_scissor = quadOverlap(q, scissor);
-//}
-
 void GuiParent::setKeyboardFocus(GuiObject* object)
 {
     if(object)
@@ -189,14 +182,3 @@ void GuiParentObject::cursorExit()
         m_mouse_focus = nullptr;
     }
 }
-
-//void GuiParentObject::setScissor(Quad scissor)
-//{
-    //FIX: this currenlty won't work if objects don't implement these functions (x(), y(), etc.)
-//    GuiObject::setScissor(scissor);
-
-//    for(auto& child : m_children)
-//    {
-//        child->setScissor(*m_scissor);
-//    }
-//}

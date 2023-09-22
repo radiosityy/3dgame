@@ -15,7 +15,6 @@ public:
     virtual void onInputEvent(const Event& event, const InputState& input_state) override;
     virtual void setScissor(Quad scissor) override;
     virtual bool isPointInside(vec2) override;
-    virtual void onResolutionChange(float scale_x, float scale_y, const Font& font) override;
     virtual void gotFocus() override;
 
 private:

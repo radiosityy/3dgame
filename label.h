@@ -14,7 +14,6 @@ public:
     Label(Engine3D& engine3d, float x, float y, float width, float height, const Font& font, const std::string& text, bool editable = false, HorizontalAlignment = HorizontalAlignment::Center, VerticalAlignment = VerticalAlignment::Center);
 
     virtual void onInputEvent(const Event& event, const InputState& input_state) override;
-    virtual void onResolutionChange(float scale_x, float scale_y, const Font& font) override;
 
     virtual void setUpdateCallback(std::function<void(Label&)>&&);
     virtual void setTextChangedCallback(std::function<void(std::string_view)>&&);

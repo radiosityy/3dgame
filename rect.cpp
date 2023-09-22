@@ -1,10 +1,11 @@
 #include "rect.h"
 
-Rect::Rect(Engine3D& engine3d, float x, float y, float w, float h, ColorRGBA color)
+Rect::Rect(Engine3D& engine3d, float x, float y, float w, float h, ColorRGBA color, Quad scissor)
     : m_x(x)
     , m_y(y)
     , m_width(w)
     , m_height(h)
+    , m_scissor(scissor)
 {
     m_vb_alloc = engine3d.requestVertexBufferAllocation<VertexUi>(1);
 
@@ -14,11 +15,12 @@ Rect::Rect(Engine3D& engine3d, float x, float y, float w, float h, ColorRGBA col
     updateVertex();
 }
 
-Rect::Rect(Engine3D& engine3d, float x, float y, float w, float h, TexId tex_id, ColorRGBA color)
+Rect::Rect(Engine3D& engine3d, float x, float y, float w, float h, TexId tex_id, ColorRGBA color, Quad scissor)
     : m_x(x)
     , m_y(y)
     , m_width(w)
     , m_height(h)
+    , m_scissor(scissor)
 {
     m_vb_alloc = engine3d.requestVertexBufferAllocation<VertexUi>(1);
 
@@ -36,25 +38,7 @@ void Rect::update(Engine3D& engine3d, float dt)
 
 void Rect::draw(Engine3D& engine3d)
 {
-    engine3d.draw(RenderMode::Ui, m_vb_alloc.vb, m_vb_alloc.vertex_offset, 1, 0, {}, m_scissor);
-}
-
-void Rect::onResolutionChange(float scale_x, float scale_y, const Font&)
-{
-    m_x *= scale_x;
-    m_width *= scale_x;
-    m_y *= scale_y;
-    m_height *= scale_y;
-
-    updateVertex();
-
-    if(m_scissor)
-    {
-        m_scissor->x *= scale_x;
-        m_scissor->width *= scale_x;
-        m_scissor->y *= scale_y;
-        m_scissor->height *= scale_y;
-    }
+    engine3d.drawUi(RenderModeUi::Ui, m_vb_alloc.vb, m_vb_alloc.vertex_offset, 1, m_scissor);
 }
 
 bool Rect::isPointInside(vec2 p)

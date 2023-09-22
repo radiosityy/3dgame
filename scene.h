@@ -24,7 +24,7 @@ public:
     void loadFromFile(std::string_view filename);
 
     void update(float dt, const InputState& input_state) noexcept;
-    void draw() noexcept;
+    void draw(RenderData&) noexcept;
     void onInputEvent(const Event&, const InputState&);
     void onWindowResize(float aspect_ratio) noexcept;
 
@@ -34,7 +34,6 @@ public:
     void updatePointLight(PointLightId id, const PointLight& point_light) const;
 
     Camera& camera() noexcept;
-    RenderData renderData() noexcept;
     Terrain& terrain() noexcept;
 
 #if EDITOR_ENABLE
@@ -60,8 +59,6 @@ private:
 
     template<class Collider>
     bool objectCollision(const Object*, const Collider&);
-
-    void soundTest();
 
     Engine3D& m_engine3d;
 

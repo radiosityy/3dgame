@@ -41,14 +41,13 @@ class Engine3D
     {
         RenderBatch() = default;
 
-        RenderBatch(RenderMode render_mode_, VertexBuffer* vb_, uint32_t vertex_offset_, uint32_t vertex_count_, uint32_t instance_id_, std::optional<Sphere> bounding_sphere_, std::optional<Quad> scissor_)
+        RenderBatch(RenderMode render_mode_, VertexBuffer* vb_, uint32_t vertex_offset_, uint32_t vertex_count_, uint32_t instance_id_, std::optional<Sphere> bounding_sphere_)
             : render_mode(render_mode_)
             , vb(vb_)
             , vertex_offset(vertex_offset_)
             , vertex_count(vertex_count_)
             , instance_id(instance_id_)
             , bounding_sphere(bounding_sphere_)
-            , scissor(scissor_)
         {}
 
         RenderMode render_mode;
@@ -57,7 +56,25 @@ class Engine3D
         uint32_t vertex_count;
         uint32_t instance_id;
         std::optional<Sphere> bounding_sphere;
-        std::optional<Quad> scissor;
+    };
+
+    struct RenderBatchUi
+    {
+        RenderBatchUi() = default;
+
+        RenderBatchUi(RenderModeUi render_mode_, VertexBuffer* vb_, uint32_t vertex_offset_, uint32_t vertex_count_, const Quad& scissor_)
+            : render_mode(render_mode_)
+            , vb(vb_)
+            , vertex_offset(vertex_offset_)
+            , vertex_count(vertex_count_)
+            , scissor(scissor_)
+        {}
+
+        RenderModeUi render_mode;
+        VertexBuffer* vb;
+        uint32_t vertex_offset;
+        uint32_t vertex_count;
+        Quad scissor;
     };
 
     struct VkImageWrapper
@@ -228,7 +245,8 @@ public:
     void updateBoneTransformData(uint32_t bone_offset, uint32_t bone_count, const mat4x4* data);
     void updateTerrainData(void* data, uint64_t offset, uint64_t size);
 
-    void draw(RenderMode render_mode, VertexBuffer* vb, uint32_t vertex_offset, uint32_t vertex_count, uint32_t instance_id, std::optional<Sphere> bounding_sphere, std::optional<Quad> scissor);
+    void draw(RenderMode render_mode, VertexBuffer* vb, uint32_t vertex_offset, uint32_t vertex_count, uint32_t instance_id, std::optional<Sphere> bounding_sphere);
+    void drawUi(RenderModeUi render_mode, VertexBuffer* vb, uint32_t vertex_offset, uint32_t vertex_count, const Quad& scissor);
 
     DirLightId addDirLight(const DirLight& dir_light);
     void updateDirLight(DirLightId id, const DirLight& dir_light);
@@ -265,6 +283,9 @@ private:
 
     void updateBuffer(VkBufferWrapper&, size_t data_size, const std::function<void(void*)>&, VkCommandBuffer = VK_NULL_HANDLE);
     void updateBuffer(VkBufferWrapper&, size_t data_size, const void* data, VkCommandBuffer = VK_NULL_HANDLE);
+
+    VkPipeline& getPipeline(RenderMode) noexcept;
+    VkPipeline& getPipeline(RenderModeUi) noexcept;
 
     /*------------------ asset methods -------------------*/
     std::vector<uint32_t> loadTexturesGeneric(const std::vector<std::string_view>& texture_filenames, TextureCollection& texture_collection, bool generate_mipmaps);
@@ -327,6 +348,7 @@ private:
     VkCommandPool m_command_pool = VK_NULL_HANDLE;
     VkPipelineLayout m_pipeline_layout = VK_NULL_HANDLE;
     std::vector<VkPipeline> m_pipelines;
+    std::vector<VkPipeline> m_pipelines_ui;
 
     VkCommandBuffer m_transfer_cmd_buf = VK_NULL_HANDLE;
     VkFence m_transfer_cmd_buf_fence = VK_NULL_HANDLE;
@@ -429,6 +451,8 @@ private:
 
     std::vector<RenderBatch> m_render_batches;
     uint32_t m_render_batch_count = 0;
+    std::vector<RenderBatchUi> m_render_batches_ui;
+    uint32_t m_render_batch_ui_count = 0;
     std::unordered_map<VkBufferWrapper*, std::vector<BufferUpdateReq>> m_buffer_update_reqs;
 
     /*--- vertex buffers ---*/

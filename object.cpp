@@ -65,7 +65,7 @@ void Object::draw(Engine3D& engine3d)
        m_instance_data[i].tex_id = mesh.textureId();
        m_instance_data[i].normal_map_id = mesh.normalMapId();
 
-        engine3d.draw(m_render_mode, mesh.vertexBuffer(), mesh.vertexBufferOffset(), mesh.vertexCount(), m_instance_id + i, s, {});
+        engine3d.draw(m_render_mode, mesh.vertexBuffer(), mesh.vertexBufferOffset(), mesh.vertexCount(), m_instance_id + i, s);
     }
 
     engine3d.updateInstanceVertexData(m_instance_id, m_instance_data.size(), m_instance_data.data());
@@ -240,7 +240,7 @@ void Object::drawHighlight(Engine3D& engine3d)
 
     for(const auto& mesh : m_model->mehes())
     {
-        engine3d.draw(RenderMode::Highlight, mesh.vertexBuffer(), mesh.vertexBufferOffset(), mesh.vertexCount(), m_instance_id, s, {});
+        engine3d.draw(RenderMode::Highlight, mesh.vertexBuffer(), mesh.vertexBufferOffset(), mesh.vertexCount(), m_instance_id, s);
     }
 }
 

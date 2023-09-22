@@ -15,10 +15,7 @@ if(VULKAN_VALIDATION_ENABLE)
     add_compile_definitions(VULKAN_VALIDATION_ENABLE=1)
 endif()
 
-file(GLOB SOURCES
-    *.h
-    *.cpp
-)
+file(GLOB SOURCES *.h *.cpp)
 
 if(EDITOR_ENABLE)
 file(GLOB EDITOR_SOURCES
@@ -41,7 +38,6 @@ file(GLOB_RECURSE OTHERS
 )
 
 include_directories(${CMAKE_SOURCE_DIR})
-include_directories(include)
 
 add_executable(${PROJECT_NAME} ${SOURCES} ${OTHERS})
 
@@ -60,13 +56,6 @@ set(GLSLC_PATH "" CACHE FILEPATH "Glslc spir-v compiler path")
 
 include_directories(${VULKAN_INCLUDE})
 target_link_libraries(${PROJECT_NAME} ${VULKAN_LIB})
-
-#FMOD
-set(FMOD_INCLUDE "" CACHE PATH "FMOD include directory")
-set(FMOD_LIB "" CACHE FILEPATH "FMOD library")
-
-include_directories(${FMOD_INCLUDE})
-target_link_libraries(${PROJECT_NAME} ${FMOD_LIB})
 
 add_custom_target(
     compile_shaders ALL

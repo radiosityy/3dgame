@@ -11,7 +11,6 @@ public:
 
     virtual void update(Engine3D& engine3d, float dt) override;
     virtual void draw(Engine3D& engine3d) override;
-    virtual void onResolutionChange(float scale_x, float scale_y, const Font& font) override;
 
     void print(const std::string& text);
 

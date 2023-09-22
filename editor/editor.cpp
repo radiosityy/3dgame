@@ -114,8 +114,14 @@ void Editor::update(const InputState& input_state, float dt)
     }
 }
 
-void Editor::draw()
+void Editor::draw(RenderData& render_data)
 {
+    render_data.cur_terrain_intersection = (Mode::Terrain == m_mode) && m_cur_terrain_intersection;
+    render_data.cur_terrain_pos = m_cur_terrain_pos;
+    render_data.editor_terrain_tool_inner_radius = m_terrain_tool_radius - m_terrain_tool_width;
+    render_data.editor_terrain_tool_outer_radius = m_terrain_tool_radius;
+    render_data.editor_highlight_color = vec4(0.5f, 0.5f, 1.0f, m_selected_object_alpha);
+
     /*selected object highlight*/
     if(Mode::Transform == m_mode)
     {
@@ -126,7 +132,7 @@ void Editor::draw()
     }
 
     /*point light billboards*/
-    m_engine3d.draw(RenderMode::Billboard, m_billboard_vb_alloc.vb, m_billboard_vb_alloc.vertex_offset, m_vertex_billboard_data.size(), 0, {}, {});
+    m_engine3d.draw(RenderMode::Billboard, m_billboard_vb_alloc.vb, m_billboard_vb_alloc.vertex_offset, m_vertex_billboard_data.size(), 0, {});
 
     for(auto& child : m_gui_objects)
     {
@@ -190,7 +196,7 @@ void Editor::onInputEvent(const Event& event, const InputState& input_state)
                                        1.0f - dy * (0.5f + input_state.cursor_pos.y),
                                        m_scene.camera().imagePlaneDistance());
 
-            Ray ray(m_scene.camera().pos(), m_scene.camera().invView() * vec4(ray_dirV, 0.0f));
+            Ray ray(m_scene.camera().pos(), m_scene.camera().invV() * vec4(ray_dirV, 0.0f));
             float min_d = std::numeric_limits<float>::max();
 
             if(m_render_point_light_billboards)
@@ -416,23 +422,6 @@ void Editor::onInputEvent(const Event& event, const InputState& input_state)
             m_scene.serialize("scene.scn");
         }
     }
-}
-
-vec4 Editor::highlightColor() const
-{
-    return vec4(0.5f, 0.5f, 1.0f, m_selected_object_alpha);
-}
-
-void Editor::curTerrainPos(bool& cur_terrain_intersection, vec3& cur_terrain_pos) const
-{
-    cur_terrain_intersection = (Mode::Terrain == m_mode) && m_cur_terrain_intersection;
-    cur_terrain_pos = m_cur_terrain_pos;
-}
-
-void Editor::terrainToolRadii(float& inner, float& outer)
-{
-    inner = m_terrain_tool_radius - m_terrain_tool_width;
-    outer = m_terrain_tool_radius;
 }
 
 void Editor::moveModeHandleEvent(const Event& event, const InputState& input_state)

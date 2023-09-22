@@ -9,8 +9,6 @@
 #include <sstream>
 #include <fstream>
 
-#include <fmod.h>
-
 Scene::Scene(Engine3D& engine3d, float aspect_ratio, const Font& font)
     : m_engine3d(engine3d)
 {
@@ -176,8 +174,14 @@ void Scene::update(float dt, const InputState& input_state) noexcept
     }
 }
 
-void Scene::draw() noexcept
+void Scene::draw(RenderData& render_data) noexcept
 {
+    render_data.visual_sun_pos = m_visual_sun_pos;
+    render_data.effective_sun_pos = m_effective_sun_pos;
+    render_data.sun_radius = m_sun_radius;
+    render_data.terrain_patch_size_x = m_terrain->patchSizeX();
+    render_data.terrain_patch_size_z = m_terrain->patchSizeZ();
+
     for(auto& obj : m_objects)
     {
         obj->draw(m_engine3d);
@@ -382,26 +386,6 @@ void Scene::updateSun()
     m_engine3d.updateDirLight(0, m_sun);
 }
 
-void Scene::soundTest()
-{
-    FMOD_SYSTEM* system = nullptr;
-    FMOD_System_Create(&system, FMOD_VERSION);
-    FMOD_System_Init(system, 32, FMOD_INIT_NORMAL, nullptr);
-
-    FMOD_SOUND* sound = nullptr;
-    FMOD_System_CreateSound(system, "assets/music/g2.wav", FMOD_DEFAULT, nullptr, &sound);
-
-    FMOD_CHANNEL* channel = nullptr;
-    FMOD_System_PlaySound(system, sound, nullptr, false, &channel);
-
-//    FMOD_BOOL is_playing = true;
-//    while(is_playing)
-//    {
-//        FMOD_Channel_IsPlaying(channel, &is_playing);
-//        FMOD_System_Update(system);
-//    }
-}
-
 template<class Collider>
 bool Scene::objectCollision(const Object* object, const Collider& collider)
 {
@@ -481,18 +465,6 @@ PointLightId Scene::addPointLight(const PointLight& point_light) const
 void Scene::updatePointLight(PointLightId id, const PointLight& point_light) const
 {
     m_engine3d.updatePointLight(id, point_light);
-}
-
-RenderData Scene::renderData() noexcept
-{
-    RenderData render_data;
-    render_data.visual_sun_pos = m_visual_sun_pos;
-    render_data.effective_sun_pos = m_effective_sun_pos;
-    render_data.sun_radius = m_sun_radius;
-    render_data.terrain_patch_size_x = m_terrain->patchSizeX();
-    render_data.terrain_patch_size_z = m_terrain->patchSizeZ();
-
-    return render_data;
 }
 
 Terrain& Scene::terrain() noexcept

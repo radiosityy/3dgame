@@ -29,7 +29,6 @@ public:
     virtual ~GuiObject() = default;
 
     virtual void onInputEvent(const Event& event, const InputState& input_state);
-    virtual void onResolutionChange(float scale_x, float scale_y, const Font& font) = 0;
 
     virtual void gotFocus();
     virtual void lostFocus();
@@ -53,8 +52,6 @@ public:
     void setFocusable(bool) noexcept;
 
 protected:
-//    std::optional<Quad> m_scissor;
-
     bool m_visible = true;
     bool m_focusable = true;
 };
@@ -140,8 +137,6 @@ class GuiParentObject : public GuiObject, public GuiParent
 public:
     virtual void lostFocus() override;
     virtual void cursorExit() override;
-
-//    virtual void setScissor(Quad scissor) override;
 };
 
 #endif // GUI_OBJECT_H

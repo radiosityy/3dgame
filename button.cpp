@@ -12,24 +12,6 @@ Button::Button(Engine3D& engine3d, float x, float y, float w, float h, const Fon
     m_label.setBackgroundColor(m_color);
 }
 
-void Button::onResolutionChange(float scale_x, float scale_y, const Font& font)
-{
-    m_x *= scale_x;
-    m_width *= scale_x;
-    m_y *= scale_y;
-    m_height *= scale_y;
-
-    if(m_scissor)
-    {
-        m_scissor->x *= scale_x;
-        m_scissor->width *= scale_x;
-        m_scissor->y *= scale_y;
-        m_scissor->height *= scale_y;
-    }
-
-    m_label.onResolutionChange(scale_x, scale_y, font);
-}
-
 void Button::setUpdateCallback(std::function<void (Button&)>&& callback)
 {
     m_update_callback = std::move(callback);
