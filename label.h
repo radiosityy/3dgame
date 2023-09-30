@@ -26,8 +26,8 @@ public:
     float height() const;
     float width() const;
 
-    void setText(const std::string& text);
-    void appendText(const std::string& text);
+    void setText(std::string_view text);
+    void appendText(std::string_view text);
 
     virtual bool isPointInside(vec2) override;
 
@@ -49,7 +49,7 @@ public:
 private:
     void updateVertexData();
     void updateScissors();
-    void setTextNoCursorUpdate(const std::string& text);
+    void setTextNoCursorUpdate(std::string_view text);
 
     const Font* m_font = nullptr;
     std::string m_text;

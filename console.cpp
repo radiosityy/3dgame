@@ -1,4 +1,5 @@
 #include "console.h"
+#include <format>
 
 Console::Console(Engine3D& engine3d, float x, float y, float w, float h, const Font& font, std::function<void(const std::string&)>&& command_process_callback)
     : m_x(x)
@@ -52,7 +53,7 @@ void Console::draw(Engine3D& engine3d)
     m_text_input.draw(engine3d);
 }
 
-void Console::print(const std::string& text)
+void Console::print(std::string_view text)
 {
     if(m_text_label.text().empty())
     {
@@ -60,7 +61,7 @@ void Console::print(const std::string& text)
     }
     else
     {
-        m_text_label.appendText(std::string("\n") + text);
+        m_text_label.appendText(std::format("\n{}", text));
     }
 }
 

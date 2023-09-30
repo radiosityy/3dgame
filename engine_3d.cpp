@@ -1,7 +1,8 @@
 #include "engine_3d.h"
-#include "error_handling.h"
+#include "game_utils.h"
 
 #include <iostream>
+#include <format>
 #include <algorithm>
 #include <cstring>
 #include <sstream>
@@ -16,6 +17,74 @@ static VkBool32 debugReportCallback(VkDebugUtilsMessageSeverityFlagBitsEXT, VkDe
 #endif
 
 /*---------------- helper methods ----------------*/
+static constexpr auto vkResultToString(VkResult res) noexcept
+{
+    switch (res)
+    {
+        case VK_ERROR_OUT_OF_HOST_MEMORY:
+            return "VK_ERROR_OUT_OF_HOST_MEMORY";
+        case VK_ERROR_OUT_OF_DEVICE_MEMORY:
+            return "VK_ERROR_OUT_OF_DEVICE_MEMORY";
+        case VK_ERROR_INITIALIZATION_FAILED:
+            return "VK_ERROR_INITIALIZATION_FAILED";
+        case VK_ERROR_DEVICE_LOST:
+            return "VK_ERROR_DEVICE_LOST";
+        case VK_ERROR_MEMORY_MAP_FAILED:
+            return "VK_ERROR_MEMORY_MAP_FAILED";
+        case VK_ERROR_LAYER_NOT_PRESENT:
+            return "VK_ERROR_LAYER_NOT_PRESENT";
+        case VK_ERROR_EXTENSION_NOT_PRESENT:
+            return "VK_ERROR_EXTENSION_NOT_PRESENT";
+        case VK_ERROR_FEATURE_NOT_PRESENT:
+            return "VK_ERROR_FEATURE_NOT_PRESENT";
+        case VK_ERROR_INCOMPATIBLE_DRIVER:
+            return "VK_ERROR_INCOMPATIBLE_DRIVER";
+        case VK_ERROR_TOO_MANY_OBJECTS:
+            return "VK_ERROR_TOO_MANY_OBJECTS";
+        case VK_ERROR_FORMAT_NOT_SUPPORTED:
+            return "VK_ERROR_FORMAT_NOT_SUPPORTED";
+        case VK_ERROR_FRAGMENTED_POOL:
+            return "VK_ERROR_FRAGMENTED_POOL";
+        case VK_ERROR_OUT_OF_POOL_MEMORY:
+            return "VK_ERROR_OUT_OF_POOL_MEMORY";
+        case VK_ERROR_INVALID_EXTERNAL_HANDLE:
+            return "VK_ERROR_INVALID_EXTERNAL_HANDLE";
+        case VK_ERROR_SURFACE_LOST_KHR:
+            return "VK_ERROR_SURFACE_LOST_KHR";
+        case VK_ERROR_NATIVE_WINDOW_IN_USE_KHR:
+            return "VK_ERROR_NATIVE_WINDOW_IN_USE_KHR";
+        case VK_SUBOPTIMAL_KHR:
+            return "VK_SUBOPTIMAL_KHR";
+        case VK_ERROR_OUT_OF_DATE_KHR:
+            return "VK_ERROR_OUT_OF_DATE_KHR";
+        case VK_ERROR_INCOMPATIBLE_DISPLAY_KHR:
+            return "VK_ERROR_INCOMPATIBLE_DISPLAY_KHR";
+        case VK_ERROR_VALIDATION_FAILED_EXT:
+            return "VK_ERROR_VALIDATION_FAILED_EXT";
+        case VK_ERROR_INVALID_SHADER_NV:
+            return "VK_ERROR_INVALID_SHADER_NV";
+        case VK_ERROR_FRAGMENTATION_EXT:
+            return "VK_ERROR_FRAGMENTATION_EXT";
+        case VK_ERROR_NOT_PERMITTED_EXT:
+            return "VK_ERROR_NOT_PERMITTED_EXT";
+        default:
+            return "UNKNOWN VK ERROR";
+    }
+}
+
+static void error(std::string_view msg, VkResult res)
+{
+    error(std::format("{} VkResult: {}", msg, vkResultToString(res)));
+}
+
+static void assertVkSuccess(VkResult res, std::string_view msg)
+{
+    if(VK_SUCCESS != res)
+    {
+        error(msg, res);
+    }
+}
+
 static void checkIfLayersAndExtensionsAvailable(const std::vector<const char*>& layers, const std::vector<const char*>& extensions)
 {
     uint32_t count;
@@ -44,9 +113,7 @@ static void checkIfLayersAndExtensionsAvailable(const std::vector<const char*>& 
 
         if(!found)
         {
-            std::stringstream error_msg;
-            error_msg << "Error: Required instance layer unavailable: " << layer;
-            throw std::runtime_error(error_msg.str());
+            error(std::format("Required instance layer unavailable: {}", layer));
         }
     }
 
@@ -73,9 +140,7 @@ static void checkIfLayersAndExtensionsAvailable(const std::vector<const char*>& 
 
         if(!found)
         {
-            std::stringstream error_msg;
-            error_msg << "Error: Required instance extension unavailable: " << ext;
-            throw std::runtime_error(error_msg.str());
+            error(std::format("Error: Required instance extension unavailable: {}", ext));
         }
     }
 }
@@ -182,7 +247,7 @@ void Engine3D::allocateAndBindMemory(VkImageWrapper& image) const
     if(VK_SUCCESS != res)
     {
         vkFreeMemory(m_device, image.mem, NULL);
-        throw std::runtime_error(errorMsg("Failed to bind image memory.", res));
+        error("Failed to bind image memory.", res);
     }
 }
 
@@ -197,7 +262,7 @@ void Engine3D::allocateAndBindMemory(VkBufferWrapper& buffer) const
     if(VK_SUCCESS != res)
     {
         vkFreeMemory(m_device, buffer.mem, NULL);
-        throw std::runtime_error(errorMsg("Failed to bind buffer memory.", res));
+        error("Failed to bind buffer memory.", res);
     }
 }
 
@@ -220,7 +285,7 @@ void Engine3D::createImage(VkImageWrapper& image, const VkImageCreateInfo& img_c
     if(VK_SUCCESS != res)
     {
         destroyImage(image);
-        throw std::runtime_error(errorMsg("Failed to create image view.", res));
+        error("Failed to create image view.", res);
     }
 }
 
@@ -286,7 +351,7 @@ void Engine3D::createBuffer(VkBufferWrapper& buffer, VkDeviceSize size)
         if(VK_SUCCESS != res)
         {
             destroyBuffer(buffer);
-            throw std::runtime_error(errorMsg("Failed to create buffer view.", res));
+            error("Failed to create buffer view.", res);
         }
     }
 
@@ -456,9 +521,7 @@ std::vector<uint32_t> Engine3D::loadTexturesGeneric(const std::vector<std::strin
 
         if(!file)
         {
-            std::stringstream ss;
-            ss << "Failed to open " << texture_filenames[textures_to_load[i]];
-            throw std::runtime_error(ss.str());
+            error(std::format("Failed to open a texture file: {}", texture_filenames[textures_to_load[i]]));
         }
 
         uint8_t sig[8];
@@ -467,10 +530,7 @@ std::vector<uint32_t> Engine3D::loadTexturesGeneric(const std::vector<std::strin
         if(auto check = png_check_sig(sig, 8); !check)
         {
             fclose(file);
-
-            std::stringstream ss;
-            ss << "Texture file " << texture_filenames[textures_to_load[i]] << "is not a valid .png file.";
-            throw std::runtime_error(ss.str());
+            error(std::format("Texture file {} is not a valid .png file.", texture_filenames[textures_to_load[i]]));
         }
 
         auto png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
@@ -1041,7 +1101,7 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
         case VK_ERROR_OUT_OF_DATE_KHR:
             return;
         default:
-            throw std::runtime_error(errorMsg("Failed to aqcuire swapchain image.", res));
+            error("Failed to aqcuire swapchain image.", res);
         }
     }
 
@@ -1353,7 +1413,7 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
     case VK_ERROR_OUT_OF_DATE_KHR:
         return;
     default:
-        throw std::runtime_error(errorMsg("Failed to queue present.", res));
+        error("Failed to queue present.", res);
     }
 }
 
@@ -1952,10 +2012,7 @@ void Engine3D::createInstance(std::string_view app_name)
     vkEnumerateInstanceVersion(&instance_version);
     if(instance_version < min_supported_instance_version)
     {
-        std::stringstream ss;
-        ss << "Unsupported Vulkan API version: " << VK_API_VERSION_MAJOR(instance_version) << "_" << VK_API_VERSION_MINOR(instance_version) << "_" << VK_API_VERSION_PATCH(instance_version)
-           << ". Minimum supported Vulkan API version: " << VK_API_VERSION_MAJOR(min_supported_instance_version) << "_" << VK_API_VERSION_MINOR(min_supported_instance_version) << "_" << VK_API_VERSION_PATCH(min_supported_instance_version) << ".";
-        throw std::runtime_error(ss.str());
+        error(std::format("Unsupported Vulkan API version: {}_{}_{}. Minimum supported Vulkan API version: {}_{}_{}.", VK_API_VERSION_MAJOR(instance_version), VK_API_VERSION_MINOR(instance_version), VK_API_VERSION_PATCH(instance_version), VK_API_VERSION_MAJOR(min_supported_instance_version), VK_API_VERSION_MINOR(min_supported_instance_version), VK_API_VERSION_PATCH(min_supported_instance_version)));
     }
 
     VkApplicationInfo app_info{};
@@ -2037,13 +2094,12 @@ void Engine3D::createDevice()
 
     if(!unsupported_phy_dev_feats.empty())
     {
-        std::stringstream ss;
-        ss << "Required physical device features not supported:\n\n";
+        std::string error_msg = "Required physical device features not supported:\n\n";
         for(const auto& s : unsupported_phy_dev_feats)
         {
-            ss << s << "\n";
+            error_msg += s + "\n";
         }
-        throw std::runtime_error(ss.str());
+        error(error_msg);
     }
 
     /*only enable the required features, not all the supported ones*/
@@ -4931,9 +4987,7 @@ uint32_t Engine3D::createDirShadowMap(const DirLight& light)
     //TODO: only do this check in debug build?
     if(light.shadow_map_count > MAX_DIR_SHADOW_MAP_PARTITIONS)
     {
-        std::stringstream ss;
-        ss << "shadow_map_count of directional light = " << light.shadow_map_count << " . Max = " << MAX_DIR_SHADOW_MAP_PARTITIONS;
-        throw std::runtime_error(ss.str());
+        error(std::format("shadow_map_count of directional light = {}. Max = {}", light.shadow_map_count, MAX_DIR_SHADOW_MAP_PARTITIONS));
     }
 
     VkFramebufferCreateInfo framebuffer_create_info{};
@@ -5434,13 +5488,13 @@ void Engine3D::createDebugCallback(const VkDebugUtilsMessengerCreateInfoEXT& cre
     PFN_vkCreateDebugUtilsMessengerEXT pfnCreateDebugUtilsMessenger = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(m_instance, "vkCreateDebugUtilsMessengerEXT"));
     if(!pfnCreateDebugUtilsMessenger)
     {
-        throw std::runtime_error(errorMsg("Failed to load vkCreateDebugUtilsMessengerEXT function."));
+        error("Failed to load vkCreateDebugUtilsMessengerEXT function.");
     }
 
     m_destroy_debug_utils_messenger_function = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(m_instance, "vkDestroyDebugUtilsMessengerEXT"));
     if(!m_destroy_debug_utils_messenger_function)
     {
-        throw std::runtime_error(errorMsg("Failed to load vkDestroyDebugUtilsMessengerEXT function."));
+        error("Failed to load vkDestroyDebugUtilsMessengerEXT function.");
     }
 
     VkResult res = pfnCreateDebugUtilsMessenger(m_instance, &create_info, NULL, &m_debug_report_callback);
@@ -5449,7 +5503,7 @@ void Engine3D::createDebugCallback(const VkDebugUtilsMessengerCreateInfoEXT& cre
     m_set_debug_utils_object_name_function = reinterpret_cast<PFN_vkSetDebugUtilsObjectNameEXT>(vkGetInstanceProcAddr(m_instance, "vkSetDebugUtilsObjectNameEXT"));
     if(!m_set_debug_utils_object_name_function)
     {
-        throw std::runtime_error(errorMsg("Failed to load vkSetDebugUtilsObjectNameEXT function."));
+        error("Failed to load vkSetDebugUtilsObjectNameEXT function.");
     }
 }
 

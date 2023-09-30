@@ -407,15 +407,15 @@ float Label::width() const
     return m_width;
 }
 
-void Label::setText(const std::string& text)
+void Label::setText(std::string_view text)
 {
     setTextNoCursorUpdate(text);
     updateCursor(m_text.size());
 }
 
-void Label::appendText(const std::string& text)
+void Label::appendText(std::string_view text)
 {
-    setText(m_text + text);
+    setText(m_text + text.data());
 }
 
 bool Label::isPointInside(vec2 p)
@@ -618,7 +618,7 @@ void Label::updateScissors()
     m_cursor_rect.setScissor(m_scissor);
 }
 
-void Label::setTextNoCursorUpdate(const std::string& text)
+void Label::setTextNoCursorUpdate(std::string_view text)
 {
     //TODO: is this check optimal?
     if(m_text == text)

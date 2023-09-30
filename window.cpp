@@ -1,5 +1,6 @@
 #include "window.h"
 #include "game_engine.h"
+#include "game_utils.h"
 
 #include <stdio.h>
 #include <cstring>
@@ -1167,9 +1168,7 @@ void Window::show()
     const auto check = xcb_request_check(m_params.connection, cookie);
     if(NULL != check)
     {
-        std::stringstream ss;
-        ss << "Failed to display window. Error: " << check;
-        throw std::runtime_error(ss.str());
+        error(std::format("Failed to display window. Error: {}", check->error_code));
     }
 }
 

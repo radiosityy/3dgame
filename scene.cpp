@@ -21,9 +21,7 @@ Scene::Scene(Engine3D& engine3d, float aspect_ratio, const Font& font)
         const uint32_t m = (static_cast<uint32_t>(m_time_of_day) - h * 3600) / 60;
         const uint32_t s = static_cast<uint32_t>(m_time_of_day) - h*3600 - m*60;
 
-        std::stringstream ss;
-        ss << "Time: " << h << ":" << m << ":" << s;
-        label.setText(ss.str());
+        label.setText(std::format("Time: {}:{}:{}", h, m, s));
     });
 
     m_camera = std::make_unique<Camera>(aspect_ratio, 1.0f, 2000.0f, degToRad(90.0f));

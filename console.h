@@ -12,7 +12,7 @@ public:
     virtual void update(Engine3D& engine3d, float dt) override;
     virtual void draw(Engine3D& engine3d) override;
 
-    void print(const std::string& text);
+    void print(std::string_view text);
 
     void gotFocus() override;
     void lostFocus() override;
