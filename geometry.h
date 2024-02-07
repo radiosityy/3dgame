@@ -111,6 +111,8 @@ auto min(T t0, T t1, Args... args)
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/ext/quaternion_geometric.hpp>
+
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/rotate_vector.hpp>
 #include <glm/gtx/quaternion.hpp>
 
