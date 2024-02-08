@@ -1,6 +1,6 @@
 #include "button.h"
 
-Button::Button(Engine3D& engine3d, float x, float y, float w, float h, const Font& font, const std::string& text, std::function<void()>&& mouse_pressed_callback, HorizontalAlignment hor_align, VerticalAlignment ver_align)
+Button::Button(Engine3D& engine3d, float x, float y, float w, float h, const Font& font, const std::string& text, std::move_only_function<void()>&& mouse_pressed_callback, HorizontalAlignment hor_align, VerticalAlignment ver_align)
     : m_x(x)
     , m_y(y)
     , m_width(w)
@@ -12,7 +12,7 @@ Button::Button(Engine3D& engine3d, float x, float y, float w, float h, const Fon
     m_label.setBackgroundColor(m_color);
 }
 
-void Button::setUpdateCallback(std::function<void (Button&)>&& callback)
+void Button::setUpdateCallback(std::move_only_function<void (Button&)>&& callback)
 {
     m_update_callback = std::move(callback);
 }

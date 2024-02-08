@@ -9,7 +9,7 @@ template<class T = float, std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
 class Slider : public GuiObject
 {
 public:
-    Slider(Engine3D& engine3d, float x, float y, float w, float h, T min_value, T max_value, T init_value, std::function<void(T)>&& value_changed_callback = {})
+    Slider(Engine3D& engine3d, float x, float y, float w, float h, T min_value, T max_value, T init_value, std::move_only_function<void(T)>&& value_changed_callback = {})
         : m_handle_width(h)
         , m_bar_width(w - m_handle_width)
         , m_bar_x(x + 0.5f * m_handle_width)
@@ -42,7 +42,7 @@ public:
         }
     }
 
-    void setUpdateCallback(std::function<void(Slider<T>&)>&& callback)
+    void setUpdateCallback(std::move_only_function<void(Slider<T>&)>&& callback)
     {
         m_update_callback = std::move(callback);
     }
@@ -113,8 +113,8 @@ private:
 
     static inline const float m_bar_height = 0.25f;
 
-    std::function<void(Slider<T>&)> m_update_callback;
-    std::function<void(T)> m_value_changed_callback;
+    std::move_only_function<void(Slider<T>&)> m_update_callback;
+    std::move_only_function<void(T)> m_value_changed_callback;
 
     T m_value;
     const T m_min_value;

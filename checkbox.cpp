@@ -58,12 +58,12 @@ void Checkbox::toggle()
     setState(!m_state);
 }
 
-void Checkbox::setOnCheckCallback(std::function<void()>&& callback)
+void Checkbox::setOnCheckCallback(std::move_only_function<void()>&& callback)
 {
     m_on_check_callback = std::move(callback);
 }
 
-void Checkbox::setOnUncheckCallback(std::function<void()>&& callback)
+void Checkbox::setOnUncheckCallback(std::move_only_function<void()>&& callback)
 {
     m_on_uncheck_callback = std::move(callback);
 }

@@ -6,10 +6,10 @@
 class Button : public GuiObject
 {
 public:
-    Button(Engine3D& engine3d, float x, float y, float w, float h, const Font& font, const std::string& text, std::function<void()>&& mouse_pressed_callback, HorizontalAlignment = HorizontalAlignment::Center, VerticalAlignment = VerticalAlignment::Center);
+    Button(Engine3D& engine3d, float x, float y, float w, float h, const Font& font, const std::string& text, std::move_only_function<void()>&& mouse_pressed_callback, HorizontalAlignment = HorizontalAlignment::Center, VerticalAlignment = VerticalAlignment::Center);
 
 public:
-    void setUpdateCallback(std::function<void(Button&)>&&);
+    void setUpdateCallback(std::move_only_function<void(Button&)>&&);
 
     virtual void update(Engine3D& engine3d, float dt) override;
     virtual void draw(Engine3D& engine3d) override;
@@ -38,8 +38,8 @@ protected:
 
     Label m_label;
 
-    std::function<void()> m_mouse_pressed_callback;
-    std::function<void(Button&)> m_update_callback;
+    std::move_only_function<void()> m_mouse_pressed_callback;
+    std::move_only_function<void(Button&)> m_update_callback;
 
     std::optional<Quad> m_scissor;
 };

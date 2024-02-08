@@ -7,7 +7,7 @@
 class Console : public GuiObject
 {
 public:
-    Console(Engine3D& engine3d, float x, float y, float w, float h, const Font& font, std::function<void(const std::string&)>&& command_process_callback = {});
+    Console(Engine3D& engine3d, float x, float y, float w, float h, const Font& font, std::move_only_function<void(const std::string&)>&& command_process_callback = {});
 
     virtual void update(Engine3D& engine3d, float dt) override;
     virtual void draw(Engine3D& engine3d) override;
@@ -24,7 +24,7 @@ public:
 
 private:
     float m_x, m_y, m_width, m_height;
-    std::function<void(const std::string&)> m_command_process_callback;
+    std::move_only_function<void(const std::string&)> m_command_process_callback;
 
     Rect m_rect;
     Label m_text_label;

@@ -334,12 +334,12 @@ void Label::onInputEvent(const Event& event, const InputState& input_state)
     }
 }
 
-void Label::setUpdateCallback(std::function<void (Label&)>&& callback)
+void Label::setUpdateCallback(std::move_only_function<void (Label&)>&& callback)
 {
     m_update_callback = std::move(callback);
 }
 
-void Label::setTextChangedCallback(std::function<void (std::string_view)>&& callback)
+void Label::setTextChangedCallback(std::move_only_function<void (std::string_view)>&& callback)
 {
     m_text_changed_callback = std::move(callback);
 }
@@ -446,7 +446,7 @@ void Label::move(vec2 xy)
     setText(m_text);
 }
 
-void Label::setConfirmCallback(std::function<void (Label&)>&& callback)
+void Label::setConfirmCallback(std::move_only_function<void (Label&)>&& callback)
 {
     m_confirm_callback = std::move(callback);
     m_multiline = false;

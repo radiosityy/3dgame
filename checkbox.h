@@ -15,8 +15,8 @@ public:
     void setState(bool);
     void toggle();
 
-    void setOnCheckCallback(std::function<void()>&& callback);
-    void setOnUncheckCallback(std::function<void()>&& callback);
+    void setOnCheckCallback(std::move_only_function<void()>&& callback);
+    void setOnUncheckCallback(std::move_only_function<void()>&& callback);
 
 private:
     bool m_state = false;
@@ -24,8 +24,8 @@ private:
     const TexId m_unchecked_tex;
     const TexId m_checked_tex;
 
-    std::function<void()> m_on_check_callback;
-    std::function<void()> m_on_uncheck_callback;
+    std::move_only_function<void()> m_on_check_callback;
+    std::move_only_function<void()> m_on_uncheck_callback;
 };
 
 #endif //CHECKBOX_H

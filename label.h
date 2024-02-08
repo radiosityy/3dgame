@@ -15,8 +15,8 @@ public:
 
     virtual void onInputEvent(const Event& event, const InputState& input_state) override;
 
-    virtual void setUpdateCallback(std::function<void(Label&)>&&);
-    virtual void setTextChangedCallback(std::function<void(std::string_view)>&&);
+    virtual void setUpdateCallback(std::move_only_function<void(Label&)>&&);
+    virtual void setTextChangedCallback(std::move_only_function<void(std::string_view)>&&);
     virtual void update(Engine3D& engine3d, float dt) override;
     virtual void draw(Engine3D& engine3d) override;
 
@@ -37,7 +37,7 @@ public:
 
     virtual void move(vec2) override;
 
-    void setConfirmCallback(std::function<void(Label&)>&&);
+    void setConfirmCallback(std::move_only_function<void(Label&)>&&);
     void setCancalable(bool);
     void setMultiline(bool);
 
@@ -72,7 +72,7 @@ private:
     bool m_fixed_rect = false;
     Rect m_background_rect;
 
-    std::function<void(Label&)> m_update_callback;
+    std::move_only_function<void(Label&)> m_update_callback;
 
     std::optional<Quad> m_parent_scissor;
     Quad m_scissor;
@@ -84,8 +84,8 @@ private:
 
     Rect m_cursor_rect;
 
-    std::function<void(Label&)> m_confirm_callback;
-    std::function<void(std::string_view)> m_text_changed_callback;
+    std::move_only_function<void(Label&)> m_confirm_callback;
+    std::move_only_function<void(std::string_view)> m_text_changed_callback;
     bool m_cancelable = false;
     bool m_multiline = false;
     Action m_action_on_focus_lost = Action::Cancel;
