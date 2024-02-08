@@ -1,8 +1,7 @@
 cmake_minimum_required(VERSION 3.2)
 
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
+# set(CMAKE_CXX_STANDARD 23)
+# set(CMAKE_CXX_STANDARD_REQUIRED ON)
 project(3dgame)
 
 option(EDITOR_ENABLE "Enable editor" OFF)
@@ -41,6 +40,7 @@ include_directories(${CMAKE_SOURCE_DIR})
 
 add_executable(${PROJECT_NAME} ${SOURCES} ${OTHERS})
 
+target_compile_options(${PROJECT_NAME} PRIVATE -std=c++2b)
 target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -pedantic)
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
