@@ -72,16 +72,16 @@ static constexpr auto vkResultToString(VkResult res) noexcept
     }
 }
 
-static void error(std::string_view msg, VkResult res)
+static void error(std::string_view msg, VkResult res, std::source_location srcl = std::source_location::current())
 {
-    error(std::format("{} VkResult: {}", msg, vkResultToString(res)));
+    error(std::format("{} VkResult: {}", msg, vkResultToString(res)), srcl);
 }
 
-static void assertVkSuccess(VkResult res, std::string_view msg)
+static void assertVkSuccess(VkResult res, std::string_view msg, std::source_location srcl = std::source_location::current())
 {
     if(VK_SUCCESS != res)
     {
-        error(msg, res);
+        error(msg, res, srcl);
     }
 }
 
@@ -892,7 +892,7 @@ void Engine3D::resizeBuffers()
             }
 
             //TODO: do this first time creation elsewhere?
-            if(buf->buf == VK_NULL_HANDLE)
+            if(VK_NULL_HANDLE == buf->buf)
             {
                 createBuffer(*buf, buf->req_size);
             }
