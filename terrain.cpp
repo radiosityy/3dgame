@@ -174,12 +174,12 @@ void Terrain::draw(Engine3D& engine3d, Camera& camera)
         m_vertices[i].edge_res_bottom = tessLevel(m_patch_data[i].center_pos_bottom, m_patch_data[i].edge_res_bottom);
         m_vertices[i].lod_res = max(tessLevel(m_patch_data[i].center_pos, m_vertices[i].res), m_vertices[i].edge_res_left, m_vertices[i].edge_res_top, m_vertices[i].edge_res_right, m_vertices[i].edge_res_bottom);
 
-        //TODO: optimize this
-        engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexTerrain) * m_vertices.size(), m_vertices.data());
-
         const uint32_t vertex_count = m_vertices[i].lod_res * m_vertices[i].lod_res * 6;
-        engine3d.draw(RenderMode::Terrain, m_vb_alloc.vb, m_vb_alloc.vertex_offset, vertex_count, i, {}, {});
+        engine3d.draw(RenderMode::Terrain, m_vb_alloc.vb, m_vb_alloc.vertex_offset, vertex_count, i, {});
     }
+
+    //TODO: optimize this
+    engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexTerrain) * m_vertices.size(), m_vertices.data());
 }
 #endif
 
