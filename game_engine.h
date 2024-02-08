@@ -29,6 +29,8 @@ public:
     void onWindowDestroyEvent() noexcept;
 
 private:
+    void setDefaultIni();
+    void writeIni();
     void parseIni();
     void setupGui();
 
@@ -64,6 +66,8 @@ private:
     bool m_edit_mode = true;
     std::unique_ptr<Editor> m_editor;
 #endif
+
+    static inline const auto ini_filename = "game.ini";
 
     /*--- params ---*/
     constexpr static vec2 reference_resolution = vec2(1920, 1080);

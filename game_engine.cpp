@@ -1,4 +1,5 @@
 #include "game_engine.h"
+#include "game_utils.h"
 
 #include <sstream>
 #include <fstream>
@@ -6,49 +7,53 @@
 #include <iostream>
 #include <algorithm>
 
+void GameEngine::setDefaultIni()
+{
+    m_init_params.res_x = 1280;
+    m_init_params.res_y = 720;
+    m_init_params.vsync = true;
+}
+
+void GameEngine::writeIni()
+{
+    std::ofstream ini(ini_filename);
+    //TODO: check if file correctly opened
+    ini << "vsync=" << (m_init_params.vsync ? "on" : "off") << std::endl;
+    ini << "res_x=" << m_init_params.res_x << std::endl;
+    ini << "res_y=" << m_init_params.res_y << std::endl;
+}
+
 void GameEngine::parseIni()
 {
-    const auto ini_filename = "game.ini";
+    setDefaultIni();
 
     std::ifstream ini(ini_filename);
 
-    //TODO: add better checking to see what actually failed - don't overwrite the file if it already exists but failed to open for other reason
-    if(!ini)
+    if(ini)
     {
-        std::ofstream default_ini(ini_filename);
-        default_ini << "vsync=off" << std::endl;
-        default_ini << "res_x=1920" << std::endl;
-        default_ini << "res_y=1080" << std::endl;
-        default_ini.close();
+        //TODO: check if file correctly opened
+//        if(!ini)
+//        {
+//            error(std::format("Failed to create ini file: {}", ini.bad() ? std::strerror(errno) : "Unknown error."));
+//        }
 
-        ini.open(ini_filename);
-        if(!ini)
+        uint32_t line_num = 1;
+        for(std::array<char, 256> line; ini.getline(line.data(), line.size()); line_num++)
         {
-            throw std::runtime_error("Failed to open ini file.");
-        }
-    }
+            //TODO: check if line was successfully got
+            const std::string_view s(line.data());
 
-    for(std::array<char, 256> line; ini.getline(line.data(), line.size());)
-    {
-        const std::string_view s(line.data());
+            auto pos = s.find('=');
 
-        auto pos = s.find('=');
+            if((pos == std::string_view::npos) || (pos == 0) || (pos == s.size() - 1))
+            {
+                log(std::format("Invalid entry in ini file (line {}): {}", line_num, s));
+                continue;
+            }
 
-        if((pos == std::string_view::npos) || (pos == 0) || (pos == s.size() - 1))
-        {
-            throw std::runtime_error("Invalid entry in ini file.");
-        }
+            const std::string_view param = s.substr(0, pos);
+            const std::string_view value = s.substr(pos + 1);
 
-        const std::string_view param = s.substr(0, pos);
-        const std::string_view value = s.substr(pos + 1);
-
-        const auto invalid_value_error = [&]()
-        {
-            throw std::runtime_error("Invalid value for param " + std::string(param) + " in ini file: " + std::string(value));
-        };
-
-        try
-        {
             if(param == "vsync")
             {
                 if(value == "on")
@@ -59,17 +64,13 @@ void GameEngine::parseIni()
                 {
                     m_init_params.vsync = false;
                 }
-                else
-                {
-                    invalid_value_error();
-                }
             }
             else if(param == "res_x")
             {
                 m_init_params.res_x = std::stoul(std::string(value));
                 if(m_init_params.res_x == 0)
                 {
-                    invalid_value_error();
+    //                invalid_value_error();
                 }
             }
             else if(param == "res_y")
@@ -77,15 +78,15 @@ void GameEngine::parseIni()
                 m_init_params.res_y = std::stoul(std::string(value));
                 if(m_init_params.res_y == 0)
                 {
-                    invalid_value_error();
+    //                invalid_value_error();
                 }
             }
         }
-        catch(...)
-        {
-            invalid_value_error();
-        }
+
+        ini.close();
     }
+
+    writeIni();
 }
 
 GameEngine::GameEngine()
@@ -101,6 +102,7 @@ GameEngine::GameEngine()
 
     /*create 3D graphics engine*/
     m_engine3d = std::make_unique<Engine3D>(*m_window, app_name);
+    //TODO: vsync flag should just be passed to engine's constructor probably
     m_engine3d->enableVsync(m_init_params.vsync);
 
     m_fonts.emplace_back(font_directory + "font.ttf", 18);
@@ -138,9 +140,7 @@ void GameEngine::setupGui()
             dt = 1.0 / static_cast<double>(m_timer.getFps());
         }
 
-        std::stringstream ss;
-        ss << "Fps: " << m_timer.getFps() << " | " << dt * 1000.0 << "ms";
-        label.setText(ss.str());
+        label.setText(std::format("Fps: {} | {}ms", m_timer.getFps(), dt * 1000.0));
     });
 
     m_console = std::make_unique<Console>(*m_engine3d, 0, 0, static_cast<float>(m_window->width()), 0.4f * static_cast<float>(m_window->height()), m_fonts[0], [&](const std::string& text)
@@ -185,11 +185,7 @@ void GameEngine::processConsoleCmd(const std::string& text)
         const uint32_t h = static_cast<uint32_t>(std::atoi(words[2].c_str()));
 
         m_window->setSize(w, h);
-
-        std::stringstream ss;
-        ss << "Window resized to " << w << "x" << h;
-
-        m_console->print(ss.str());
+        m_console->print(std::format("Window resized to {}x{}", w, h));
         return;
     }
 
@@ -237,9 +233,7 @@ void GameEngine::processConsoleCmd(const std::string& text)
         return;
     }
 
-    std::stringstream ss;
-    ss << words[0] << ": unknown command.";
-    m_console->print(ss.str());
+    m_console->print(words[0] + ": unknown command.");
 }
 
 void GameEngine::run()
