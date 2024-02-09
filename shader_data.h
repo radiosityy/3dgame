@@ -27,6 +27,10 @@ constexpr auto GS_BILLBOARD_FILENAME = "shaders/gs_billboard.spv";
 constexpr auto GS_DIR_SHADOW_MAP_FILENAME = "shaders/gs_dir_shadow_map.spv";
 constexpr auto GS_POINT_SHADOW_MAP_FILENAME = "shaders/gs_point_shadow_map.spv";
 
+/*--- Tessellation Shaders ---*/
+constexpr auto TCS_TERRAIN_FILENAME = "shaders/tes_terrain.spv";
+constexpr auto TES_TERRAIN_FILENAME = "shaders/tcs_terrain.spv";
+
 /*--- Fragment Shaders ---*/
 constexpr auto FS_UI_FILENAME = "shaders/fs_ui.spv";
 constexpr auto FS_FONT_FILENAME = "shaders/fs_font.spv";
