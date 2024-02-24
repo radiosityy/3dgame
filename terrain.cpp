@@ -1,5 +1,6 @@
 #include "terrain.h"
-#include <iostream>
+#include <game_utils.h>
+#include <format>
 
 Terrain::Terrain(Engine3D& engine3d)
 {
@@ -20,50 +21,65 @@ Terrain::Terrain(Engine3D& engine3d)
     loadFromFile(engine3d);
 }
 
+void Terrain::calcXYFromSize() noexcept
+{
+    m_x = -0.5f * m_size;
+    m_z = -0.5f * m_size;
+}
+
 #if EDITOR_ENABLE
 void Terrain::createNew(Engine3D& engine3d)
 {
-    m_size_x = DEFAULT_SIZE_X;
-    m_size_z = DEFAULT_SIZE_Z;
-    m_x = -0.5f * m_size_x;
-    m_z = -0.5f * m_size_z;
-    m_resolution_x = DEFAULT_RES_X;
-    m_resolution_z = DEFAULT_RES_Z;
-    m_patch_size_x = m_size_x / static_cast<float>(m_resolution_x);
-    m_patch_size_z = m_size_z / static_cast<float>(m_resolution_z);
+    m_size = DEFAULT_SIZE;
+    calcXYFromSize();
+    m_patch_count = DEFAULT_PATCH_COUNT;
+    m_patch_size = m_size / static_cast<float>(m_patch_count);
 
-    m_vertices.resize(m_resolution_x * m_resolution_z);
-    m_patch_data.resize(m_vertices.size());
-    m_bounding_ys.resize(m_vertices.size(), vec2(0.0f, 0.0f));
-    m_vertex_data.resize((DEFAULT_PATCH_RES + 1) * (DEFAULT_PATCH_RES + 1) * m_resolution_x * m_resolution_z);
-
-    for(uint32_t z = 0; z < m_resolution_z; z++)
+    m_patch_vertices.resize(m_patch_count * m_patch_count);
+    m_bounding_ys.resize(m_patch_vertices.size(), vec2(0.0f, 0.0f));
+    m_vertex_data.resize((DEFAULT_PATCH_RES + 1) * (DEFAULT_PATCH_RES + 1) * m_patch_count * m_patch_count);
+    m_heightmaps.resize(m_patch_vertices.size());
+    for(auto& heightmap : m_heightmaps)
     {
-        for(uint32_t x = 0; x < m_resolution_x; x++)
-        {
-            const uint32_t vertex_id = z * m_resolution_x + x;
-            const vec3 pos = vec3(m_x + x * m_patch_size_x, 0.0f, m_z + z * m_patch_size_z);
+        std::ranges::fill(heightmap, 0.0f);
+    }
 
-            m_vertices[vertex_id].pos = vec2(pos.x, pos.z);
-            m_patch_data[vertex_id].center_pos_left = vec3(pos.x, 0.0f, pos.z + 0.5f * m_patch_size_z);
-            m_patch_data[vertex_id].center_pos_top = vec3(pos.x + 0.5f * m_patch_size_x, 0.0f, pos.z + m_patch_size_z);
-            m_patch_data[vertex_id].center_pos_right = vec3(pos.x + m_patch_size_x, 0.0f, pos.z + 0.5f * m_patch_size_z);
-            m_patch_data[vertex_id].center_pos_bottom = vec3(pos.x + 0.5f * m_patch_size_x, 0.0f, pos.z);
-            m_patch_data[vertex_id].center_pos = (m_patch_data[vertex_id].center_pos_bottom + m_patch_data[vertex_id].center_pos_right + m_patch_data[vertex_id].center_pos_left + m_patch_data[vertex_id].center_pos_top) / 4.0f;
-            m_vertices[vertex_id].res = static_cast<float>(DEFAULT_PATCH_RES);
-            m_patch_data[vertex_id].edge_res_left = static_cast<float>(DEFAULT_PATCH_RES);
-            m_patch_data[vertex_id].edge_res_top = static_cast<float>(DEFAULT_PATCH_RES);
-            m_patch_data[vertex_id].edge_res_right = static_cast<float>(DEFAULT_PATCH_RES);
-            m_patch_data[vertex_id].edge_res_bottom = static_cast<float>(DEFAULT_PATCH_RES);
-            m_vertices[vertex_id].vertex_offset = (DEFAULT_PATCH_RES + 1) * (DEFAULT_PATCH_RES + 1) * vertex_id;
+    for(uint32_t z = 0; z < DEFAULT_PATCH_RES + 1; z++)
+    {
+        for(uint32_t x = 0; x < DEFAULT_PATCH_RES + 1; x++)
+        {
+            for(auto& heightmap : m_heightmaps)
+            {
+                heightmap[(DEFAULT_PATCH_RES + 1) * z + x] = 10.0f * std::sin(1.0f * pi * static_cast<float>(z) / MAX_TESS_LEVEL);
+                // heightmap[(DEFAULT_PATCH_RES + 1) * z + x] = 20.0f - 20.0f * static_cast<float>(x) / MAX_TESS_LEVEL;
+            }
         }
     }
 
-    m_vb_alloc = engine3d.requestVertexBufferAllocation<VertexTerrain>(m_vertices.size());
-    engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexTerrain) * m_vertices.size(), m_vertices.data());
+    for(uint32_t z = 0; z < m_patch_count; z++)
+    {
+        for(uint32_t x = 0; x < m_patch_count; x++)
+        {
+            const uint32_t patch_id = z * m_patch_count + x;
+
+            m_patch_vertices[patch_id].pos = vec2(m_x + x * m_patch_size, m_z + z * m_patch_size);
+            m_patch_vertices[patch_id].heightmap_id = patch_id;
+        }
+    }
+
+    m_vb_alloc = engine3d.requestVertexBufferAllocation<VertexTerrain>(m_patch_vertices.size());
+    engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexTerrain) * m_patch_vertices.size(), m_patch_vertices.data());
 
     engine3d.requestTerrainBufferAllocation(m_vertex_data.size() * sizeof(VertexData));
     engine3d.updateTerrainData(m_vertex_data.data(), 0, m_vertex_data.size() * sizeof(VertexData));
+
+    //TODO:don't do this after we add proper patch streaming
+    std::vector<std::pair<float*, uint32_t>> heightmap_reqs(m_heightmaps.size());
+    for(size_t i = 0; i < m_heightmaps.size(); i++)
+    {
+        heightmap_reqs[i] = std::make_pair(m_heightmaps[i].data(), i);
+    }
+    engine3d.requestTerrainHeightmaps(heightmap_reqs);
 }
 #endif
 
@@ -72,150 +88,127 @@ void Terrain::loadFromFile(Engine3D& engine3d)
     const std::string filename = "terrain.dat";
     std::ifstream in(filename.data(), std::ios::binary);
 
+    //TODO: do better file opening error handlng here
     if(!in)
     {
-        throw std::runtime_error("Failed to open file " + filename + ".");
+        error(std::format("Failed to open file {}.", filename));
     }
 
-    in.read(reinterpret_cast<char*>(&m_size_x), sizeof(m_size_x));
-    in.read(reinterpret_cast<char*>(&m_size_z), sizeof(m_size_z));
-    in.read(reinterpret_cast<char*>(&m_resolution_x), sizeof(m_resolution_x));
-    in.read(reinterpret_cast<char*>(&m_resolution_z), sizeof(m_resolution_z));
+    in.read(reinterpret_cast<char*>(&m_size), sizeof(m_size));
+    in.read(reinterpret_cast<char*>(&m_patch_count), sizeof(m_patch_count));
 
-    m_x = -0.5f * m_size_x;
-    m_z = -0.5f * m_size_z;
-    m_patch_size_x = m_size_x / static_cast<float>(m_resolution_x);
-    m_patch_size_z = m_size_z / static_cast<float>(m_resolution_z);
+    calcXYFromSize();
+    m_patch_size = m_size / static_cast<float>(m_patch_count);
 
     uint64_t bounding_ys_count = 0;
     in.read(reinterpret_cast<char*>(&bounding_ys_count), sizeof(uint64_t));
     m_bounding_ys.resize(bounding_ys_count);
     in.read(reinterpret_cast<char*>(m_bounding_ys.data()), m_bounding_ys.size() * sizeof(vec2));
 
-    uint64_t patch_data_count = 0;
-    in.read(reinterpret_cast<char*>(&patch_data_count), sizeof(uint64_t));
-    m_patch_data.resize(patch_data_count);
-    in.read(reinterpret_cast<char*>(m_patch_data.data()), m_patch_data.size() * sizeof(PatchData));
-
     uint64_t vertex_data_count = 0;
     in.read(reinterpret_cast<char*>(&vertex_data_count), sizeof(uint64_t));
     m_vertex_data.resize(vertex_data_count);
     in.read(reinterpret_cast<char*>(m_vertex_data.data()), m_vertex_data.size() * sizeof(VertexData));
 
-    uint64_t vertex_count = 0;
-    in.read(reinterpret_cast<char*>(&vertex_count), sizeof(uint64_t));
-    m_vertices.resize(vertex_count);
-    in.read(reinterpret_cast<char*>(m_vertices.data()), m_vertices.size() * sizeof(VertexTerrain));
+    m_patch_vertices.resize(m_patch_count * m_patch_count);
+    in.read(reinterpret_cast<char*>(m_patch_vertices.data()), m_patch_vertices.size() * sizeof(VertexTerrain));
 
-    m_vb_alloc = engine3d.requestVertexBufferAllocation<VertexTerrain>(m_vertices.size());
-    engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexTerrain) * m_vertices.size(), m_vertices.data());
+    m_heightmaps.resize(m_patch_vertices.size());
+    in.read(reinterpret_cast<char*>(m_heightmaps.data()), m_heightmaps.size() * sizeof(m_heightmaps[0]));
+
+    m_vb_alloc = engine3d.requestVertexBufferAllocation<VertexTerrain>(m_patch_vertices.size());
+    engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexTerrain) * m_patch_vertices.size(), m_patch_vertices.data());
 
     engine3d.requestTerrainBufferAllocation(m_vertex_data.size() * sizeof(VertexData));
     engine3d.updateTerrainData(m_vertex_data.data(), 0, m_vertex_data.size() * sizeof(VertexData));
+
+    //TODO:don't do this after we add proper patch streaming
+    std::vector<std::pair<float*, uint32_t>> heightmap_reqs(m_heightmaps.size());
+    for(size_t i = 0; i < m_heightmaps.size(); i++)
+    {
+        heightmap_reqs[i] = std::make_pair(m_heightmaps[i].data(), i);
+    }
+    engine3d.requestTerrainHeightmaps(heightmap_reqs);
 }
 
-#if EDITOR_ENABLE
-void Terrain::draw(Engine3D& engine3d, Camera& camera)
+void Terrain::draw(Engine3D& engine3d)
 {
-    for(uint32_t i = 0; i < m_vertices.size(); i++)
+    engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexTerrain) * m_patch_vertices.size(), m_patch_vertices.data());
+    engine3d.draw(m_render_mode, m_vb_alloc.vb, m_vb_alloc.vertex_offset, m_patch_vertices.size(), 0, {});
+}
+
+float Terrain::patchSize() const
+{
+    return m_patch_size;
+}
+
+float Terrain::collision(const AABB& aabb, const float max_dh) const
+{
+    const float min_x_coord = std::max<float>((aabb.min().x - m_x) / m_patch_size, 0);
+    const float max_x_coord = std::min<float>((aabb.max().x - m_x) / m_patch_size, m_patch_count);
+    const float min_z_coord = std::max<float>((aabb.min().z - m_z) / m_patch_size, 0);
+    const float max_z_coord = std::min<float>((aabb.max().z - m_z) / m_patch_size, m_patch_count);
+
+    const uint32_t min_patch_x = static_cast<uint32_t>(min_x_coord);
+    const uint32_t max_patch_x = std::min<uint32_t>(max_x_coord, m_patch_count - 1);
+    const uint32_t min_patch_z = static_cast<uint32_t>(min_z_coord);
+    const uint32_t max_patch_z = std::min<uint32_t>(max_z_coord, m_patch_count - 1);
+
+    const float min_vx = min_x_coord - static_cast<float>(min_patch_x);
+    const float max_vx = max_x_coord - static_cast<float>(max_patch_x);
+    const float min_vz = min_z_coord - static_cast<float>(min_patch_z);
+    const float max_vz = max_z_coord - static_cast<float>(max_patch_z);
+
+    float dh = std::numeric_limits<float>::lowest();
+
+    for(uint32_t patch_z = min_patch_z; patch_z <= max_patch_z; patch_z++)
     {
-        if(m_lod_enabled)
+        for(uint32_t patch_x = min_patch_x; patch_x <= max_patch_x; patch_x++)
         {
-            auto tessLevel = [&](vec3 center_pos, float max_tess_level)
+            const uint32_t patch_id = patch_z * m_patch_count + patch_x;
+            //TODO: is bounding_ys even worth using here?
+            // const vec2& bounding_ys = m_bounding_ys[patch_id];
+
+//            if((bounding_ys[0] >= aabb.min().y) && (bounding_ys[1] <= aabb.max().y))
             {
-                const float d = distance(camera.pos(), center_pos);
+                const uint32_t min_patch_vx = (patch_x == static_cast<uint32_t>(min_patch_x)) ? static_cast<uint32_t>(DEFAULT_PATCH_RES * min_vx) : 0;
+                const uint32_t min_patch_vz = (patch_z == static_cast<uint32_t>(min_patch_z)) ? static_cast<uint32_t>(DEFAULT_PATCH_RES * min_vz) : 0;
+                const uint32_t max_patch_vx = (patch_x == static_cast<uint32_t>(max_patch_x)) ? std::min<uint32_t>(DEFAULT_PATCH_RES, static_cast<uint32_t>(DEFAULT_PATCH_RES * max_vx) + 1) : DEFAULT_PATCH_RES;
+                const uint32_t max_patch_vz = (patch_z == static_cast<uint32_t>(max_patch_z)) ? std::min<uint32_t>(DEFAULT_PATCH_RES, static_cast<uint32_t>(DEFAULT_PATCH_RES * max_vz) + 1) : DEFAULT_PATCH_RES;
 
-                float tess_level = glm::clamp(max_tess_level * (50.0f / d), 2.0f, max_tess_level);
-                tess_level = float(1u << static_cast<uint32_t>(std::log2(tess_level) + 0.5f));
-
-                return tess_level;
-            };
-
-            m_vertices[i].edge_res_left = tessLevel(m_patch_data[i].center_pos_left, m_patch_data[i].edge_res_left);
-            m_vertices[i].edge_res_top = tessLevel(m_patch_data[i].center_pos_top, m_patch_data[i].edge_res_top);
-            m_vertices[i].edge_res_right = tessLevel(m_patch_data[i].center_pos_right, m_patch_data[i].edge_res_right);
-            m_vertices[i].edge_res_bottom = tessLevel(m_patch_data[i].center_pos_bottom, m_patch_data[i].edge_res_bottom);
-            m_vertices[i].lod_res = max(tessLevel(m_patch_data[i].center_pos, m_vertices[i].res), m_vertices[i].edge_res_left, m_vertices[i].edge_res_top, m_vertices[i].edge_res_right, m_vertices[i].edge_res_bottom);
+                for(uint32_t vz = min_patch_vz; vz <= max_patch_vz; vz++)
+                {
+                    for(uint32_t vx = min_patch_vx; vx <= max_patch_vx; vx++)
+                    {
+                        const float h = m_heightmaps[patch_id][vz * (DEFAULT_PATCH_RES + 1) + vx];
+                        const float dh_ = h - aabb.min().y;
+                        if(dh_ > dh)
+                        {
+                            //early out TODO: check if optimal
+                            if(dh_ > max_dh)
+                            {
+                                return dh_;
+                            }
+                            dh = dh_;
+                        }
+                    }
+                }
+            }
         }
-        else
-        {
-            m_vertices[i].edge_res_left = m_patch_data[i].edge_res_left;
-            m_vertices[i].edge_res_top = m_patch_data[i].edge_res_top;
-            m_vertices[i].edge_res_right = m_patch_data[i].edge_res_right;
-            m_vertices[i].edge_res_bottom = m_patch_data[i].edge_res_bottom;
-            m_vertices[i].lod_res = m_vertices[i].res;
-        }
-
-        const uint32_t vertex_count = m_vertices[i].lod_res * m_vertices[i].lod_res * 6;
-        engine3d.draw(m_render_mode, m_vb_alloc.vb, m_vb_alloc.vertex_offset, vertex_count, i, {});
     }
 
-    //TODO: optimize this
-    engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexTerrain) * m_vertices.size(), m_vertices.data());
-}
-#else
-void Terrain::draw(Engine3D& engine3d, Camera& camera)
-{
-    for(uint32_t i = 0; i < m_vertices.size(); i++)
-    {
-        auto tessLevel = [&](vec3 center_pos, float max_tess_level)
-        {
-            const float d = distance(camera.pos(), center_pos);
+    return dh;
 
-            float tess_level = glm::clamp(max_tess_level * (50.0f / d), 2.0f, max_tess_level);
-            tess_level = float(1u << static_cast<uint32_t>(std::log2(tess_level) + 0.5f));
-
-            return tess_level;
-        };
-
-        m_vertices[i].edge_res_left = tessLevel(m_patch_data[i].center_pos_left, m_patch_data[i].edge_res_left);
-        m_vertices[i].edge_res_top = tessLevel(m_patch_data[i].center_pos_top, m_patch_data[i].edge_res_top);
-        m_vertices[i].edge_res_right = tessLevel(m_patch_data[i].center_pos_right, m_patch_data[i].edge_res_right);
-        m_vertices[i].edge_res_bottom = tessLevel(m_patch_data[i].center_pos_bottom, m_patch_data[i].edge_res_bottom);
-        m_vertices[i].lod_res = max(tessLevel(m_patch_data[i].center_pos, m_vertices[i].res), m_vertices[i].edge_res_left, m_vertices[i].edge_res_top, m_vertices[i].edge_res_right, m_vertices[i].edge_res_bottom);
-
-        const uint32_t vertex_count = m_vertices[i].lod_res * m_vertices[i].lod_res * 6;
-        engine3d.draw(RenderMode::Terrain, m_vb_alloc.vb, m_vb_alloc.vertex_offset, vertex_count, i, {});
-    }
-
-    //TODO: optimize this
-    engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexTerrain) * m_vertices.size(), m_vertices.data());
-}
-#endif
-
-float Terrain::patchSizeX() const
-{
-    return m_patch_size_x;
-}
-
-float Terrain::patchSizeZ() const
-{
-    return m_patch_size_z;
-}
-
-static float triHeightAtPoint(const vec3& t0, const vec3& t1, const vec3& t2, const vec2& p)
-{
-    const float denominator = (t1.z - t2.z) * (t0.x - t2.x) + (t2.x - t1.x) * (t0.z - t2.z);
-    const float a = (p.x - t2.x);
-    const float b = (p.y - t2.z);
-    const float w0 = ((t1.z - t2.z) * a + (t2.x - t1.x) * b) / denominator;
-    const float w1 = ((t2.z - t0.z) * a + (t0.x - t2.x) * b) / denominator;
-    const float w2 = 1.0f - w0 - w1;
-
-    return w0 * t0.y + w1 * t1.y + w2 * t2.y;
-}
-
-CollisionResult Terrain::collision(const AABB& aabb, float& dh_out) const
-{
-    const float min_x_coord = std::max<float>((aabb.min().x - m_x) / m_patch_size_x, 0);
-    const float max_x_coord = std::min<float>((aabb.max().x - m_x) / m_patch_size_x, m_resolution_x);
-    const float min_z_coord = std::max<float>((aabb.min().z - m_z) / m_patch_size_z, 0);
-    const float max_z_coord = std::min<float>((aabb.max().z - m_z) / m_patch_size_z, m_resolution_z);
+#if 0
+    const float min_x_coord = std::max<float>((aabb.min().x - m_x) / m_patch_size, 0);
+    const float max_x_coord = std::min<float>((aabb.max().x - m_x) / m_patch_size, m_patch_count);
+    const float min_z_coord = std::max<float>((aabb.min().z - m_z) / m_patch_size, 0);
+    const float max_z_coord = std::min<float>((aabb.max().z - m_z) / m_patch_size, m_patch_count);
 
     const uint32_t min_patch_x = min_x_coord;
-    const uint32_t max_patch_x = std::min<uint32_t>(max_x_coord, m_resolution_x - 1);
+    const uint32_t max_patch_x = std::min<uint32_t>(max_x_coord, m_patch_count - 1);
     const uint32_t min_patch_z = min_z_coord;
-    const uint32_t max_patch_z = std::min<uint32_t>(max_z_coord, m_resolution_z - 1);
+    const uint32_t max_patch_z = std::min<uint32_t>(max_z_coord, m_patch_count - 1);
 
     const float min_vx = min_x_coord - static_cast<float>(min_patch_x);
     const float max_vx = max_x_coord - static_cast<float>(max_patch_x);
@@ -242,18 +235,18 @@ CollisionResult Terrain::collision(const AABB& aabb, float& dh_out) const
     {
         for(uint32_t patch_x = min_patch_x; patch_x <= max_patch_x; patch_x++)
         {
-            const uint32_t patch_id = patch_z * m_resolution_x + patch_x;
+            const uint32_t patch_id = patch_z * m_patch_count + patch_x;
             //TODO: is bounding_ys even worth using here?
             const vec2& bounding_ys = m_bounding_ys[patch_id];
 
 //            if((bounding_ys[0] >= aabb.min().y) && (bounding_ys[1] <= aabb.max().y))
             {
-                const uint32_t res_u32 = static_cast<uint32_t>(m_vertices[patch_id].res);
+                const uint32_t res_u32 = static_cast<uint32_t>(m_patch_vertices[patch_id].res);
 
-                const uint32_t min_patch_vx = (patch_x == static_cast<uint32_t>(min_patch_x)) ? static_cast<uint32_t>(m_vertices[patch_id].res * min_vx) : 0;
-                const uint32_t min_patch_vz = (patch_z == static_cast<uint32_t>(min_patch_z)) ? static_cast<uint32_t>(m_vertices[patch_id].res * min_vz) : 0;
-                const uint32_t max_patch_vx = (patch_x == static_cast<uint32_t>(max_patch_x)) ? std::min<uint32_t>(res_u32, static_cast<uint32_t>(m_vertices[patch_id].res * max_vx) + 1) : res_u32;
-                const uint32_t max_patch_vz = (patch_z == static_cast<uint32_t>(max_patch_z)) ? std::min<uint32_t>(res_u32, static_cast<uint32_t>(m_vertices[patch_id].res * max_vz) + 1) : res_u32;
+                const uint32_t min_patch_vx = (patch_x == static_cast<uint32_t>(min_patch_x)) ? static_cast<uint32_t>(m_patch_vertices[patch_id].res * min_vx) : 0;
+                const uint32_t min_patch_vz = (patch_z == static_cast<uint32_t>(min_patch_z)) ? static_cast<uint32_t>(m_patch_vertices[patch_id].res * min_vz) : 0;
+                const uint32_t max_patch_vx = (patch_x == static_cast<uint32_t>(max_patch_x)) ? std::min<uint32_t>(res_u32, static_cast<uint32_t>(m_patch_vertices[patch_id].res * max_vx) + 1) : res_u32;
+                const uint32_t max_patch_vz = (patch_z == static_cast<uint32_t>(max_patch_z)) ? std::min<uint32_t>(res_u32, static_cast<uint32_t>(m_patch_vertices[patch_id].res * max_vz) + 1) : res_u32;
 
                 /*test the vertices inside the bounding volume*/
                 if((max_patch_vz - min_patch_vz) > 4 && (max_patch_vx - min_patch_vx) > 4)
@@ -262,7 +255,7 @@ CollisionResult Terrain::collision(const AABB& aabb, float& dh_out) const
                     {
                         for(uint32_t vx = min_patch_vx + 2; vx <= max_patch_vx - 2; vx++)
                         {
-                            const float vy = m_vertex_data[m_vertices[patch_id].vertex_offset + vz * (res_u32 + 1) + vx].height;
+                            const float vy = m_vertex_data[m_patch_vertices[patch_id].vertex_offset + vz * (res_u32 + 1) + vx].height;
                             if(height_cmp(vy)) return CollisionResult::Collision;
                         }
                     }
@@ -397,16 +390,16 @@ CollisionResult Terrain::collision(const AABB& aabb, float& dh_out) const
                 };
 
                 /*test triangles*/
-                const float dx = m_patch_size_x / m_vertices[patch_id].res;
-                const float dz = m_patch_size_z / m_vertices[patch_id].res;
+                const float dx = m_patch_size / m_patch_vertices[patch_id].res;
+                const float dz = m_patch_size / m_patch_vertices[patch_id].res;
 
                 auto test_triangles = [&](float vx, float vz)
                 {
-                    const uint32_t base_vid = m_vertices[patch_id].vertex_offset + vz * (res_u32 + 1) + vx;
-                    const vec3 v0(m_x + m_patch_size_x * patch_x + dx * vx, m_vertex_data[base_vid].height, m_z + m_patch_size_z * patch_z + dz * vz);
-                    const vec3 v1(m_x + m_patch_size_x * patch_x + dx * vx, m_vertex_data[base_vid + res_u32 + 1].height, m_z + m_patch_size_z * patch_z + dz * (vz + 1));
-                    const vec3 v2(m_x + m_patch_size_x * patch_x + dx * (vx + 1), m_vertex_data[base_vid + res_u32 + 2].height, m_z + m_patch_size_z * patch_z + dz * (vz + 1));
-                    const vec3 v3(m_x + m_patch_size_x * patch_x + dx * (vx + 1), m_vertex_data[base_vid + 1].height, m_z + m_patch_size_z * patch_z + dz * vz);
+                    const uint32_t base_vid = m_patch_vertices[patch_id].vertex_offset + vz * (res_u32 + 1) + vx;
+                    const vec3 v0(m_x + m_patch_size * patch_x + dx * vx, m_vertex_data[base_vid].height, m_z + m_patch_size * patch_z + dz * vz);
+                    const vec3 v1(m_x + m_patch_size * patch_x + dx * vx, m_vertex_data[base_vid + res_u32 + 1].height, m_z + m_patch_size * patch_z + dz * (vz + 1));
+                    const vec3 v2(m_x + m_patch_size * patch_x + dx * (vx + 1), m_vertex_data[base_vid + res_u32 + 2].height, m_z + m_patch_size * patch_z + dz * (vz + 1));
+                    const vec3 v3(m_x + m_patch_size * patch_x + dx * (vx + 1), m_vertex_data[base_vid + 1].height, m_z + m_patch_size * patch_z + dz * vz);
 
                     if(left_tri(v1, v0, v3)) return true;
                     if(right_tri(v1, v2, v3)) return true;
@@ -442,117 +435,85 @@ CollisionResult Terrain::collision(const AABB& aabb, float& dh_out) const
     }
 
     return CollisionResult::Airborne;
+#endif
 }
 
 #if EDITOR_ENABLE
 
-void Terrain::setSizeX(Engine3D& engine3d, float size_x)
-{
-    m_size_x = size_x;
-    m_x = -0.5f * m_size_x;
-    m_patch_size_x = m_size_x / static_cast<float>(m_resolution_x);
-
-    for(uint32_t z = 0; z < m_resolution_z; z++)
-    {
-        for(uint32_t x = 0; x < m_resolution_x; x++)
-        {
-            const uint32_t vertex_id = z * m_resolution_x + x;
-            const vec3 pos = vec3(m_x + x * m_patch_size_x, 0.0f, m_z + z * m_patch_size_z);
-
-            m_vertices[vertex_id].pos = vec2(pos.x, pos.z);
-            m_patch_data[vertex_id].center_pos_left = vec3(pos.x, 0.0f, pos.z + 0.5f * m_patch_size_z);
-            m_patch_data[vertex_id].center_pos_top = vec3(pos.x + 0.5f * m_patch_size_x, 0.0f, pos.z + m_patch_size_z);
-            m_patch_data[vertex_id].center_pos_right = vec3(pos.x + m_patch_size_x, 0.0f, pos.z + 0.5f * m_patch_size_z);
-            m_patch_data[vertex_id].center_pos_bottom = vec3(pos.x + 0.5f * m_patch_size_x, 0.0f, pos.z);
-            m_patch_data[vertex_id].center_pos = (m_patch_data[vertex_id].center_pos_bottom + m_patch_data[vertex_id].center_pos_right + m_patch_data[vertex_id].center_pos_left + m_patch_data[vertex_id].center_pos_top) / 4.0f;
-        }
-    }
-
-    engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexTerrain) * m_vertices.size(), m_vertices.data());
-}
-
-void Terrain::setSizeZ(Engine3D& engine3d, float size_z)
-{
-    m_size_z = size_z;
-    m_z = -0.5f * m_size_z;
-    m_patch_size_z = m_size_z / static_cast<float>(m_resolution_z);
-
-    for(uint32_t z = 0; z < m_resolution_z; z++)
-    {
-        for(uint32_t x = 0; x < m_resolution_x; x++)
-        {
-            const uint32_t vertex_id = z * m_resolution_x + x;
-            const vec3 pos = vec3(m_x + x * m_patch_size_x, 0.0f, m_z + z * m_patch_size_z);
-
-            m_vertices[vertex_id].pos = vec2(pos.x, pos.z);
-            m_patch_data[vertex_id].center_pos_left = vec3(pos.x, 0.0f, pos.z + 0.5f * m_patch_size_z);
-            m_patch_data[vertex_id].center_pos_top = vec3(pos.x + 0.5f * m_patch_size_x, 0.0f, pos.z + m_patch_size_z);
-            m_patch_data[vertex_id].center_pos_right = vec3(pos.x + m_patch_size_x, 0.0f, pos.z + 0.5f * m_patch_size_z);
-            m_patch_data[vertex_id].center_pos_bottom = vec3(pos.x + 0.5f * m_patch_size_x, 0.0f, pos.z);
-            m_patch_data[vertex_id].center_pos = (m_patch_data[vertex_id].center_pos_bottom + m_patch_data[vertex_id].center_pos_right + m_patch_data[vertex_id].center_pos_left + m_patch_data[vertex_id].center_pos_top) / 4.0f;
-        }
-    }
-
-    engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexTerrain) * m_vertices.size(), m_vertices.data());
-}
-
 void Terrain::serialize(std::string_view filename)
 {
+    //TODO: add error handling
     std::ofstream out(filename.data(), std::ios::binary);
 
-    out.write(reinterpret_cast<const char*>(&m_size_x), sizeof(m_size_x));
-    out.write(reinterpret_cast<const char*>(&m_size_z), sizeof(m_size_z));
-    out.write(reinterpret_cast<const char*>(&m_resolution_x), sizeof(m_resolution_x));
-    out.write(reinterpret_cast<const char*>(&m_resolution_z), sizeof(m_resolution_z));
+    out.write(reinterpret_cast<const char*>(&m_size), sizeof(m_size));
+    out.write(reinterpret_cast<const char*>(&m_patch_count), sizeof(m_patch_count));
 
     const uint64_t bounding_ys_count = m_bounding_ys.size();
     out.write(reinterpret_cast<const char*>(&bounding_ys_count), sizeof(uint64_t));
     out.write(reinterpret_cast<const char*>(m_bounding_ys.data()), m_bounding_ys.size() * sizeof(vec2));
-    const uint64_t patch_data_count = m_patch_data.size();
-    out.write(reinterpret_cast<const char*>(&patch_data_count), sizeof(uint64_t));
-    out.write(reinterpret_cast<const char*>(m_patch_data.data()), m_patch_data.size() * sizeof(PatchData));
     const uint64_t vertex_data_count = m_vertex_data.size();
     out.write(reinterpret_cast<const char*>(&vertex_data_count), sizeof(uint64_t));
     out.write(reinterpret_cast<const char*>(m_vertex_data.data()), m_vertex_data.size() * sizeof(VertexData));
-    const uint64_t vertex_count = m_vertices.size();
-    out.write(reinterpret_cast<const char*>(&vertex_count), sizeof(uint64_t));
-    out.write(reinterpret_cast<const char*>(m_vertices.data()), m_vertices.size() * sizeof(VertexTerrain));
+    out.write(reinterpret_cast<const char*>(m_patch_vertices.data()), m_patch_vertices.size() * sizeof(VertexTerrain));
+    out.write(reinterpret_cast<const char*>(m_heightmaps.data()), m_heightmaps.size() * sizeof(m_heightmaps[0]));
+}
+
+void Terrain::setSize(Engine3D& engine3d, float size)
+{
+    m_size = size;
+    m_x = -0.5f * m_size;
+    m_z = -0.5f * m_size;
+    m_patch_size = m_size / static_cast<float>(m_patch_count);
+
+    for(uint32_t z = 0; z < m_patch_count; z++)
+    {
+        for(uint32_t x = 0; x < m_patch_count; x++)
+        {
+            const uint32_t patch_id = z * m_patch_count + x;
+            const vec3 pos = vec3(m_x + x * m_patch_size, 0.0f, m_z + z * m_patch_size);
+
+            m_patch_vertices[patch_id].pos = vec2(pos.x, pos.z);
+        }
+    }
+
+    engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexTerrain) * m_patch_vertices.size(), m_patch_vertices.data());
 }
 
 bool Terrain::rayIntersection(const Ray& ray, float& d) const
 {
+#if 0
     d = std::numeric_limits<float>::max();
     bool intersection_found = false;
 
-    for(uint32_t patch_z = 0; patch_z < m_resolution_z; patch_z++)
+    for(uint32_t patch_z = 0; patch_z < m_patch_count; patch_z++)
     {
-        for(uint32_t patch_x = 0; patch_x < m_resolution_x; patch_x++)
+        for(uint32_t patch_x = 0; patch_x < m_patch_count; patch_x++)
         {
-            const uint32_t patch_id = patch_z * m_resolution_x + patch_x;
-            const AABB aabb(vec3(m_x + m_patch_size_x * patch_x, m_bounding_ys[patch_id][0], m_z + m_patch_size_z * patch_z), vec3(m_x + m_patch_size_x * (patch_x + 1.0f), m_bounding_ys[patch_id][1], m_z + m_patch_size_z * (patch_z + 1.0f)));
+            const uint32_t patch_id = patch_z * m_patch_count + patch_x;
+            const AABB aabb(vec3(m_x + m_patch_size * patch_x, m_bounding_ys[patch_id][0], m_z + m_patch_size * patch_z), vec3(m_x + m_patch_size * (patch_x + 1.0f), m_bounding_ys[patch_id][1], m_z + m_patch_size * (patch_z + 1.0f)));
 
             if(intersect(ray, aabb))
             {
-                const uint32_t res_u32 = static_cast<uint32_t>(m_vertices[patch_id].res);
-                const float dx = m_patch_size_x / m_vertices[patch_id].res;
-                const float dz = m_patch_size_z / m_vertices[patch_id].res;
+                const uint32_t res_u32 = static_cast<uint32_t>(m_patch_vertices[patch_id].res);
+                const float dx = m_patch_size / m_patch_vertices[patch_id].res;
+                const float dz = m_patch_size / m_patch_vertices[patch_id].res;
 
-                for(uint32_t x = 0; x < static_cast<uint32_t>(m_vertices[patch_id].res); x++)
+                for(uint32_t x = 0; x < static_cast<uint32_t>(m_patch_vertices[patch_id].res); x++)
                 {
-                    for(uint32_t z = 0; z < static_cast<uint32_t>(m_vertices[patch_id].res); z++)
+                    for(uint32_t z = 0; z < static_cast<uint32_t>(m_patch_vertices[patch_id].res); z++)
                     {
-                        const vec3 v0 = vec3(m_x + m_patch_size_x * patch_x + dx * x,
+                        const vec3 v0 = vec3(m_x + m_patch_size * patch_x + dx * x,
                                              m_vertex_data[(res_u32 + 1) * (res_u32 + 1) * patch_id + z * (res_u32 + 1) + x].height,
-                                             m_z + m_patch_size_z * patch_z + dz * z);
-                        const vec3 v1 = vec3(m_x + m_patch_size_x * patch_x + dx * (x + 1),
+                                             m_z + m_patch_size * patch_z + dz * z);
+                        const vec3 v1 = vec3(m_x + m_patch_size * patch_x + dx * (x + 1),
                                              m_vertex_data[(res_u32 + 1) * (res_u32 + 1) * patch_id + z * (res_u32 + 1) + (x + 1)].height,
-                                             m_z + m_patch_size_z * patch_z + dz * z);
-                        const vec3 v2 = vec3(m_x + m_patch_size_x * patch_x + dx * x,
+                                             m_z + m_patch_size * patch_z + dz * z);
+                        const vec3 v2 = vec3(m_x + m_patch_size * patch_x + dx * x,
                                              m_vertex_data[(res_u32 + 1) * (res_u32 + 1) * patch_id + (z + 1) * (res_u32 + 1) + x].height,
-                                             m_z + m_patch_size_z * patch_z + dz * (z + 1));
-                        const vec3 v3 = vec3(m_x + m_patch_size_x * patch_x + dx * (x + 1),
+                                             m_z + m_patch_size * patch_z + dz * (z + 1));
+                        const vec3 v3 = vec3(m_x + m_patch_size * patch_x + dx * (x + 1),
                                              m_vertex_data[(res_u32 + 1) * (res_u32 + 1) * patch_id + (z + 1) * (res_u32 + 1) + (x + 1)].height,
-                                             m_z + m_patch_size_z * patch_z + dz * (z + 1));
+                                             m_z + m_patch_size * patch_z + dz * (z + 1));
 
                         float temp_d;
 
@@ -582,19 +543,21 @@ bool Terrain::rayIntersection(const Ray& ray, float& d) const
     }
 
     return intersection_found;
+#endif
 }
 
 void Terrain::toolEdit(Engine3D& engine3d, const vec3& center, float radius, float dh)
 {
-    const float min_x_coord = std::max<float>((center.x - radius - m_x) / m_patch_size_x, 0);
-    const float max_x_coord = std::min<float>((center.x + radius - m_x) / m_patch_size_x, m_resolution_x);
-    const float min_z_coord = std::max<float>((center.z - radius - m_z) / m_patch_size_z, 0);
-    const float max_z_coord = std::min<float>((center.z + radius - m_z) / m_patch_size_z, m_resolution_z);
+#if 0
+    const float min_x_coord = std::max<float>((center.x - radius - m_x) / m_patch_size, 0);
+    const float max_x_coord = std::min<float>((center.x + radius - m_x) / m_patch_size, m_patch_count);
+    const float min_z_coord = std::max<float>((center.z - radius - m_z) / m_patch_size, 0);
+    const float max_z_coord = std::min<float>((center.z + radius - m_z) / m_patch_size, m_patch_count);
 
     const uint32_t min_patch_x = min_x_coord;
-    const uint32_t max_patch_x = std::min<uint32_t>(max_x_coord, m_resolution_x - 1);
+    const uint32_t max_patch_x = std::min<uint32_t>(max_x_coord, m_patch_count - 1);
     const uint32_t min_patch_z = min_z_coord;
-    const uint32_t max_patch_z = std::min<uint32_t>(max_z_coord, m_resolution_z - 1);;
+    const uint32_t max_patch_z = std::min<uint32_t>(max_z_coord, m_patch_count - 1);;
 
     const float min_vx = min_x_coord - static_cast<float>(min_patch_x);
     const float max_vx = max_x_coord - static_cast<float>(max_patch_x);
@@ -605,22 +568,22 @@ void Terrain::toolEdit(Engine3D& engine3d, const vec3& center, float radius, flo
     {
         for(uint32_t patch_x = min_patch_x; patch_x <= max_patch_x; patch_x++)
         {
-            const uint32_t patch_id = patch_z * m_resolution_x + patch_x;
+            const uint32_t patch_id = patch_z * m_patch_count + patch_x;
 
-            const uint32_t res_u32 = static_cast<uint32_t>(m_vertices[patch_id].res);
+            const uint32_t res_u32 = static_cast<uint32_t>(m_patch_vertices[patch_id].res);
 
-            const uint32_t min_patch_vx = (patch_x == min_patch_x) ? static_cast<uint32_t>(m_vertices[patch_id].res * min_vx) : 0;
-            const uint32_t min_patch_vz = (patch_z == min_patch_z) ? static_cast<uint32_t>(m_vertices[patch_id].res * min_vz) : 0;
-            const uint32_t max_patch_vx = (patch_x == max_patch_x) ? std::min<uint32_t>(res_u32, static_cast<uint32_t>(m_vertices[patch_id].res * max_vx) + 1) : res_u32;
-            const uint32_t max_patch_vz = (patch_z == max_patch_z) ? std::min<uint32_t>(res_u32, static_cast<uint32_t>(m_vertices[patch_id].res * max_vz) + 1) : res_u32;
+            const uint32_t min_patch_vx = (patch_x == min_patch_x) ? static_cast<uint32_t>(m_patch_vertices[patch_id].res * min_vx) : 0;
+            const uint32_t min_patch_vz = (patch_z == min_patch_z) ? static_cast<uint32_t>(m_patch_vertices[patch_id].res * min_vz) : 0;
+            const uint32_t max_patch_vx = (patch_x == max_patch_x) ? std::min<uint32_t>(res_u32, static_cast<uint32_t>(m_patch_vertices[patch_id].res * max_vx) + 1) : res_u32;
+            const uint32_t max_patch_vz = (patch_z == max_patch_z) ? std::min<uint32_t>(res_u32, static_cast<uint32_t>(m_patch_vertices[patch_id].res * max_vz) + 1) : res_u32;
 
             for(uint32_t vz = min_patch_vz; vz <= max_patch_vz; vz++)
             {
                 for(uint32_t vx = min_patch_vx; vx <= max_patch_vx; vx++)
                 {
-                    const vec3 v(m_x + m_patch_size_x * (patch_x + vx / m_vertices[patch_id].res),
+                    const vec3 v(m_x + m_patch_size * (patch_x + vx / m_patch_vertices[patch_id].res),
                                  m_vertex_data[(res_u32 + 1) * (res_u32 + 1) * patch_id + vz * (res_u32 + 1) + vx].height,
-                                 m_z + m_patch_size_z * (patch_z + vz / m_vertices[patch_id].res));
+                                 m_z + m_patch_size * (patch_z + vz / m_patch_vertices[patch_id].res));
 
                     if(glm::distance(center, v) <= radius)
                     {
@@ -636,6 +599,7 @@ void Terrain::toolEdit(Engine3D& engine3d, const vec3& center, float radius, flo
 
     //TODO: only update the data that's changed
     engine3d.updateTerrainData(m_vertex_data.data(), 0, m_vertex_data.size() * sizeof(VertexData));
+#endif
 }
 
 void Terrain::toggleWireframe()

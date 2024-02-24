@@ -13,9 +13,8 @@ layout(set = 0, binding = COMMON_BUF_BINDING) uniform readonly restrict CommonBu
     vec3 effective_sun_pos;
     vec3 cur_pos_terrain;
     uint cur_terrain_intersection;
-    float terrain_patch_size_x;
-    float terrain_patch_size_z;
     vec2 ui_scale;
+    float terrain_patch_size;
     vec4 editor_highlight_color;
     float editor_terrain_tool_inner_radius;
     float editor_terrain_tool_outer_radius;

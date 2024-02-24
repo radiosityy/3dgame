@@ -561,7 +561,7 @@ std::vector<uint32_t> Engine3D::loadTexturesGeneric(const std::vector<std::strin
 
     /*having created the texture buffer and allocated and bound memory to it
     we now have to read raw image data and copy it into the buffer*/
-    void* tex_buf_ptr;
+    void* tex_buf_ptr = nullptr;
     vkMapMemory(m_device, tex_buf.mem, 0, VK_WHOLE_SIZE, 0, &tex_buf_ptr);
 
     size_t base_offset = 0;
@@ -668,8 +668,10 @@ std::vector<uint32_t> Engine3D::loadTexturesGeneric(const std::vector<std::strin
 
         /*update vulkan create info and create an image for the texture*/
         img_create_info.extent = {w, h, 1};
+        //TODO: why set arrayLayers here when it's always 1? can set it earlier before the loop
         img_create_info.arrayLayers = 1;
 
+        //TODO: why set image here when it's set inside createImage()?
         img_view_create_info.image = texture.img;
         img_view_create_info.subresourceRange.layerCount = img_create_info.arrayLayers;
 
@@ -992,8 +994,7 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
     m_common_buffer_data.cur_terrain_intersection = render_data.cur_terrain_intersection;
     m_common_buffer_data.editor_terrain_tool_inner_radius = render_data.editor_terrain_tool_inner_radius;
     m_common_buffer_data.editor_terrain_tool_outer_radius = render_data.editor_terrain_tool_outer_radius;
-    m_common_buffer_data.terrain_patch_size_x = render_data.terrain_patch_size_x;
-    m_common_buffer_data.terrain_patch_size_z = render_data.terrain_patch_size_z;
+    m_common_buffer_data.terrain_patch_size = render_data.terrain_patch_size;
 
     //update all dir shadow maps every frame as they depend on the camera and we can assume the camera will change every frame
     //TODO: verify the above, as it may no longer be true
@@ -1017,6 +1018,7 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
     std::vector<bool> cull(m_render_batch_count);
 
     /*--- frustum culling ---*/
+    //TODO: move frustum culling out of Engine3D and do it in Scene and Terrain etc.
     const auto view_frustum_planes = camera.viewFrustumPlanesW();
 
     for(uint32_t i = 0; i < m_render_batch_count; i++)
@@ -1584,6 +1586,13 @@ void Engine3D::destroyTextures() noexcept
     }
 
     m_normal_maps.clear();
+
+    for(auto& heightmap : m_terrain_heightmaps)
+    {
+        destroyImage(heightmap);
+    }
+
+    m_terrain_heightmaps.clear();
 }
 
 void Engine3D::destroyFontTextures() noexcept
@@ -1699,6 +1708,117 @@ void Engine3D::updateBoneTransformData(uint32_t bone_offset, uint32_t bone_count
 void Engine3D::updateTerrainData(void* data, uint64_t offset, uint64_t size)
 {
     requestBufferUpdate(&m_terrain_buffer, offset, size, data);
+}
+
+std::vector<uint32_t> Engine3D::requestTerrainHeightmaps(std::span<std::pair<float*, uint32_t>> heightmap_data)
+{
+    m_terrain_heightmaps.resize(heightmap_data.size());
+    std::vector<uint32_t> heightmap_ids(heightmap_data.size());
+
+    for(size_t i = 0; i < heightmap_data.size(); i++)
+    {
+        auto& hd = heightmap_data[i];
+        auto& img = m_terrain_heightmaps[i];
+
+        //TODO:make these structures static/constexpr w/e, as well as all other such structures that would otherwise be set up many times the same way
+        VkImageCreateInfo img_create_info{};
+        img_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+        img_create_info.pNext = NULL;
+        img_create_info.flags = 0;
+        img_create_info.imageType = VK_IMAGE_TYPE_2D;
+        img_create_info.format = VK_FORMAT_R32_SFLOAT;
+        //TODO: set extent using some terrain heightmap resolution constant
+        img_create_info.extent = {static_cast<uint32_t>(MAX_TESS_LEVEL) + 1u, static_cast<uint32_t>(MAX_TESS_LEVEL) + 1u, 1};
+        img_create_info.mipLevels = 1;
+        img_create_info.arrayLayers = 1;
+        img_create_info.samples = VK_SAMPLE_COUNT_1_BIT;
+        img_create_info.tiling = VK_IMAGE_TILING_OPTIMAL;
+        img_create_info.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+        img_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        img_create_info.queueFamilyIndexCount = 1;
+        img_create_info.pQueueFamilyIndices = &m_queue_family_index;
+        img_create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+        VkImageViewCreateInfo img_view_create_info{};
+        img_view_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        img_view_create_info.pNext = NULL;
+        img_view_create_info.flags = 0;
+        img_view_create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        img_view_create_info.format = img_create_info.format;
+        img_view_create_info.components = {VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY};
+        img_view_create_info.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+
+        createImage(img, img_create_info, img_view_create_info);
+
+        VkBufferWrapper img_buf(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, true);
+        //TODO:set size properly
+        const uint64_t buffer_size = (static_cast<uint32_t>(MAX_TESS_LEVEL) + 1u) * (static_cast<uint32_t>(MAX_TESS_LEVEL) + 1u) * sizeof(float);
+        createBuffer(img_buf, buffer_size);
+
+        void* img_buf_ptr = nullptr;
+        vkMapMemory(m_device, img_buf.mem, 0, VK_WHOLE_SIZE, 0, &img_buf_ptr);
+        //TODO:ditto
+        std::memcpy(img_buf_ptr, hd.first, buffer_size);
+        vkUnmapMemory(m_device, img_buf.mem);
+
+        VkCommandBufferBeginInfo begin_info{};
+        begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        begin_info.pNext = NULL;
+        begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        begin_info.pInheritanceInfo = NULL;
+
+        VkResult res = vkBeginCommandBuffer(m_transfer_cmd_buf, &begin_info);
+        assertVkSuccess(res, "An error occurred while beginning the transfer command buffer.");
+
+        VkImageSubresourceRange img_sub_range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+
+        VkImageMemoryBarrier img_mem_bar{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, NULL, 0, VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
+                                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, img.img, img_sub_range};
+
+        vkCmdPipelineBarrier(m_transfer_cmd_buf, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, NULL, 0, NULL, 1, &img_mem_bar);
+
+        VkBufferImageCopy buf_img_copy{};
+        buf_img_copy.bufferOffset = 0;
+        buf_img_copy.bufferRowLength = 0;
+        buf_img_copy.bufferImageHeight = 0;
+        buf_img_copy.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+        buf_img_copy.imageOffset = {0, 0, 0};
+        buf_img_copy.imageExtent = img_create_info.extent;
+
+        vkCmdCopyBufferToImage(m_transfer_cmd_buf, img_buf.buf, img.img, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &buf_img_copy);
+
+        img_mem_bar = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, NULL, 0, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, img.img, img_sub_range};
+
+        vkCmdPipelineBarrier(m_transfer_cmd_buf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TESSELLATION_EVALUATION_SHADER_BIT, 0, 0, NULL, 0, NULL, 1, &img_mem_bar);
+
+        res = vkEndCommandBuffer(m_transfer_cmd_buf);
+        assertVkSuccess(res, "An error occurred while ending the transfer command buffer.");
+
+        VkSubmitInfo submit_info{};
+        submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submit_info.pNext = NULL;
+        submit_info.waitSemaphoreCount = 0;
+        submit_info.pWaitSemaphores = NULL;
+        submit_info.pWaitDstStageMask = NULL;
+        submit_info.commandBufferCount = 1;
+        submit_info.pCommandBuffers = &m_transfer_cmd_buf;
+        submit_info.signalSemaphoreCount = 0;
+        submit_info.pSignalSemaphores = NULL;
+
+        res = vkResetFences(m_device, 1, &m_transfer_cmd_buf_fence);
+        assertVkSuccess(res, "An error occurred while reseting transfer cmd buf fence.");
+
+        res = vkQueueSubmit(m_queue, 1, &submit_info, m_transfer_cmd_buf_fence);
+        assertVkSuccess(res, "An error occurred while submitting the transfer command buffer.");
+
+        res = vkWaitForFences(m_device, 1, &m_transfer_cmd_buf_fence, VK_TRUE, UINT64_MAX);
+        assertVkSuccess(res, "An error occured while waiting for a transfer cmd buf fence.");
+
+        destroyBuffer(img_buf);
+    }
+
+    return heightmap_ids;
 }
 
 void Engine3D::draw(RenderMode render_mode, VertexBuffer* vb, uint32_t vertex_offset, uint32_t vertex_count, uint32_t instance_id, std::optional<Sphere> bounding_sphere)
@@ -1935,6 +2055,11 @@ void Engine3D::updateDescriptorSets() noexcept
     }
 
     VkDescriptorBufferInfo terrain_buf_info = {m_terrain_buffer.buf, 0, m_terrain_buffer.size};
+    std::vector<VkDescriptorImageInfo> terrain_heightmap_infos(m_terrain_heightmap_desc_count);
+    for(size_t i = 0; i < m_terrain_heightmaps.size(); i++)
+    {
+        terrain_heightmap_infos[i] = {VK_NULL_HANDLE, m_terrain_heightmaps[i].img_view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    }
     VkDescriptorBufferInfo bone_transform_buf_info = {m_bone_transform_buffer.buf, 0, m_bone_transform_buffer.size};
 
     std::vector<VkWriteDescriptorSet> desc_set_writes;
@@ -1977,7 +2102,8 @@ void Engine3D::updateDescriptorSets() noexcept
 
         if(m_terrain_buffer.buf)
         {
-            desc_set_writes.emplace_back(VkWriteDescriptorSet{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, NULL, m_per_frame_data[i].descriptor_set, TERRAIN_BINDING, 0, m_terrain_desc_count, m_terrain_desc_type, NULL, &terrain_buf_info, NULL});
+            desc_set_writes.emplace_back(VkWriteDescriptorSet{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, NULL, m_per_frame_data[i].descriptor_set, TERRAIN_BUF_BINDING, 0, m_terrain_buf_desc_count, m_terrain_buf_desc_type, NULL, &terrain_buf_info, NULL});
+            desc_set_writes.emplace_back(VkWriteDescriptorSet{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, NULL, m_per_frame_data[i].descriptor_set, TERRAIN_HEIGHTMAP_BINDING, 0, m_terrain_heightmap_desc_count, m_terrain_heightmap_desc_type, terrain_heightmap_infos.data(), NULL, NULL});
         }
         desc_set_writes.emplace_back(VkWriteDescriptorSet{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, NULL, m_per_frame_data[i].descriptor_set, BONE_TRANSFORM_BUF_BINDING, 0, m_bone_transform_buf_desc_count, m_bone_transform_buf_desc_type, NULL, &bone_transform_buf_info, NULL});
     }
@@ -2067,30 +2193,38 @@ void Engine3D::createDevice()
     pickPhysicalDevice();
 
     /*get the physical device's available features and properties and verify that the required ones are supported*/
+    m_physical_device_features = {};
+    m_physical_device_12_features = {};
     m_physical_device_12_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
     m_physical_device_12_features.pNext = NULL;
 
+    VkPhysicalDeviceVulkan12Features physical_device_12_features{};
+    physical_device_12_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+    physical_device_12_features.pNext = NULL;
+
     VkPhysicalDeviceFeatures2 phy_dev_feat2{};
     phy_dev_feat2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-    phy_dev_feat2.pNext = &m_physical_device_12_features;
+    phy_dev_feat2.pNext = &physical_device_12_features;
 
     vkGetPhysicalDeviceFeatures2(m_physical_device, &phy_dev_feat2);
 
     std::vector<std::string> unsupported_phy_dev_feats;
 
-#define CHECK_PHY_DEV_FEAT_2_SUPPORT(x) if(phy_dev_feat2.features.x == VK_FALSE) { unsupported_phy_dev_feats.push_back(#x); }
-#define CHECK_PHY_DEV_VULKAN_1_2_FEAT_SUPPORT(x) if(m_physical_device_12_features.x == VK_FALSE) { unsupported_phy_dev_feats.push_back(#x); }
+#define REQ_PHY_DEV_FEAT_SUPPORT(x) if(phy_dev_feat2.features.x == VK_TRUE) {m_physical_device_features.x = VK_TRUE;} else {unsupported_phy_dev_feats.push_back(#x);}
+#define REQ_PHY_DEV_VULKAN_1_2_FEAT_SUPPORT(x) if(physical_device_12_features.x == VK_TRUE) {m_physical_device_12_features.x = VK_TRUE;} else {unsupported_phy_dev_feats.push_back(#x);}
 
-    CHECK_PHY_DEV_FEAT_2_SUPPORT(geometryShader);
-    CHECK_PHY_DEV_FEAT_2_SUPPORT(sampleRateShading);
-    CHECK_PHY_DEV_FEAT_2_SUPPORT(shaderSampledImageArrayDynamicIndexing);
-    CHECK_PHY_DEV_FEAT_2_SUPPORT(fillModeNonSolid);
-    CHECK_PHY_DEV_FEAT_2_SUPPORT(samplerAnisotropy);
-    CHECK_PHY_DEV_FEAT_2_SUPPORT(shaderImageGatherExtended);
-    CHECK_PHY_DEV_VULKAN_1_2_FEAT_SUPPORT(descriptorBindingPartiallyBound);
+    REQ_PHY_DEV_FEAT_SUPPORT(geometryShader);
+    REQ_PHY_DEV_FEAT_SUPPORT(tessellationShader);
+    REQ_PHY_DEV_FEAT_SUPPORT(sampleRateShading);
+    REQ_PHY_DEV_FEAT_SUPPORT(shaderSampledImageArrayDynamicIndexing);
+    REQ_PHY_DEV_FEAT_SUPPORT(fillModeNonSolid);
+    REQ_PHY_DEV_FEAT_SUPPORT(samplerAnisotropy);
+    REQ_PHY_DEV_FEAT_SUPPORT(shaderImageGatherExtended);
+    REQ_PHY_DEV_VULKAN_1_2_FEAT_SUPPORT(descriptorBindingPartiallyBound);
+    REQ_PHY_DEV_VULKAN_1_2_FEAT_SUPPORT(runtimeDescriptorArray);
 
-#undef CHECK_PHY_DEV_FEAT_2_SUPPORT
-#undef CHECK_PHY_DEV_VULKAN_1_2_FEAT_SUPPORT
+#undef REQ_PHY_DEV_FEAT_SUPPORT
+#undef REQ_PHY_DEV_VULKAN_1_2_FEAT_SUPPORT
 
     if(!unsupported_phy_dev_feats.empty())
     {
@@ -2101,20 +2235,6 @@ void Engine3D::createDevice()
         }
         error(error_msg);
     }
-
-    /*only enable the required features, not all the supported ones*/
-    m_physical_device_features = {};
-    m_physical_device_features.fillModeNonSolid = VK_TRUE;
-    m_physical_device_features.geometryShader = VK_TRUE;
-    m_physical_device_features.sampleRateShading = VK_TRUE;
-    m_physical_device_features.shaderSampledImageArrayDynamicIndexing = VK_TRUE;
-    m_physical_device_features.samplerAnisotropy = VK_TRUE;
-    m_physical_device_features.shaderImageGatherExtended = VK_TRUE;
-
-    m_physical_device_12_features = {};
-    m_physical_device_12_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-    m_physical_device_12_features.pNext = NULL;
-    m_physical_device_12_features.descriptorBindingPartiallyBound = VK_TRUE;
 
     vkGetPhysicalDeviceMemoryProperties(m_physical_device, &m_physical_device_memory_properties);
 
@@ -2534,8 +2654,9 @@ void Engine3D::createDescriptorSets()
     m_point_sm_buf_desc_count = 1;
     //TODO: should we immediately create descriptors for max possible shadow maps or start low and scale up if we need to?
     m_point_sm_desc_count = std::max<uint32_t>(1, static_cast<uint32_t>(MAX_POINT_SHADOW_MAP_COUNT));
+    m_terrain_buf_desc_count = 1;
+    m_terrain_heightmap_desc_count = 4;
     m_bone_transform_buf_desc_count = 1;
-    m_terrain_desc_count = 1;
 
     std::vector<VkSampler> tex_samplers(m_tex_desc_count, m_sampler);
     std::vector<VkSampler> font_samplers(m_font_desc_count, m_sampler);
@@ -2543,6 +2664,7 @@ void Engine3D::createDescriptorSets()
     //TODO: which sampler should be used for point shadow maps?
     std::vector<VkSampler> point_shadow_map_samplers(m_point_sm_desc_count, m_shadow_map_sampler);
     std::vector<VkSampler> normal_map_samplers(m_normal_map_desc_count, m_sampler);
+    std::vector<VkSampler> terrain_heightmap_samplers(m_terrain_heightmap_desc_count, m_terrain_heightmap_sampler);
 
     std::vector<VkDescriptorSetLayoutBinding> desc_set_layout_bindings =
     {
@@ -2558,8 +2680,9 @@ void Engine3D::createDescriptorSets()
         , {DIR_SM_BINDING, m_dir_sm_desc_type, m_dir_sm_desc_count, VK_SHADER_STAGE_FRAGMENT_BIT, dir_shadow_map_samplers.data()} // dir shadow maps
         , {POINT_SM_BUF_BINDING, m_point_sm_buf_desc_type, m_point_sm_buf_desc_count, VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, NULL} // point shadow map data
         , {POINT_SM_BINDING, m_point_sm_desc_type, m_point_sm_desc_count, VK_SHADER_STAGE_FRAGMENT_BIT, point_shadow_map_samplers.data()} // point shadow maps
+        , {TERRAIN_BUF_BINDING, m_terrain_buf_desc_type, m_terrain_buf_desc_count, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT, NULL} // terrain per vertex data
+        , {TERRAIN_HEIGHTMAP_BINDING, m_terrain_heightmap_desc_type, m_terrain_heightmap_desc_count, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT, terrain_heightmap_samplers.data()} // terrain heightmap
         , {BONE_TRANSFORM_BUF_BINDING, m_bone_transform_buf_desc_type, m_bone_transform_buf_desc_count, VK_SHADER_STAGE_VERTEX_BIT, NULL} // bone transform buffer
-        , {TERRAIN_BINDING, m_terrain_desc_type, m_terrain_desc_count, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT, NULL} // terrain per vertex data
     };
 
     std::vector<VkDescriptorBindingFlags> desc_binding_flags =
@@ -2577,6 +2700,7 @@ void Engine3D::createDescriptorSets()
         0,
         VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT,
         0,
+        VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT,
         0
     };
 
@@ -2596,13 +2720,12 @@ void Engine3D::createDescriptorSets()
     res = vkCreateDescriptorSetLayout(m_device, &desc_set_layout_create_info, NULL, &m_descriptor_set_layout);
     assertVkSuccess(res, "Failed to create descriptor set layout.");
 
-    //TODO: figure out how these sizes work, I can put 1 and 1 here and it still works...
     std::vector<VkDescriptorPoolSize> desc_pool_sizes =
     {
-          {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, (m_tex_desc_count + m_font_desc_count + m_dir_sm_desc_count + m_point_sm_desc_count + m_normal_map_desc_count) * FRAMES_IN_FLIGHT}
+          {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, (m_tex_desc_count + m_font_desc_count + m_dir_sm_desc_count + m_point_sm_desc_count + m_normal_map_desc_count * m_terrain_heightmap_desc_count) * FRAMES_IN_FLIGHT}
         , {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, (m_common_buf_desc_count + m_dir_lights_desc_count + m_point_lights_desc_count) * FRAMES_IN_FLIGHT + m_dir_sm_buf_desc_count + m_point_sm_buf_desc_count}
         , {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, (m_dir_lights_valid_desc_count + m_point_lights_valid_desc_count) * FRAMES_IN_FLIGHT}
-        , {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, m_terrain_desc_count * FRAMES_IN_FLIGHT + m_bone_transform_buf_desc_count}
+        , {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, m_terrain_buf_desc_count * FRAMES_IN_FLIGHT + m_bone_transform_buf_desc_count}
     };
 
     VkDescriptorPoolCreateInfo desc_pool_create_info{};
@@ -3211,7 +3334,7 @@ void Engine3D::createPipelines()
         /*----------------------- vertex input state -----------------------*/
         std::vector<VkVertexInputBindingDescription> vertex_binding_desc =
         {
-            {0, sizeof(VertexTerrain), VK_VERTEX_INPUT_RATE_INSTANCE},
+            {0, sizeof(VertexTerrain), VK_VERTEX_INPUT_RATE_VERTEX},
         };
 
         VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info{};
@@ -3411,7 +3534,7 @@ void Engine3D::createPipelines()
         /*----------------------- vertex input state -----------------------*/
         std::vector<VkVertexInputBindingDescription> vertex_binding_desc =
         {
-            {0, sizeof(VertexTerrain), VK_VERTEX_INPUT_RATE_INSTANCE},
+            {0, sizeof(VertexTerrain), VK_VERTEX_INPUT_RATE_VERTEX},
         };
 
         VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info{};
@@ -3429,7 +3552,14 @@ void Engine3D::createPipelines()
         input_assembly_state_create_info.pNext = NULL;
         input_assembly_state_create_info.flags = 0;
         input_assembly_state_create_info.primitiveRestartEnable = VK_FALSE;
-        input_assembly_state_create_info.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        input_assembly_state_create_info.topology = VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
+
+        /*----------------------- tessellation state -----------------------*/
+        VkPipelineTessellationStateCreateInfo tessellation_state_create_info{};
+        tessellation_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO;
+        tessellation_state_create_info.pNext = NULL;
+        tessellation_state_create_info.flags = 0;
+        tessellation_state_create_info.patchControlPoints = 1;
 
         /*----------------------- viewport state -----------------------*/
         VkViewport viewport;
@@ -3531,7 +3661,7 @@ void Engine3D::createPipelines()
         pipeline_create_info.flags = 0;
         pipeline_create_info.pVertexInputState = &vertex_input_state_create_info;
         pipeline_create_info.pInputAssemblyState = &input_assembly_state_create_info;
-        pipeline_create_info.pTessellationState = NULL;
+        pipeline_create_info.pTessellationState = &tessellation_state_create_info;
         pipeline_create_info.pViewportState = &viewport_state_create_info;
         pipeline_create_info.pRasterizationState = &rasterization_state_create_info;
         pipeline_create_info.pMultisampleState = &multisample_state_create_info;
@@ -3545,15 +3675,19 @@ void Engine3D::createPipelines()
         pipeline_create_info.basePipelineIndex = -1;
 
         /*---------------------------- shaders ----------------------------*/
-        std::vector<VkShaderModule> shader_modules(2, VK_NULL_HANDLE);
+        std::vector<VkShaderModule> shader_modules(4, VK_NULL_HANDLE);
         std::vector<VkPipelineShaderStageCreateInfo> shader_stage_infos;
 
-        shader_stage_infos.emplace_back(loadShader(VS_TERRAIN_WIREFRAME_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
-        shader_stage_infos.emplace_back(loadShader(FS_COLOR_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[1]));
+        shader_stage_infos.emplace_back(loadShader(VS_TERRAIN_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
+        shader_stage_infos.emplace_back(loadShader(TCS_TERRAIN_FILENAME, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT, &shader_modules[1]));
+        shader_stage_infos.emplace_back(loadShader(TES_TERRAIN_WIREFRAME_FILENAME, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT, &shader_modules[2]));
+        shader_stage_infos.emplace_back(loadShader(FS_COLOR_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[3]));
 
 #if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(shader_modules[0], "TerrainWireframeVS");
-        setDebugObjectName(shader_modules[1], "TerrainWireframeFS");
+        setDebugObjectName(shader_modules[1], "TerrainWireframeTCS");
+        setDebugObjectName(shader_modules[2], "TerrainWireframeTES");
+        setDebugObjectName(shader_modules[3], "TerrainWireframeFS");
 #endif
 
         pipeline_create_info.stageCount = static_cast<uint32_t>(shader_stage_infos.size());
@@ -3884,7 +4018,7 @@ void Engine3D::createPipelines()
         /*----------------------- vertex input state -----------------------*/
         std::vector<VkVertexInputBindingDescription> vertex_binding_desc =
         {
-            {0, sizeof(VertexTerrain), VK_VERTEX_INPUT_RATE_INSTANCE},
+            {0, sizeof(VertexTerrain), VK_VERTEX_INPUT_RATE_VERTEX},
         };
 
         VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info{};
@@ -3902,7 +4036,14 @@ void Engine3D::createPipelines()
         input_assembly_state_create_info.pNext = NULL;
         input_assembly_state_create_info.flags = 0;
         input_assembly_state_create_info.primitiveRestartEnable = VK_FALSE;
-        input_assembly_state_create_info.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        input_assembly_state_create_info.topology = VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
+
+        /*----------------------- tessellation state -----------------------*/
+        VkPipelineTessellationStateCreateInfo tessellation_state_create_info{};
+        tessellation_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO;
+        tessellation_state_create_info.pNext = NULL;
+        tessellation_state_create_info.flags = 0;
+        tessellation_state_create_info.patchControlPoints = 1;
 
         /*----------------------- viewport state -----------------------*/
         VkRect2D scissors;
@@ -3977,7 +4118,7 @@ void Engine3D::createPipelines()
         pipeline_create_info.flags = 0;
         pipeline_create_info.pVertexInputState = &vertex_input_state_create_info;
         pipeline_create_info.pInputAssemblyState = &input_assembly_state_create_info;
-        pipeline_create_info.pTessellationState = NULL;
+        pipeline_create_info.pTessellationState = &tessellation_state_create_info;
         pipeline_create_info.pViewportState = &viewport_state_create_info;
         pipeline_create_info.pRasterizationState = &rasterization_state_create_info;
         pipeline_create_info.pMultisampleState = &multisample_state_create_info;
@@ -3991,14 +4132,18 @@ void Engine3D::createPipelines()
         pipeline_create_info.basePipelineIndex = -1;
 
         /*---------------------------- shaders ----------------------------*/
-        std::vector<VkShaderModule> shader_modules(2, VK_NULL_HANDLE);
+        std::vector<VkShaderModule> shader_modules(4, VK_NULL_HANDLE);
         std::vector<VkPipelineShaderStageCreateInfo> shader_stage_infos;
 
-        shader_stage_infos.emplace_back(loadShader(VS_TERRAIN_SHADOWMAP_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
-        shader_stage_infos.emplace_back(loadShader(GS_DIR_SHADOW_MAP_FILENAME, VK_SHADER_STAGE_GEOMETRY_BIT, &shader_modules[1]));
+        shader_stage_infos.emplace_back(loadShader(VS_TERRAIN_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
+        shader_stage_infos.emplace_back(loadShader(TCS_TERRAIN_FILENAME, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT, &shader_modules[1]));
+        shader_stage_infos.emplace_back(loadShader(TES_TERRAIN_SHADOWMAP_FILENAME, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT, &shader_modules[2]));
+        shader_stage_infos.emplace_back(loadShader(GS_DIR_SHADOW_MAP_FILENAME, VK_SHADER_STAGE_GEOMETRY_BIT, &shader_modules[3]));
 #if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(shader_modules[0], "TerrainDirShadowMapVS");
-        setDebugObjectName(shader_modules[1], "TerrainDirShadowMapGS");
+        setDebugObjectName(shader_modules[1], "TerrainDirShadowMapTCS");
+        setDebugObjectName(shader_modules[2], "TerrainDirShadowMapTES");
+        setDebugObjectName(shader_modules[3], "TerrainDirShadowMapGS");
 #endif
 
         pipeline_create_info.stageCount = static_cast<uint32_t>(shader_stage_infos.size());
@@ -4163,7 +4308,7 @@ void Engine3D::createPipelines()
         /*----------------------- vertex input state -----------------------*/
         std::vector<VkVertexInputBindingDescription> vertex_binding_desc =
         {
-            {0, sizeof(VertexTerrain), VK_VERTEX_INPUT_RATE_INSTANCE},
+            {0, sizeof(VertexTerrain), VK_VERTEX_INPUT_RATE_VERTEX},
         };
 
         VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info{};
@@ -4181,7 +4326,14 @@ void Engine3D::createPipelines()
         input_assembly_state_create_info.pNext = NULL;
         input_assembly_state_create_info.flags = 0;
         input_assembly_state_create_info.primitiveRestartEnable = VK_FALSE;
-        input_assembly_state_create_info.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        input_assembly_state_create_info.topology = VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
+
+        /*----------------------- tessellation state -----------------------*/
+        VkPipelineTessellationStateCreateInfo tessellation_state_create_info{};
+        tessellation_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO;
+        tessellation_state_create_info.pNext = NULL;
+        tessellation_state_create_info.flags = 0;
+        tessellation_state_create_info.patchControlPoints = 1;
 
         /*----------------------- viewport state -----------------------*/
         VkRect2D scissors;
@@ -4256,7 +4408,7 @@ void Engine3D::createPipelines()
         pipeline_create_info.flags = 0;
         pipeline_create_info.pVertexInputState = &vertex_input_state_create_info;
         pipeline_create_info.pInputAssemblyState = &input_assembly_state_create_info;
-        pipeline_create_info.pTessellationState = NULL;
+        pipeline_create_info.pTessellationState = &tessellation_state_create_info;
         pipeline_create_info.pViewportState = &viewport_state_create_info;
         pipeline_create_info.pRasterizationState = &rasterization_state_create_info;
         pipeline_create_info.pMultisampleState = &multisample_state_create_info;
@@ -4270,16 +4422,20 @@ void Engine3D::createPipelines()
         pipeline_create_info.basePipelineIndex = -1;
 
         /*---------------------------- shaders ----------------------------*/
-        std::vector<VkShaderModule> shader_modules(3, VK_NULL_HANDLE);
+        std::vector<VkShaderModule> shader_modules(5, VK_NULL_HANDLE);
         std::vector<VkPipelineShaderStageCreateInfo> shader_stage_infos;
 
-        shader_stage_infos.emplace_back(loadShader(VS_TERRAIN_SHADOWMAP_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
-        shader_stage_infos.emplace_back(loadShader(GS_POINT_SHADOW_MAP_FILENAME, VK_SHADER_STAGE_GEOMETRY_BIT, &shader_modules[1]));
-        shader_stage_infos.emplace_back(loadShader(FS_POINT_SHADOW_MAP_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[2]));
+        shader_stage_infos.emplace_back(loadShader(VS_TERRAIN_FILENAME, VK_SHADER_STAGE_VERTEX_BIT, &shader_modules[0]));
+        shader_stage_infos.emplace_back(loadShader(TCS_TERRAIN_FILENAME, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT, &shader_modules[1]));
+        shader_stage_infos.emplace_back(loadShader(TES_TERRAIN_SHADOWMAP_FILENAME, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT, &shader_modules[2]));
+        shader_stage_infos.emplace_back(loadShader(GS_POINT_SHADOW_MAP_FILENAME, VK_SHADER_STAGE_GEOMETRY_BIT, &shader_modules[3]));
+        shader_stage_infos.emplace_back(loadShader(FS_POINT_SHADOW_MAP_FILENAME, VK_SHADER_STAGE_FRAGMENT_BIT, &shader_modules[4]));
 #if VULKAN_VALIDATION_ENABLE
         setDebugObjectName(shader_modules[0], "TerrainPointShadowMapVS");
-        setDebugObjectName(shader_modules[1], "TerrainPointShadowMapGS");
-        setDebugObjectName(shader_modules[2], "TerrainPointShadowMapFS");
+        setDebugObjectName(shader_modules[1], "TerrainPointShadowMapTCS");
+        setDebugObjectName(shader_modules[2], "TerrainPointShadowMapTES");
+        setDebugObjectName(shader_modules[3], "TerrainPointShadowMapGS");
+        setDebugObjectName(shader_modules[4], "TerrainPointShadowMapFS");
 #endif
 
         pipeline_create_info.stageCount = static_cast<uint32_t>(shader_stage_infos.size());
@@ -4895,6 +5051,31 @@ void Engine3D::createSamplers()
 #if VULKAN_VALIDATION_ENABLE
     setDebugObjectName(m_shadow_map_sampler, "ShadowMapSampler");
 #endif
+
+    sampler_create_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    sampler_create_info.pNext = NULL;
+    sampler_create_info.flags = 0;
+    sampler_create_info.magFilter = VK_FILTER_LINEAR;
+    sampler_create_info.minFilter = VK_FILTER_LINEAR;
+    sampler_create_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+    sampler_create_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    sampler_create_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    sampler_create_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    sampler_create_info.mipLodBias = 0.0f;
+    sampler_create_info.anisotropyEnable = VK_FALSE;
+    sampler_create_info.maxAnisotropy = 0.0f;
+    sampler_create_info.compareEnable = VK_FALSE;
+    sampler_create_info.compareOp = VK_COMPARE_OP_ALWAYS;
+    sampler_create_info.minLod = 0.0f;
+    sampler_create_info.maxLod = 1.0f;
+    sampler_create_info.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+    sampler_create_info.unnormalizedCoordinates = VK_FALSE;
+
+    res = vkCreateSampler(m_device, &sampler_create_info, NULL, &m_terrain_heightmap_sampler);
+    assertVkSuccess(res, "Failed to create terrain heightmap sampler.");
+#if VULKAN_VALIDATION_ENABLE
+    setDebugObjectName(m_terrain_heightmap_sampler, "TerrainHeightmapSampler");
+#endif
 }
 
 void Engine3D::createBuffers()
@@ -5449,6 +5630,9 @@ void Engine3D::destroySamplers() noexcept
 
     vkDestroySampler(m_device, m_shadow_map_sampler, NULL);
     m_shadow_map_sampler = VK_NULL_HANDLE;
+
+    vkDestroySampler(m_device, m_terrain_heightmap_sampler, NULL);
+    m_terrain_heightmap_sampler = VK_NULL_HANDLE;
 }
 
 void Engine3D::destroyShadowMaps()

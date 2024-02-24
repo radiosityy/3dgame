@@ -244,6 +244,7 @@ public:
     void updateInstanceVertexData(uint32_t instance_id, uint32_t instance_count, const void* data);
     void updateBoneTransformData(uint32_t bone_offset, uint32_t bone_count, const mat4x4* data);
     void updateTerrainData(void* data, uint64_t offset, uint64_t size);
+    std::vector<uint32_t> requestTerrainHeightmaps(std::span<std::pair<float*, uint32_t>> heightmap_data);
 
     void draw(RenderMode render_mode, VertexBuffer* vb, uint32_t vertex_offset, uint32_t vertex_count, uint32_t instance_id, std::optional<Sphere> bounding_sphere);
     void drawUi(RenderModeUi render_mode, VertexBuffer* vb, uint32_t vertex_offset, uint32_t vertex_count, const Quad& scissor);
@@ -355,6 +356,7 @@ private:
 
     VkSampler m_sampler = VK_NULL_HANDLE;
     VkSampler m_shadow_map_sampler = VK_NULL_HANDLE;
+    VkSampler m_terrain_heightmap_sampler = VK_NULL_HANDLE;
 
     /*-------------------- descriptors -------------------*/
     VkDescriptorSetLayout m_descriptor_set_layout = VK_NULL_HANDLE;
@@ -396,11 +398,14 @@ private:
     uint32_t m_point_sm_desc_count = 0;
     const VkDescriptorType m_point_sm_desc_type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 
+    uint32_t m_terrain_buf_desc_count = 0;
+    const VkDescriptorType m_terrain_buf_desc_type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+
+    uint32_t m_terrain_heightmap_desc_count = 0;
+    const VkDescriptorType m_terrain_heightmap_desc_type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+
     uint32_t m_bone_transform_buf_desc_count = 0;
     const VkDescriptorType m_bone_transform_buf_desc_type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-
-    uint32_t m_terrain_desc_count = 0;
-    const VkDescriptorType m_terrain_desc_type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 
     /*---------------------- device ----------------------*/
     VkPhysicalDeviceProperties m_physical_device_properties;
@@ -478,6 +483,7 @@ private:
     /*---------------------- assets ----------------------*/
     TextureCollection m_textures;
     TextureCollection m_normal_maps;
+    std::vector<VkImageWrapper> m_terrain_heightmaps;
 
     std::vector<Texture> m_font_textures;
 
@@ -507,9 +513,8 @@ private:
         alignas(16) vec3 effective_sun_pos;
         alignas(16) vec3 cur_pos_terrain;
                     uint32_t cur_terrain_intersection;
-        alignas(16) float terrain_patch_size_x;
-                    float terrain_patch_size_z;
-                    vec2 ui_scale;
+        alignas(16) vec2 ui_scale;
+                    float terrain_patch_size;
         alignas(16) vec4 editor_highlight_color;
                     float editor_terrain_tool_inner_radius;
                     float editor_terrain_tool_outer_radius;

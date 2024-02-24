@@ -12,7 +12,7 @@ struct VertexData
     uint tex_id;
 };
 
-layout(set = 0, binding = TERRAIN_BINDING) buffer readonly restrict TerrainPerVertexData
+layout(set = 0, binding = TERRAIN_BUF_BINDING) buffer readonly restrict TerrainPerVertexData
 {
     VertexData v[];
 } vertex_data;

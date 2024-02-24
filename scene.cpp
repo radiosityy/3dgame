@@ -177,15 +177,14 @@ void Scene::draw(RenderData& render_data) noexcept
     render_data.visual_sun_pos = m_visual_sun_pos;
     render_data.effective_sun_pos = m_effective_sun_pos;
     render_data.sun_radius = m_sun_radius;
-    render_data.terrain_patch_size_x = m_terrain->patchSizeX();
-    render_data.terrain_patch_size_z = m_terrain->patchSizeZ();
+    render_data.terrain_patch_size = m_terrain->patchSize();
 
     for(auto& obj : m_objects)
     {
         obj->draw(m_engine3d);
     }
 
-    m_terrain->draw(m_engine3d, *m_camera);
+    m_terrain->draw(m_engine3d);
 
     m_time_label->draw(m_engine3d);
 }
@@ -214,48 +213,46 @@ void Scene::tryPlayerMove(float dt)
 
         AABB aabb = m_player->aabbs()[0];
         aabb.transform(m_player->pos() + s, m_player->scale());
-        float dh = total_dh;
-        const auto res  = m_terrain->collision(aabb, dh);
-        switch (res)
+        const float dh  = m_terrain->collision(aabb, max_dh);
+
+        if(dh > 0.0f)
         {
-        case CollisionResult::Collision:
-            if(axis == 1)
+            if(dh > max_dh) // collision
             {
-                if(player_velocity.y < 0.0f)
+                if(axis == 1)
                 {
-                    m_player->setAcceleration(vec3(0.0f, 0.0f, 0.0f));
+                    if(player_velocity.y < 0.0f)
+                    {
+                        m_player->setAcceleration(vec3(0.0f, 0.0f, 0.0f));
+                    }
+                    player_velocity.y = 0.0f;
                 }
-                player_velocity.y = 0.0f;
+                continue;
             }
-            continue;
-        case CollisionResult::ResolvedCollision:
-            if(player_velocity.y > 0 && dh < 0)
+            else
             {
-                break;
+                s.y += dh;
+                total_dh -=dh;
             }
-
-            if(axis == 1)
+        }
+        else
+        {
+            if(dh < -max_dh)
             {
-                if(player_velocity.y < 0.0f)
+                //first, if player has no vertical acceleration, check if the player is airborne
+                if(m_player->acceleration().y == 0.0f)
                 {
-                    m_player->setAcceleration(vec3(0.0f, 0.0f, 0.0f));
-                }
-                player_velocity.y = 0.0f;
-            }
-
-            s.y += dh;
-            total_dh -= dh;
-            break;
-        case CollisionResult::Airborne:
-            //first, if player has no vertical acceleration, check if the player is airborne
-            if(m_player->acceleration().y == 0.0f)
-            {
-                if(!objectMoveCollision(m_player, vec3(0.0f, -0.001f, 0.0f)))
-                {
-                    m_player->setAcceleration(vec3(0.0f, -9.8f, 0.0f));
+                    if(!objectMoveCollision(m_player, vec3(0.0f, -0.001f, 0.0f)))
+                    {
+                        m_player->setAcceleration(vec3(0.0f, -9.8f, 0.0f));
+                    }
                 }
             }
-            break;
+            else
+            {
+                s.y += dh;
+                total_dh -=dh;
+            }
         }
 
         if(axis != 1)

@@ -108,22 +108,13 @@ inline const std::vector<VkVertexInputAttributeDescription> vertex_default_attr_
 struct VertexTerrain
 {
     vec2 pos;
-    float res;
-    float lod_res;
-    float edge_res_left;
-    float edge_res_top;
-    float edge_res_right;
-    float edge_res_bottom;
-    uint32_t vertex_offset;
+    uint32_t heightmap_id;
 };
 
 inline const std::vector<VkVertexInputAttributeDescription> vertex_terrain_attr_desc
 {
     {0, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(VertexTerrain, pos)}, // pos
-    {1, 0, VK_FORMAT_R32_SFLOAT, offsetof(VertexTerrain, res)}, // res
-    {2, 0, VK_FORMAT_R32_SFLOAT, offsetof(VertexTerrain, lod_res)}, // lod res
-    {3, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(VertexTerrain, edge_res_left)}, // edge res
-    {4, 0, VK_FORMAT_R32_UINT, offsetof(VertexTerrain, vertex_offset)}, // vertex offset
+    {1, 0, VK_FORMAT_R32_UINT, offsetof(VertexTerrain, heightmap_id)}, // heightmap_id
 };
 
 #endif // VERTEX_H

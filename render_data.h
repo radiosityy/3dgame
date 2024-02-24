@@ -46,8 +46,7 @@ struct RenderData
     vec4 editor_highlight_color;
     float editor_terrain_tool_inner_radius;
     float editor_terrain_tool_outer_radius;
-    float terrain_patch_size_x;
-    float terrain_patch_size_z;
+    float terrain_patch_size;
 };
 
 struct SceneInitData
