@@ -37,21 +37,21 @@ void Terrain::createNew(Engine3D& engine3d)
 
     m_patch_vertices.resize(m_patch_count * m_patch_count);
     m_bounding_ys.resize(m_patch_vertices.size(), vec2(0.0f, 0.0f));
-    m_vertex_data.resize((DEFAULT_PATCH_RES + 1) * (DEFAULT_PATCH_RES + 1) * m_patch_count * m_patch_count);
+    m_vertex_data.resize((MAX_TESS_LEVEL + 1) * (MAX_TESS_LEVEL + 1) * m_patch_count * m_patch_count);
     m_heightmaps.resize(m_patch_vertices.size());
     for(auto& heightmap : m_heightmaps)
     {
         std::ranges::fill(heightmap, 0.0f);
     }
 
-    for(uint32_t z = 0; z < DEFAULT_PATCH_RES + 1; z++)
+    for(uint32_t z = 0; z < MAX_TESS_LEVEL + 1; z++)
     {
-        for(uint32_t x = 0; x < DEFAULT_PATCH_RES + 1; x++)
+        for(uint32_t x = 0; x < MAX_TESS_LEVEL + 1; x++)
         {
             for(auto& heightmap : m_heightmaps)
             {
-                heightmap[(DEFAULT_PATCH_RES + 1) * z + x] = 10.0f * std::sin(1.0f * pi * static_cast<float>(z) / MAX_TESS_LEVEL);
-                // heightmap[(DEFAULT_PATCH_RES + 1) * z + x] = 20.0f - 20.0f * static_cast<float>(x) / MAX_TESS_LEVEL;
+                heightmap[(MAX_TESS_LEVEL + 1) * z + x] = 10.0f * std::sin(1.0f * pi * static_cast<float>(z) / MAX_TESS_LEVEL);
+                // heightmap[(MAX_TESS_LEVEL + 1) * z + x] = 20.0f - 20.0f * static_cast<float>(x) / MAX_TESS_LEVEL;
             }
         }
     }
@@ -133,6 +133,11 @@ void Terrain::loadFromFile(Engine3D& engine3d)
 
 void Terrain::draw(Engine3D& engine3d)
 {
+    //TODO: do frustum culling (both camera and light sources views!) and only draw visible patches, also stream heightmaps onto GPU
+    //try and compare the following approaches:
+    //1. Update vertex buffer with only the patches to draw this frame (the ones that passed frustum culling) and draw the whole VB in a single draw call
+    //2. Always have all patch vertex data on the GPU and use an index buffer and update it with indices of vertices that passed frustum culling and are to be drawn this frame and draw in a single draw call
+    //3. Always have all patch vertex data on the GPU and issue multiple draw calls to pick the vertices to be drawn this frame that passed frustum culling
     engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexTerrain) * m_patch_vertices.size(), m_patch_vertices.data());
     engine3d.draw(m_render_mode, m_vb_alloc.vb, m_vb_alloc.vertex_offset, m_patch_vertices.size(), 0, {});
 }
@@ -171,16 +176,16 @@ float Terrain::collision(const AABB& aabb, const float max_dh) const
 
 //            if((bounding_ys[0] >= aabb.min().y) && (bounding_ys[1] <= aabb.max().y))
             {
-                const uint32_t min_patch_vx = (patch_x == static_cast<uint32_t>(min_patch_x)) ? static_cast<uint32_t>(DEFAULT_PATCH_RES * min_vx) : 0;
-                const uint32_t min_patch_vz = (patch_z == static_cast<uint32_t>(min_patch_z)) ? static_cast<uint32_t>(DEFAULT_PATCH_RES * min_vz) : 0;
-                const uint32_t max_patch_vx = (patch_x == static_cast<uint32_t>(max_patch_x)) ? std::min<uint32_t>(DEFAULT_PATCH_RES, static_cast<uint32_t>(DEFAULT_PATCH_RES * max_vx) + 1) : DEFAULT_PATCH_RES;
-                const uint32_t max_patch_vz = (patch_z == static_cast<uint32_t>(max_patch_z)) ? std::min<uint32_t>(DEFAULT_PATCH_RES, static_cast<uint32_t>(DEFAULT_PATCH_RES * max_vz) + 1) : DEFAULT_PATCH_RES;
+                const uint32_t min_patch_vx = (patch_x == static_cast<uint32_t>(min_patch_x)) ? static_cast<uint32_t>(MAX_TESS_LEVEL * min_vx) : 0;
+                const uint32_t min_patch_vz = (patch_z == static_cast<uint32_t>(min_patch_z)) ? static_cast<uint32_t>(MAX_TESS_LEVEL * min_vz) : 0;
+                const uint32_t max_patch_vx = (patch_x == static_cast<uint32_t>(max_patch_x)) ? std::min<uint32_t>(MAX_TESS_LEVEL, static_cast<uint32_t>(MAX_TESS_LEVEL * max_vx) + 1) : MAX_TESS_LEVEL;
+                const uint32_t max_patch_vz = (patch_z == static_cast<uint32_t>(max_patch_z)) ? std::min<uint32_t>(MAX_TESS_LEVEL, static_cast<uint32_t>(MAX_TESS_LEVEL * max_vz) + 1) : MAX_TESS_LEVEL;
 
                 for(uint32_t vz = min_patch_vz; vz <= max_patch_vz; vz++)
                 {
                     for(uint32_t vx = min_patch_vx; vx <= max_patch_vx; vx++)
                     {
-                        const float h = m_heightmaps[patch_id][vz * (DEFAULT_PATCH_RES + 1) + vx];
+                        const float h = m_heightmaps[patch_id][vz * (MAX_TESS_LEVEL + 1) + vx];
                         const float dh_ = h - aabb.min().y;
                         if(dh_ > dh)
                         {

@@ -33,12 +33,11 @@ private:
 #if EDITOR_ENABLE
     static constexpr float DEFAULT_SIZE = 100.0f;
     static constexpr uint32_t DEFAULT_PATCH_COUNT = 2;
-    static constexpr uint32_t DEFAULT_PATCH_RES = MAX_TESS_LEVEL;
-    static constexpr uint32_t TOTAL_PATCH_VERTEX_COUNT = (MAX_TESS_LEVEL + 1) * (MAX_TESS_LEVEL + 1);
 
-    void calcXYFromSize() noexcept;
     void createNew(Engine3D&);
 #endif
+    static constexpr uint32_t TOTAL_PATCH_VERTEX_COUNT = (MAX_TESS_LEVEL + 1) * (MAX_TESS_LEVEL + 1);
+    void calcXYFromSize() noexcept;
     void loadFromFile(Engine3D&);
 
     float m_size;
@@ -59,9 +58,9 @@ private:
 
     std::vector<VertexTerrain> m_patch_vertices;
     VertexBufferAllocation m_vb_alloc;
+    RenderMode m_render_mode = RenderMode::Terrain;
 
 #if EDITOR_ENABLE
-    RenderMode m_render_mode = RenderMode::Terrain;
     bool m_lod_enabled = true;
 #endif
 };
