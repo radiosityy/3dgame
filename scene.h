@@ -28,7 +28,11 @@ public:
     void onInputEvent(const Event&, const InputState&);
     void onWindowResize(float aspect_ratio) noexcept;
 
-    void addObject(std::unique_ptr<Object>&&);
+    void addObject(auto&&... args)
+    {
+        m_objects.emplace_back(std::forward<decltype(args)>(args)...);
+    }
+
     void removeObject(Object*);
     PointLightId addPointLight(const PointLight& point_light) const;
     void updatePointLight(PointLightId id, const PointLight& point_light) const;
@@ -64,9 +68,9 @@ private:
 
     std::unique_ptr<Terrain> m_terrain;
 
-    std::vector<std::unique_ptr<Object>> m_objects;
+    std::vector<Object> m_objects;
 
-    std::unique_ptr<Camera> m_camera;
+    Camera m_camera;
 
     std::unique_ptr<Label> m_time_label;
     static constexpr float m_time_scale = 60.0f * 60.0f; //one minute in game is one sec in real life
@@ -83,7 +87,7 @@ private:
     vec3 m_effective_sun_pos;
 
     /*gameplay*/
-    Player* m_player = nullptr;
+    std::unique_ptr<Player> m_player;
     bool m_player_movement = true;
     float m_player_camera_radius = 5.0f;
     float m_player_camera_theta = pi_2; //inclination

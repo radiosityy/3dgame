@@ -13,11 +13,10 @@ public:
     Object(Engine3D& engine3d, std::ifstream& scene_file);
     Object(Engine3D& engine3d, std::string_view model_filename, RenderMode render_mode, vec3 pos = vec3(0.0f, 0.0f, 0.0f), vec3 scale = vec3(1.0f, 1.0f, 1.0f), quat rot = quat(1.0f, 0.0f, 0.0f, 0.0f));
 
-    virtual ~Object() = default;
+    bool cull(const std::array<vec4, 6>& frustum_planes_W);
 
-    virtual void update(Engine3D& engine3d, float dt);
-    virtual void draw(Engine3D& engine3d);
-    void updateAndDraw(Engine3D& engine3d, float dt);
+    void update(Engine3D& engine3d, float dt);
+    void draw(Engine3D& engine3d);
 
     const std::vector<AABB>& aabbs() const;
     const std::vector<BoundingBox>& bbs() const;
@@ -37,7 +36,7 @@ public:
     void setRotation(quat rot);
     void rotate(vec3 axis, float a);
     void rotateX(float a);
-    virtual void rotateY(float a);
+    void rotateY(float a);
     void rotateZ(float a);
 
     void setScale(vec3);
@@ -59,12 +58,10 @@ public:
 
     void drawHighlight(Engine3D& engine3d);
 
-    bool rayIntersetion(const Ray& rayW, float min_d, float& d);
+    bool rayIntersetion(const Ray& rayW, float min_d, float& d) const;
 #endif
 
 protected:
-    void updateVertexGroup();
-
     std::unique_ptr<Model> m_model;
 
     vec3 m_pos = {0.0f, 0.0f, 0.0f};

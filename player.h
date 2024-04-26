@@ -8,7 +8,7 @@ class Player : public Object
 public:
     using Object::Object;
 
-    virtual void update(Engine3D& engine3d, float dt) override;
+    void update(Engine3D& engine3d, float dt);
 
     void walkForward(bool);
     void walkBack(bool);
@@ -20,7 +20,7 @@ public:
 
     void wave();
 
-    virtual void rotateY(float a) override;
+    void rotateY(float a);
 
     void walk(const vec3&);
     void stop();

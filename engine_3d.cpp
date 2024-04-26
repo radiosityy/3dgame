@@ -1751,13 +1751,11 @@ std::vector<uint32_t> Engine3D::requestTerrainHeightmaps(std::span<std::pair<flo
         createImage(img, img_create_info, img_view_create_info);
 
         VkBufferWrapper img_buf(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, true);
-        //TODO:set size properly
-        const uint64_t buffer_size = (static_cast<uint32_t>(MAX_TESS_LEVEL) + 1u) * (static_cast<uint32_t>(MAX_TESS_LEVEL) + 1u) * sizeof(float);
+        const uint64_t buffer_size = static_cast<uint64_t>(img_create_info.extent.width) * static_cast<uint64_t>(img_create_info.extent.height) * sizeof(float);
         createBuffer(img_buf, buffer_size);
 
         void* img_buf_ptr = nullptr;
         vkMapMemory(m_device, img_buf.mem, 0, VK_WHOLE_SIZE, 0, &img_buf_ptr);
-        //TODO:ditto
         std::memcpy(img_buf_ptr, hd.first, buffer_size);
         vkUnmapMemory(m_device, img_buf.mem);
 

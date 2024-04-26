@@ -11,6 +11,7 @@
 
 Scene::Scene(Engine3D& engine3d, float aspect_ratio, const Font& font)
     : m_engine3d(engine3d)
+    , m_camera(aspect_ratio, 1.0f, 2000.0f, degToRad(90.0f))
 {
     engine3d.loadTexture("Ground003_4K_Color.png");
     engine3d.loadNormalMap("Ground003_4K_Normal.png");
@@ -24,8 +25,6 @@ Scene::Scene(Engine3D& engine3d, float aspect_ratio, const Font& font)
         label.setText(std::format("Time: {}:{}:{}", h, m, s));
     });
 
-    m_camera = std::make_unique<Camera>(aspect_ratio, 1.0f, 2000.0f, degToRad(90.0f));
-
     /*add sun*/
     m_sun.shadow_map_count = 4;
     m_sun.shadow_map_res_x = 2048;
@@ -37,8 +36,8 @@ Scene::Scene(Engine3D& engine3d, float aspect_ratio, const Font& font)
 
     loadFromFile("scene.scn");
 
-    m_camera->setPos(vec3(0.0f, 66.0f, -70.0f));
-    m_camera->pitch(glm::radians(45.0f));
+    m_camera.setPos(vec3(0.0f, 66.0f, -70.0f));
+    m_camera.pitch(glm::radians(45.0f));
 }
 
 void Scene::loadFromFile(std::string_view filename)
@@ -56,7 +55,7 @@ void Scene::loadFromFile(std::string_view filename)
 
         for(uint64_t i = 0; i < obj_count; i++)
         {
-            addObject(std::make_unique<Object>(m_engine3d, scene_file));
+            addObject(m_engine3d, scene_file);
         }
 
         uint64_t point_light_count = 0;
@@ -75,19 +74,16 @@ void Scene::loadFromFile(std::string_view filename)
     }
 
     /*add sky dome*/
-    auto sky_dome = std::make_unique<Object>(m_engine3d, "assets/meshes/sky_dome.3d", RenderMode::Sky, vec3(0.0f), vec3(1000.0f));
+    addObject(m_engine3d, "assets/meshes/sky_dome.3d", RenderMode::Sky, vec3(0.0f), vec3(1000.0f));
 #if EDITOR_ENABLE
-    sky_dome->setSerializable(false);
+    m_objects.back().setSerializable(false);
 #endif
-    addObject(std::move(sky_dome));
 
     /*add player*/
-    auto player = std::make_unique<Player>(m_engine3d, "assets/meshes/man.3d", RenderMode::Default, vec3(0.0f, 5.0f, -10.0f));
+    m_player = std::make_unique<Player>(m_engine3d, "assets/meshes/man.3d", RenderMode::Default, vec3(0.0f, 5.0f, -10.0f));
 #if EDITOR_ENABLE
-    player->setSerializable(false);
+    m_player->setSerializable(false);
 #endif
-    m_player = player.get();
-    addObject(std::move(player));
 
     /*add terrain*/
     m_terrain = std::make_unique<Terrain>(m_engine3d);
@@ -97,8 +93,9 @@ void Scene::update(float dt, const InputState& input_state) noexcept
 {
     for(auto& obj : m_objects)
     {
-        obj->update(m_engine3d, dt);
+        obj.update(m_engine3d, dt);
     }
+    m_player->update(m_engine3d, dt);
 
     /*advance time of day (wrap around after a whole day has passed)*/
     m_time_of_day += dt * m_time_scale;
@@ -128,13 +125,13 @@ void Scene::update(float dt, const InputState& input_state) noexcept
 
         const vec3 player_camera_reference_point = m_player->pos() + vec3(0.0f, 5.0f, 0.0f);
 
-        m_camera->setPos(player_camera_reference_point + sphericalToCartesian(m_player_camera_radius, m_player_camera_theta, m_player_camera_phi));
+        m_camera.setPos(player_camera_reference_point + sphericalToCartesian(m_player_camera_radius, m_player_camera_theta, m_player_camera_phi));
 
-        const vec3 cam_forward = normalize(player_camera_reference_point - m_camera->pos());
+        const vec3 cam_forward = normalize(player_camera_reference_point - m_camera.pos());
         const vec3 cam_right = cross(vec3(0.0f, 1.0f, 0.0f), cam_forward);
         const vec3 cam_up = cross(cam_forward, cam_right);
 
-        m_camera->setBasis(cam_forward, cam_up, cam_right);
+        m_camera.setBasis(cam_forward, cam_up, cam_right);
     }
     else
     {
@@ -142,32 +139,32 @@ void Scene::update(float dt, const InputState& input_state) noexcept
 
         if(input_state.keyboard[VKeyW])
         {
-            m_camera->walk(dt*cam_speed);
+            m_camera.walk(dt*cam_speed);
         }
 
         if(input_state.keyboard[VKeyS])
         {
-            m_camera->walk(-dt*cam_speed);
+            m_camera.walk(-dt*cam_speed);
         }
 
         if(input_state.keyboard[VKeyA])
         {
-            m_camera->strafe(-dt*cam_speed);
+            m_camera.strafe(-dt*cam_speed);
         }
 
         if(input_state.keyboard[VKeyD])
         {
-            m_camera->strafe(dt*cam_speed);
+            m_camera.strafe(dt*cam_speed);
         }
 
         if(input_state.keyboard[VKeyC])
         {
-            m_camera->tilt(-dt*cam_speed);
+            m_camera.tilt(-dt*cam_speed);
         }
 
         if(input_state.keyboard[VKeySpace])
         {
-            m_camera->tilt(dt*cam_speed);
+            m_camera.tilt(dt*cam_speed);
         }
     }
 }
@@ -179,9 +176,19 @@ void Scene::draw(RenderData& render_data) noexcept
     render_data.sun_radius = m_sun_radius;
     render_data.terrain_patch_size = m_terrain->patchSize();
 
+    //TODO: do frustum culling here
+    const auto view_frustum_planes = m_camera.viewFrustumPlanesW();
+
     for(auto& obj : m_objects)
     {
-        obj->draw(m_engine3d);
+        if(obj.cull(view_frustum_planes))
+        {
+            obj.draw(m_engine3d);
+        }
+    }
+    if(m_player->cull(view_frustum_planes))
+    {
+        m_player->draw(m_engine3d);
     }
 
     m_terrain->draw(m_engine3d);
@@ -194,7 +201,7 @@ void Scene::tryPlayerRotation(float dt)
     const float rot_angle = m_player->rotVelocity() * dt;
     const quat rot = normalize(rotate(m_player->rot(), rot_angle, vec3(0.0f, 1.0f, 0.0f)));
 
-    if(!objectRotateCollision(m_player, rot))
+    if(!objectRotateCollision(m_player.get(), rot))
     {
         m_player->rotateY(rot_angle);
     }
@@ -242,7 +249,7 @@ void Scene::tryPlayerMove(float dt)
                 //first, if player has no vertical acceleration, check if the player is airborne
                 if(m_player->acceleration().y == 0.0f)
                 {
-                    if(!objectMoveCollision(m_player, vec3(0.0f, -0.001f, 0.0f)))
+                    if(!objectMoveCollision(m_player.get(), vec3(0.0f, -0.001f, 0.0f)))
                     {
                         m_player->setAcceleration(vec3(0.0f, -9.8f, 0.0f));
                     }
@@ -259,7 +266,7 @@ void Scene::tryPlayerMove(float dt)
         {
             bool collision = false;
 
-            while(objectMoveCollision(m_player, s))
+            while(objectMoveCollision(m_player.get(), s))
             {
                 s.y += 0.05f;
 
@@ -275,7 +282,7 @@ void Scene::tryPlayerMove(float dt)
                 m_player->move(s);
             }
         }
-        else if(!objectMoveCollision(m_player, s))
+        else if(!objectMoveCollision(m_player.get(), s))
         {
             m_player->move(s);
         }
@@ -386,14 +393,14 @@ bool Scene::objectCollision(const Object* object, const Collider& collider)
 {
     for(const auto& obj : m_objects)
     {
-        if(obj.get() == object)
+        if(&obj == object)
         {
             continue;
         }
 
-        for(Sphere sphere : obj->spheres())
+        for(Sphere sphere : obj.spheres())
         {
-            sphere.transform(obj->pos(), obj->scale());
+            sphere.transform(obj.pos(), obj.scale());
 
             if(intersect(collider, sphere))
             {
@@ -401,9 +408,9 @@ bool Scene::objectCollision(const Object* object, const Collider& collider)
             }
         }
 
-        for(AABB aabb : obj->aabbs())
+        for(AABB aabb : obj.aabbs())
         {
-            aabb.transform(obj->pos(), obj->scale());
+            aabb.transform(obj.pos(), obj.scale());
 
             if(intersect(collider, aabb))
             {
@@ -411,9 +418,9 @@ bool Scene::objectCollision(const Object* object, const Collider& collider)
             }
         }
 
-        for(BoundingBox bb : obj->bbs())
+        for(BoundingBox bb : obj.bbs())
         {
-            bb.transform(obj->pos(), obj->rot(), obj->scale());
+            bb.transform(obj.pos(), obj.rot(), obj.scale());
 
             if(intersect(collider, bb))
             {
@@ -427,24 +434,19 @@ bool Scene::objectCollision(const Object* object, const Collider& collider)
 
 void Scene::onWindowResize(float aspect_ratio) noexcept
 {
-    m_camera->setAspectRatio(aspect_ratio);
+    m_camera.setAspectRatio(aspect_ratio);
 }
 
 Camera& Scene::camera() noexcept
 {
-    return *m_camera;
-}
-
-void Scene::addObject(std::unique_ptr<Object>&& object)
-{
-    m_objects.push_back(std::move(object));
+    return m_camera;
 }
 
 void Scene::removeObject(Object* obj)
 {
     for(auto it = m_objects.begin(); it != m_objects.end(); it++)
     {
-        if(it->get() == obj)
+        if(&(*it) == obj)
         {
             m_objects.erase(it);
             return;
@@ -471,10 +473,10 @@ void Scene::playerControls(const InputState& input_state)
 {
     vec3 v = vec3(0.0f, 0.0f, 0.0f);
 
-    vec3 forward = m_camera->forward();
+    vec3 forward = m_camera.forward();
     forward.y = 0;
 
-    vec3 right = m_camera->right();
+    vec3 right = m_camera.right();
     right.y = 0;
 
     bool walk = false;
@@ -519,8 +521,8 @@ void Scene::onInputEvent(const Event& event, const InputState& input_state)
     {
         if(!m_player_movement)
         {
-            m_camera->rotate(event.cursor_delta.x * 0.005f);
-            m_camera->pitch(event.cursor_delta.y * 0.005f);
+            m_camera.rotate(event.cursor_delta.x * 0.005f);
+            m_camera.pitch(event.cursor_delta.y * 0.005f);
         }
         else
         {
@@ -593,14 +595,21 @@ Object* Scene::pickObject(const Ray& rayW, float& d)
     d = std::numeric_limits<float>::max();
     Object* closest_obj = nullptr;
 
-    for(const auto& obj : m_objects)
+    for(auto& obj : m_objects)
     {
         float _d;
-        if(obj->rayIntersetion(rayW, d, _d))
+        if(obj.rayIntersetion(rayW, d, _d))
         {
             d = std::min(d, _d);
-            closest_obj = obj.get();
+            closest_obj = &obj;
         }
+    }
+
+    float _d;
+    if(m_player->rayIntersetion(rayW, d, _d))
+    {
+        d = std::min(d, _d);
+        closest_obj = m_player.get();
     }
 
     return closest_obj;
@@ -654,7 +663,7 @@ void Scene::serialize(std::string_view filename) const
 
     for(const auto& obj : m_objects)
     {
-        if(obj->isSerializable())
+        if(obj.isSerializable())
         {
             obj_count++;
         }
@@ -664,9 +673,9 @@ void Scene::serialize(std::string_view filename) const
 
     for(const auto& obj : m_objects)
     {
-        if(obj->isSerializable())
+        if(obj.isSerializable())
         {
-            obj->serialize(outfile);
+            obj.serialize(outfile);
         }
     }
 

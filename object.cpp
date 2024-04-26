@@ -46,6 +46,11 @@ Object::Object(Engine3D& engine3d, std::string_view model_filename, RenderMode r
     }
 }
 
+bool Object::cull(const std::array<vec4, 6>& frustum_planes_W)
+{
+    return true;
+}
+
 void Object::update(Engine3D& engine3d, float dt)
 {
     m_model->animationUpdate(engine3d, dt);
@@ -69,12 +74,6 @@ void Object::draw(Engine3D& engine3d)
     }
 
     engine3d.updateInstanceVertexData(m_instance_id, m_instance_data.size(), m_instance_data.data());
-}
-
-void Object::updateAndDraw(Engine3D& engine3d, float dt)
-{
-    update(engine3d, dt);
-    draw(engine3d);
 }
 
 const std::vector<AABB>& Object::aabbs() const
@@ -244,7 +243,7 @@ void Object::drawHighlight(Engine3D& engine3d)
     }
 }
 
-bool Object::rayIntersetion(const Ray& rayW, float min_d, float& d)
+bool Object::rayIntersetion(const Ray& rayW, float min_d, float& d) const
 {
     //TODO: maybe we already have this calculated and don't have to recalulate here?
     const auto rot = mat4_cast(m_rot);

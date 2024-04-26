@@ -176,7 +176,7 @@ std::array<vec3, 8> Camera::viewFrustumPointsW() noexcept
 std::array<vec4, 6> Camera::viewFrustumPlanesW() noexcept
 {
     std::array<vec4, 6> planes;
-    auto points = viewFrustumPointsW();
+    const auto points = viewFrustumPointsW();
 
     //near plane
     vec3 N = normalize(cross(points[1] - points[2], points[3] - points[2]));

@@ -151,8 +151,7 @@ void ObjectAddPanel::addObject(std::string_view mesh_filename)
 
     try
     {
-        auto object = std::make_unique<Object>(m_engine3d, mesh_file_path, RenderMode::Default, object_pos);
-        m_scene.addObject(std::move(object));
+        m_scene.addObject(m_engine3d, mesh_file_path, RenderMode::Default, object_pos);
     }
     catch(std::exception& e)
     {
