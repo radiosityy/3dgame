@@ -65,11 +65,7 @@ add_custom_target(
 
 if(UNIX)
 
-include_directories(/usr/include/freetype2 /usr/include/libpng16 /usr/include/harfbuzz /usr/include/glib-2.0 /usr/lib/glib-2.0/include)
-
-target_link_libraries(${PROJECT_NAME} xcb xcb-image)
-target_link_libraries(${PROJECT_NAME} png)
-target_link_libraries(${PROJECT_NAME} freetype)
+target_link_libraries(${PROJECT_NAME} PRIVATE xcb xcb-image)
 
 elseif(WIN32)
 
