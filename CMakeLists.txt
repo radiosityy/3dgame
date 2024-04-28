@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.2)
 
-# set(CMAKE_CXX_STANDARD 23)
-# set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 project(3dgame)
 
 option(EDITOR_ENABLE "Enable editor" OFF)
@@ -40,7 +40,6 @@ include_directories(${CMAKE_SOURCE_DIR})
 
 add_executable(${PROJECT_NAME} ${SOURCES} ${OTHERS})
 
-target_compile_options(${PROJECT_NAME} PRIVATE -std=c++2b)
 target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -pedantic)
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
@@ -49,13 +48,14 @@ else()
     add_compile_definitions(NDEBUG=1)
 endif()
 
-#vulkan
-set(VULKAN_INCLUDE "" CACHE PATH "Vulkan include path")
-set(VULKAN_LIB "" CACHE FILEPATH "Vulkan library path")
+find_package(Vulkan REQUIRED)
+find_package(Freetype REQUIRED)
+find_package(ZLIB REQUIRED)
+find_package(PNG REQUIRED)
+
 set(GLSLC_PATH "" CACHE FILEPATH "Glslc spir-v compiler path")
 
-include_directories(${VULKAN_INCLUDE})
-target_link_libraries(${PROJECT_NAME} ${VULKAN_LIB})
+target_link_libraries(${PROJECT_NAME} PRIVATE Vulkan::Vulkan ZLIB::ZLIB PNG::PNG Freetype::Freetype)
 
 add_custom_target(
     compile_shaders ALL
@@ -73,19 +73,10 @@ target_link_libraries(${PROJECT_NAME} freetype)
 
 elseif(WIN32)
 
-set(GLM_PATH "" CACHE FILEPATH "glm library path")
-set(ZLIB_LIB "" CACHE FILEPATH "zlib library path")
-set(LIBPNG_INCLUDE "" CACHE PATH "libpng include dir")
-set(LIBPNG_LIB "" CACHE FILEPATH "libpng library path")
-set(FREETYPE_INCLUDE "" CACHE PATH "freetype include dir")
-set(FREETYPE_LIB "" CACHE FILEPATH "freetype library path")
+set(GLM_INCLUDE_DIR "" CACHE FILEPATH "glm include path")
+target_include_directories(${PROJECT_NAME} PRIVATE ${GLM_INCLUDE_DIR})
 
-include_directories(${GLM_PATH} ${LIBPNG_INCLUDE} ${FREETYPE_INCLUDE})
-
-target_link_libraries(${PROJECT_NAME} User32.dll)
-target_link_libraries(${PROJECT_NAME} ${LIBPNG_LIB})
-target_link_libraries(${PROJECT_NAME} ${ZLIB_LIB})
-target_link_libraries(${PROJECT_NAME} ${FREETYPE_LIB})
+target_link_libraries(${PROJECT_NAME} PRIVATE User32.dll)
 #target_link_libraries(${PROJECT_NAME} xinput)
 
 set(CMAKE_CXX_STANDARD_LIBRARIES "-static-libgcc -static-libstdc++ ${CMAKE_CXX_STANDARD_LIBRARIES}")

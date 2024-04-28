@@ -4,7 +4,7 @@
 #include <vector>
 #include "geometry.h"
 #include "color.h"
-#include <vulkan.h>
+#include <vulkan/vulkan.h>
 
 //TODO: see if there's any benefit to limiting the number of locations for each vertex format
 //there are cases where we can for instance pack all uints into a single location even if they have nothing to do with each other

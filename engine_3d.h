@@ -9,7 +9,7 @@
 
 #include "collision.h"
 #include "platform.h"
-#include <vulkan.h>
+#include <vulkan/vulkan.h>
 #include "window.h"
 #include "render_data.h"
 #include "font.h"

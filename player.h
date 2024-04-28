@@ -42,7 +42,7 @@ private:
     quat m_target_rotation;
 
     static constexpr inline float speed = 15.0f;
-    static constexpr inline float rot_speed = 5.0 * M_PI;
+    static constexpr inline float rot_speed = 5.0 * pi;
 };
 
 #endif // PLAYER_H

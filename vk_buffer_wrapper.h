@@ -1,7 +1,7 @@
 #ifndef VK_BUFFER_WRAPPER_H
 #define VK_BUFFER_WRAPPER_H
 
-#include <vulkan.h>
+#include <vulkan/vulkan.h>
 #include <memory>
 #include <set>
 

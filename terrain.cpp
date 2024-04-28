@@ -1,5 +1,6 @@
 #include "terrain.h"
 #include <game_utils.h>
+#include <iostream>
 #include <format>
 
 Terrain::Terrain(Engine3D& engine3d)
