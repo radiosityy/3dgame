@@ -4,6 +4,19 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 project(3dgame)
 
+find_package(Vulkan REQUIRED)
+find_package(Freetype REQUIRED)
+find_package(ZLIB REQUIRED)
+find_package(PNG REQUIRED)
+
+set(GLSLC_PATH "" CACHE FILEPATH "Glslc spir-v compiler path")
+
+if(CMAKE_BUILD_TYPE MATCHES Debug)
+    add_compile_definitions(DEBUG=1)
+else()
+    add_compile_definitions(NDEBUG=1)
+endif()
+
 option(EDITOR_ENABLE "Enable editor" OFF)
 if(EDITOR_ENABLE)
     add_compile_definitions(EDITOR_ENABLE=1)
@@ -24,38 +37,12 @@ file(GLOB EDITOR_SOURCES
 set(SOURCES ${SOURCES} ${EDITOR_SOURCES})
 endif()
 
-file(GLOB_RECURSE OTHERS
-    other/*
-    shaders/*.vert
-    shaders/*.tesc
-    shaders/*.tese
-    shaders/*.geom
-    shaders/*.frag
-    shaders/*.comp
-    shaders/*.glsl
-    shaders/*.h
-)
+file(GLOB SHADER_SOURCES shaders/*.h)
 
-include_directories(${CMAKE_SOURCE_DIR})
-
-add_executable(${PROJECT_NAME} ${SOURCES} ${OTHERS})
-
-target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -pedantic)
-
-if(CMAKE_BUILD_TYPE MATCHES Debug)
-    add_compile_definitions(DEBUG=1)
-else()
-    add_compile_definitions(NDEBUG=1)
-endif()
-
-find_package(Vulkan REQUIRED)
-find_package(Freetype REQUIRED)
-find_package(ZLIB REQUIRED)
-find_package(PNG REQUIRED)
-
-set(GLSLC_PATH "" CACHE FILEPATH "Glslc spir-v compiler path")
-
+add_executable(${PROJECT_NAME} ${SOURCES} ${SHADER_SOURCES})
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(${PROJECT_NAME} PRIVATE Vulkan::Vulkan ZLIB::ZLIB PNG::PNG Freetype::Freetype)
+target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -pedantic)
 
 add_custom_target(
     compile_shaders ALL
