@@ -140,7 +140,7 @@ void GameEngine::setupGui()
             dt = 1.0 / static_cast<double>(m_timer.getFps());
         }
 
-        label.setText(std::format("Fps: {} | {}ms", m_timer.getFps(), dt * 1000.0));
+        label.setText(std::format("Fps: {} | {:.2f}ms", m_timer.getFps(), dt * 1000.0));
     });
 
     m_console = std::make_unique<Console>(*m_engine3d, 0, 0, static_cast<float>(m_window->width()), 0.4f * static_cast<float>(m_window->height()), m_fonts[0], [&](const std::string& text)
