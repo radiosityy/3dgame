@@ -1,8 +1,8 @@
 #include "object_add_panel.h"
 #include "button.h"
-#include <iostream>
 #include <fstream>
 #include <filesystem>
+#include <print>
 
 ObjectAddPanel::ObjectAddPanel(Engine3D& engine3d, float x, float y, Scene& scene, const Font& font)
     : m_engine3d(engine3d)
@@ -156,7 +156,7 @@ void ObjectAddPanel::addObject(std::string_view mesh_filename)
     catch(std::exception& e)
     {
         //TODO: add some way of displaying errors in editor
-        std::cout << e.what() << std::endl;
+        std::println("{}", e.what());
     }
 }
 

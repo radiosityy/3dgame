@@ -1,5 +1,4 @@
 #include "player.h"
-#include <iostream>
 
 float angleBetweenQuats(const quat& q1, const quat& q2)
 {

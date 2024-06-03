@@ -1,5 +1,5 @@
 #include "font.h"
-#include <iostream>
+#include <print>
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -13,21 +13,21 @@ Font::Font(const std::string& font_filename, uint32_t font_size)
     //TODO: improve error handling here
     if(error)
     {
-        std::cout << error << std::endl;
+        std::println("{}", error);
         throw error;
     }
 
     error = FT_New_Face(library, font_filename.c_str(), 0, &face);
     if(error)
     {
-        std::cout << error << std::endl;
+        std::println("{}", error);
         throw error;
     }
 
     error = FT_Set_Pixel_Sizes(face, 0, font_size);
     if(error)
     {
-        std::cout << error << std::endl;
+        std::println("{}", error);
         throw error;
     }
 
@@ -47,7 +47,7 @@ Font::Font(const std::string& font_filename, uint32_t font_size)
         error = FT_Load_Char(face, charcode, FT_LOAD_RENDER);
         if(error)
         {
-            std::cout << error << std::endl;
+            std::println("{}", error);
             throw error;
         }
 
@@ -103,7 +103,7 @@ Font::Font(const std::string& font_filename, uint32_t font_size)
                 error = FT_Get_Kerning(face, glyph_index, right_glyph_index, FT_KERNING_DEFAULT, &kern);
                 if(error)
                 {
-                    std::cout << error << std::endl;
+                    std::println("{}", error);
                     throw error;
                 }
 

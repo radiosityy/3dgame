@@ -1,13 +1,13 @@
 #include "engine_3d.h"
 #include "game_utils.h"
 
-#include <iostream>
 #include <format>
 #include <algorithm>
 #include <cstring>
 #include <sstream>
 #include <fstream>
 #include <list>
+#include <print>
 #include "vertex.h"
 
 #include <png.h>
@@ -5670,7 +5670,7 @@ VkBool32 debugReportCallback(
 {
     if(!(messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT) && !(messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT))
     {
-        std::cout << pCallbackData->pMessage << std::endl;
+        std::println("{}", pCallbackData->pMessage);
     }
 
     return VK_FALSE;

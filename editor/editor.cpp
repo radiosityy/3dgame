@@ -1,6 +1,5 @@
 #if EDITOR_ENABLE
 #include "editor.h"
-#include <iostream>
 
 Editor::Editor(Window& window, Scene& scene, Engine3D& engine3d, const Font& font)
     : m_scene(scene)

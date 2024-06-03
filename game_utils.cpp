@@ -1,5 +1,5 @@
 #include "game_utils.h"
-#include <iostream>
+#include <print>
 #include <fstream>
 #include <format>
 
@@ -11,7 +11,7 @@ void log(std::string_view msg, std::source_location srcl)
 
     logfile << log_msg << std::endl;
 #if DEBUG
-    std::cout << log_msg << std::endl;
+    std::println("{}", log_msg);
 #endif
 }
 

@@ -1,6 +1,6 @@
 #include "terrain.h"
 #include <game_utils.h>
-#include <iostream>
+#include <print>
 #include <format>
 
 Terrain::Terrain(Engine3D& engine3d)
@@ -10,7 +10,7 @@ Terrain::Terrain(Engine3D& engine3d)
         std::ifstream in(TERRAIN_FILENAME, std::ios::binary);
         if(!in)
         {
-            std::cout << std::format("Failed to open terrain file {}. Creating new terrain...", TERRAIN_FILENAME) << std::endl;
+            std::println("Failed to open terrain file {}. Creating new terrain...", TERRAIN_FILENAME);
             createNew();
         }
     }

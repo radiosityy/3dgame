@@ -5,7 +5,7 @@
 #include <filesystem>
 
 #include "timer.h"
-#include <iostream>
+#include <print>
 #include <sstream>
 #include <fstream>
 
@@ -46,7 +46,7 @@ void Scene::loadFromFile(std::string_view filename)
 
     if(!scene_file)
     {
-        std::cout << "No scene.scn file found. Creating new scene..." << std::endl;
+        std::println("No scene.scn file found. Creating new scene...");
     }
     else
     {

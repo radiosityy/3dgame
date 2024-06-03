@@ -6,7 +6,6 @@ project(3dgame)
 
 find_package(Vulkan REQUIRED)
 find_package(Freetype REQUIRED)
-find_package(ZLIB REQUIRED)
 find_package(PNG REQUIRED)
 
 set(GLSLC_PATH "" CACHE FILEPATH "Glslc spir-v compiler path")
@@ -56,9 +55,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE xcb xcb-image)
 
 elseif(WIN32)
 
-set(GLM_INCLUDE_DIR "" CACHE FILEPATH "glm include path")
-target_include_directories(${PROJECT_NAME} PRIVATE ${GLM_INCLUDE_DIR})
-
+target_link_libraries(${PROJECT_NAME} PRIVATE stdc++exp)
 target_link_libraries(${PROJECT_NAME} PRIVATE User32.dll)
 #target_link_libraries(${PROJECT_NAME} xinput)
 

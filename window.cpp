@@ -7,7 +7,6 @@
 #include <cstdlib>
 #include <string>
 #include <sstream>
-#include <iostream>
 
 const WindowParameters& Window::getParams() const noexcept
 {

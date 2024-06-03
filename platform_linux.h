@@ -105,10 +105,10 @@ struct WindowParameters
     xcb_window_t window;
 };
 
-#include <iostream>
+#include <print>
 inline void messageBox(std::string_view msg)
 {
-    std::cout << msg << std::endl;
+    std::println("{}", msg);
 }
 
 #endif //PLATFORM_LINUX_H

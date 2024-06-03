@@ -4,7 +4,6 @@
 #include <sstream>
 #include <fstream>
 #include <numeric>
-#include <iostream>
 #include <algorithm>
 
 void GameEngine::setDefaultIni()
