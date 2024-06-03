@@ -6,17 +6,14 @@
 Terrain::Terrain(Engine3D& engine3d)
 {
 #if EDITOR_ENABLE
-    const std::string filename = "terrain.dat";
-    std::ifstream in(filename.data(), std::ios::binary);
-
-    if(!in)
     {
-        std::cout << "Failed to open file " << filename << ". Creating new terrain..." << std::endl;
-        createNew(engine3d);
-        return;
+        std::ifstream in(TERRAIN_FILENAME, std::ios::binary);
+        if(!in)
+        {
+            std::cout << std::format("Failed to open terrain file {}. Creating new terrain...", TERRAIN_FILENAME) << std::endl;
+            createNew();
+        }
     }
-
-    in.close();
 #endif
 
     loadFromFile(engine3d);
@@ -29,7 +26,7 @@ void Terrain::calcXYFromSize() noexcept
 }
 
 #if EDITOR_ENABLE
-void Terrain::createNew(Engine3D& engine3d)
+void Terrain::createNew()
 {
     m_size = DEFAULT_SIZE;
     calcXYFromSize();
@@ -45,18 +42,6 @@ void Terrain::createNew(Engine3D& engine3d)
         std::ranges::fill(heightmap, 0.0f);
     }
 
-    for(uint32_t z = 0; z < MAX_TESS_LEVEL + 1; z++)
-    {
-        for(uint32_t x = 0; x < MAX_TESS_LEVEL + 1; x++)
-        {
-            for(auto& heightmap : m_heightmaps)
-            {
-                heightmap[(MAX_TESS_LEVEL + 1) * z + x] = 10.0f * std::sin(1.0f * pi * static_cast<float>(z) / MAX_TESS_LEVEL);
-                // heightmap[(MAX_TESS_LEVEL + 1) * z + x] = 20.0f - 20.0f * static_cast<float>(x) / MAX_TESS_LEVEL;
-            }
-        }
-    }
-
     for(uint32_t z = 0; z < m_patch_count; z++)
     {
         for(uint32_t x = 0; x < m_patch_count; x++)
@@ -68,31 +53,18 @@ void Terrain::createNew(Engine3D& engine3d)
         }
     }
 
-    m_vb_alloc = engine3d.requestVertexBufferAllocation<VertexTerrain>(m_patch_vertices.size());
-    engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexTerrain) * m_patch_vertices.size(), m_patch_vertices.data());
-
-    engine3d.requestTerrainBufferAllocation(m_vertex_data.size() * sizeof(VertexData));
-    engine3d.updateTerrainData(m_vertex_data.data(), 0, m_vertex_data.size() * sizeof(VertexData));
-
-    //TODO:don't do this after we add proper patch streaming
-    std::vector<std::pair<float*, uint32_t>> heightmap_reqs(m_heightmaps.size());
-    for(size_t i = 0; i < m_heightmaps.size(); i++)
-    {
-        heightmap_reqs[i] = std::make_pair(m_heightmaps[i].data(), i);
-    }
-    engine3d.requestTerrainHeightmaps(heightmap_reqs);
+    saveToFile();
 }
 #endif
 
 void Terrain::loadFromFile(Engine3D& engine3d)
 {
-    const std::string filename = "terrain.dat";
-    std::ifstream in(filename.data(), std::ios::binary);
+    std::ifstream in(TERRAIN_FILENAME, std::ios::binary);
 
     //TODO: do better file opening error handlng here
     if(!in)
     {
-        error(std::format("Failed to open file {}.", filename));
+        error(std::format("Failed to open file {}.", TERRAIN_FILENAME));
     }
 
     in.read(reinterpret_cast<char*>(&m_size), sizeof(m_size));
@@ -446,10 +418,10 @@ float Terrain::collision(const AABB& aabb, const float max_dh) const
 
 #if EDITOR_ENABLE
 
-void Terrain::serialize(std::string_view filename)
+void Terrain::saveToFile()
 {
     //TODO: add error handling
-    std::ofstream out(filename.data(), std::ios::binary);
+    std::ofstream out(TERRAIN_FILENAME, std::ios::binary);
 
     out.write(reinterpret_cast<const char*>(&m_size), sizeof(m_size));
     out.write(reinterpret_cast<const char*>(&m_patch_count), sizeof(m_patch_count));

@@ -687,7 +687,7 @@ void Scene::serialize(std::string_view filename) const
         point_light.serialize(outfile);
     }
 
-    m_terrain->serialize("terrain.dat");
+    m_terrain->saveToFile();
 }
 
 #endif

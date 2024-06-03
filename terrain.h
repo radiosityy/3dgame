@@ -17,7 +17,7 @@ public:
     float collision(const AABB&, float max_dh) const;
 
 #if EDITOR_ENABLE
-    void serialize(std::string_view filename);
+    void saveToFile();
 
     bool rayIntersection(const Ray& ray, float& d) const;
     //std::optional<std::pair<PatchType, uint32_t>> pickPatch(const Ray& ray) const;
@@ -30,11 +30,12 @@ public:
 #endif
 
 private:
+    static const inline auto TERRAIN_FILENAME = "terrain.dat";
 #if EDITOR_ENABLE
-    static constexpr float DEFAULT_SIZE = 100.0f;
-    static constexpr uint32_t DEFAULT_PATCH_COUNT = 2;
+    static const inline float DEFAULT_SIZE = 100.0f;
+    static const inline uint32_t DEFAULT_PATCH_COUNT = 2;
 
-    void createNew(Engine3D&);
+    void createNew();
 #endif
     static constexpr uint32_t TOTAL_PATCH_VERTEX_COUNT = (MAX_TESS_LEVEL + 1) * (MAX_TESS_LEVEL + 1);
     void calcXYFromSize() noexcept;
