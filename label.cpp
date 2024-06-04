@@ -1,4 +1,5 @@
 #include "label.h"
+#include "game_utils.h"
 
 Label::Label(Engine3D& engine3d, float x, float y, const Font& font, const std::string& text, bool editable, HorizontalAlignment hor_align, VerticalAlignment ver_align)
     : m_font(&font)
@@ -55,7 +56,7 @@ Label::Label(Engine3D& engine3d, float x, float y, float width, float height, co
         m_reference_x = m_x + m_width;
         break;
     default:
-        throw m_horizontal_alignment;
+        error("Incorrect horizontal alignment!");
     }
 
     switch(m_vertical_alignment)
@@ -70,7 +71,7 @@ Label::Label(Engine3D& engine3d, float x, float y, float width, float height, co
         m_reference_y = m_y + m_height;
         break;
     default:
-        throw m_vertical_alignment;
+        error("Incorrect vertical alignment!");
     }
 
     m_text = text;
@@ -515,7 +516,7 @@ void Label::updateVertexData()
         case HorizontalAlignment::Right:
             return m_reference_x - line_measurements[line_id].x;
         default:
-            throw m_horizontal_alignment;
+            error("Incorrect horizontal alignment!");
         }
     };
 
@@ -535,7 +536,7 @@ void Label::updateVertexData()
         y = m_reference_y - height;
         break;
     default:
-        throw m_vertical_alignment;
+        error("Incorrect vertical alignment!");
     }
 
     m_base_x = baseX(0);

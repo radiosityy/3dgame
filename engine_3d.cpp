@@ -151,7 +151,7 @@ VkPipelineShaderStageCreateInfo Engine3D::loadShader(const std::string& filename
 
     if(!file)
     {
-        throw std::runtime_error("Failed to open shader file: " + filename);
+        error(std::format("Failed to open shader file: {}", filename));
     }
 
     const auto size = file.tellg();
@@ -233,7 +233,7 @@ std::pair<VkDeviceMemory, bool> Engine3D::allocateMemory(VkMemoryRequirements me
         }
     }
 
-    throw std::runtime_error("Failed to allocate memory");
+    error("Failed to allocate memory");
 }
 
 void Engine3D::allocateAndBindMemory(VkImageWrapper& image) const
@@ -2292,7 +2292,7 @@ void Engine3D::pickPhysicalDevice()
 
     if(0 == count)
     {
-        throw std::runtime_error("No physical devices enumerated by Vulkan!");
+        error("No physical devices enumerated by Vulkan!");
     }
 
     std::vector<VkPhysicalDevice> physical_devices(count);
@@ -2371,7 +2371,7 @@ void Engine3D::createSurface(const Window& window)
 
     if(surface_support == VK_FALSE)
     {
-        throw std::runtime_error("Surface not supported by the physical device.");
+        error("Surface not supported by the physical device.");
     }
 }
 
@@ -5706,7 +5706,7 @@ void Engine3D::destroyDebugCallback()
     {
         if(!m_instance)
         {
-            throw std::runtime_error("Attempting to destroy debug report callback, which is not NULL, but VkInstance is already NULL!");
+            error("Attempting to destroy debug report callback, which is not NULL, but VkInstance is already NULL!");
         }
         else
         {

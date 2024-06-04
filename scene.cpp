@@ -1,4 +1,5 @@
 #include "scene.h"
+#include "game_utils.h"
 #include <cstring>
 #include <cmath>
 #include <algorithm>
@@ -656,7 +657,7 @@ void Scene::serialize(std::string_view filename) const
 
     if(!outfile)
     {
-        throw std::runtime_error(std::string("Failed to open file: ") + filename.data());
+        error(std::format("Failed to open file: {}", filename));
     }
 
     uint64_t obj_count = 0;

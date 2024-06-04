@@ -2,6 +2,7 @@
 #include <stdexcept>
 #include <vector>
 #include <algorithm>
+#include "game_utils.h"
 
 /*--- Helper Functions ---*/
 
@@ -30,12 +31,12 @@ std::pair<float, float> computeInterval(const std::array<vec3, 8> verts, vec3 ax
 
 bool intersect(const Plane& plane0, const Plane& plane1)
 {
-    throw std::runtime_error("Not implemented!");
+    error("Not implemented!");
 }
 
 bool intersect(const Plane& plane, const AABB& aabb)
 {
-    throw std::runtime_error("Not implemented!");
+    error("Not implemented!");
 }
 
 bool intersect(const AABB& aabb, const Plane& plane)
@@ -45,7 +46,7 @@ bool intersect(const AABB& aabb, const Plane& plane)
 
 bool intersect(const Plane& plane, const BoundingBox& bb)
 {
-    throw std::runtime_error("Not implemented!");
+    error("Not implemented!");
 }
 
 bool intersect(const BoundingBox& bb, const Plane& plane)

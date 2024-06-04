@@ -1,5 +1,6 @@
 #if EDITOR_ENABLE
 #include "editor.h"
+#include "game_utils.h"
 
 Editor::Editor(Window& window, Scene& scene, Engine3D& engine3d, const Font& font)
     : m_scene(scene)
@@ -346,7 +347,7 @@ void Editor::onInputEvent(const Event& event, const InputState& input_state)
             }
             return;
         default:
-            throw std::runtime_error("Invalid TransformMode in Editor: " + std::to_string(static_cast<uint32_t>(m_transform_mode)));
+            error(std::format("Invalid TransformMode in Editor: {}", static_cast<uint32_t>(m_transform_mode)));
         }
     }
 
@@ -571,7 +572,7 @@ void Editor::scaleModeHandleEvent(const Event& event, const InputState& input_st
             v.y = 0.0f;
             break;
         default:
-            throw std::runtime_error("Incorrect Axis!");
+            error("Incorrect Axis!");
         }
 
         m_selected_object->setScale(m_selected_object->scale() + v);
@@ -678,7 +679,7 @@ void Editor::rotModeHandleEvent(const Event& event, const InputState& input_stat
             m_selected_object->rotateZ(a);
             break;
         default:
-            throw std::runtime_error("Incorrect Axis!");
+            error("Incorrect Axis!");
         }
     }
     else if(event.event == EventType::MousePressed)

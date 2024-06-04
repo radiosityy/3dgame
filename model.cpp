@@ -1,4 +1,5 @@
 #include "model.h"
+#include "game_utils.h"
 
 Model::Model(Engine3D& engine3d, std::string_view filename)
 {
@@ -14,7 +15,7 @@ Model::Model(Engine3D& engine3d, std::string_view filename)
 
         if(!model_file)
         {
-            throw std::runtime_error(std::string("Failed to open model file: ") + filename.data());
+            error(std::format("Failed to open model file: {}", filename));
         }
 
         model_file.read(reinterpret_cast<char*>(&model_data->bone_count), sizeof(uint8_t));

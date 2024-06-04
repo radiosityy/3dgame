@@ -1,34 +1,46 @@
 #include "font.h"
+#include "game_utils.h"
 #include <print>
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
+
+static std::string freetypeErrorString(FT_Error error)
+{
+    //FT_Error_String() will return a nullptr if the library hasn't been compiled with FT_CONFIG_OPTION_ERROR_STRINGS
+    //in that case we just print the error code
+    const char* error_string = FT_Error_String(error);
+    if(error_string)
+    {
+        return error_string;
+    }
+    else
+    {
+        return std::format("Error code: {}", error);
+    }
+}
 
 Font::Font(const std::string& font_filename, uint32_t font_size)
 {
     FT_Library library;
     FT_Face face;
 
-    auto error = FT_Init_FreeType(&library);
-    //TODO: improve error handling here
-    if(error)
+    auto res = FT_Init_FreeType(&library);
+    if(res)
     {
-        std::println("{}", error);
-        throw error;
+        error(std::format("Failed to initialize Freetype - {}", freetypeErrorString(res)));
     }
 
-    error = FT_New_Face(library, font_filename.c_str(), 0, &face);
-    if(error)
+    res = FT_New_Face(library, font_filename.c_str(), 0, &face);
+    if(res)
     {
-        std::println("{}", error);
-        throw error;
+        error(std::format("Failed to create new face - {}", freetypeErrorString(res)));
     }
 
-    error = FT_Set_Pixel_Sizes(face, 0, font_size);
-    if(error)
+    res = FT_Set_Pixel_Sizes(face, 0, font_size);
+    if(res)
     {
-        std::println("{}", error);
-        throw error;
+        error(std::format("Failed to set pixel sizes - {}", freetypeErrorString(res)));
     }
 
     m_baseline_distance = face->size->metrics.height / 64;
@@ -44,11 +56,10 @@ Font::Font(const std::string& font_filename, uint32_t font_size)
     {
         const size_t charcode = first_char + c;
 
-        error = FT_Load_Char(face, charcode, FT_LOAD_RENDER);
-        if(error)
+        res = FT_Load_Char(face, charcode, FT_LOAD_RENDER);
+        if(res)
         {
-            std::println("{}", error);
-            throw error;
+            error(std::format("Failed to load char '{}' - {}", c, freetypeErrorString(res)));
         }
 
         const auto w = face->glyph->bitmap.width;
@@ -100,11 +111,10 @@ Font::Font(const std::string& font_filename, uint32_t font_size)
                 const auto right_glyph_index = FT_Get_Char_Index(face, right_charcode);
 
                 FT_Vector kern;
-                error = FT_Get_Kerning(face, glyph_index, right_glyph_index, FT_KERNING_DEFAULT, &kern);
-                if(error)
+                res = FT_Get_Kerning(face, glyph_index, right_glyph_index, FT_KERNING_DEFAULT, &kern);
+                if(res)
                 {
-                    std::println("{}", error);
-                    throw error;
+                    error(std::format("Failed to get kerning for char '{}' - {}", c, freetypeErrorString(res)));
                 }
 
                 m_glyphs[charcode].kerning[right_charcode] = kern.x / 64;

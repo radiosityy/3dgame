@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <string>
 #include <sstream>
+#include <print>
 
 const WindowParameters& Window::getParams() const noexcept
 {
@@ -51,19 +52,11 @@ void Window::toggleCursorLock()
 
 #ifdef PLATFORM_WIN32
 
+static Window* g_window = nullptr;
+
 LRESULT CALLBACK WindowEventHandler(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    //TODO: can we get better performance with a global variable window pointer instead of this
-    //Set/GetWindowLongPtr and WM_CREATE bullcrap?
-    if(WM_CREATE == uMsg)
-    {
-        CREATESTRUCT* create = reinterpret_cast<CREATESTRUCT*>(lParam);
-        SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(create->lpCreateParams));
-        return DefWindowProc(hwnd, uMsg, wParam, lParam);
-    }
-
-    Window* window = reinterpret_cast<Window*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
-    return window->EventHandler(hwnd, uMsg, wParam, lParam);
+    return g_window->EventHandler(hwnd, uMsg, wParam, lParam);
 }
 
 void Window::manageEvents()
@@ -280,7 +273,7 @@ void Window::handleControllerEvents()
     }
     else if(res != ERROR_DEVICE_NOT_CONNECTED)
     {
-        throw std::runtime_error("Error in XInputGetState" + std::to_string(res));
+        error(std::format("Error in XInputGetState - error code: {}", res));
     }
 }
 #endif
@@ -293,6 +286,8 @@ Window::Window(GameEngine& game_engine, std::string_view app_name, uint16_t widt
     , m_game_engine(game_engine)
     , m_class_name(app_name)
 {
+    g_window = this;
+
     m_params.hinstance = GetModuleHandle(NULL);
     LPCTSTR window_name = m_class_name.c_str();
     LPCTSTR class_name = m_class_name.c_str();
@@ -311,13 +306,12 @@ Window::Window(GameEngine& game_engine, std::string_view app_name, uint16_t widt
     const int left = (GetSystemMetrics(SM_CXSCREEN) - width) / 2;
     const int top = (GetSystemMetrics(SM_CYSCREEN) - height) / 2;
 
-    m_params.hwnd = CreateWindow(class_name, window_name, WS_POPUP | WS_CLIPCHILDREN, left, top, width, height, NULL, NULL, m_params.hinstance, this);
+    m_params.hwnd = CreateWindow(class_name, window_name, WS_POPUP | WS_CLIPCHILDREN, left, top, width, height, NULL, NULL, m_params.hinstance, NULL);
 
     if(!m_params.hwnd)
     {
         //TODO: get error from GetLastError()
-//        DWORD error = GetLastError();
-        throw std::runtime_error("Failed to create window.");
+        error(std::format("Failed to create window."));
     }
 
     /*init raw input*/
@@ -1099,7 +1093,7 @@ Window::Window(GameEngine& game_engine, std::string_view app_name, uint16_t widt
     if(auto err = xcb_connection_has_error(connection); err != 0)
     {
         xcb_disconnect(connection);
-        throw err;
+        error("Error with X server connection.");
     }
 
     /* Get the first screen */
