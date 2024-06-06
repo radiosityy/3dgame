@@ -311,7 +311,7 @@ Window::Window(GameEngine& game_engine, std::string_view app_name, uint16_t widt
     if(!m_params.hwnd)
     {
         //TODO: get error from GetLastError()
-        error(std::format("Failed to create window."));
+        error("Failed to create window.");
     }
 
     /*init raw input*/
