@@ -110,7 +110,7 @@ void Scene::update(float dt, const InputState& input_state) noexcept
 
     updateSun();
 
-    m_time_label->update(m_engine3d, dt);
+    m_time_label->update(m_engine3d);
 
     if(m_player_movement)
     {
@@ -514,81 +514,6 @@ void Scene::playerControls(const InputState& input_state)
     }
 }
 
-/*--- event handler ---*/
-
-void Scene::onInputEvent(const Event& event, const InputState& input_state)
-{
-    if(event.event == EventType::MouseMoved)
-    {
-        if(!m_player_movement)
-        {
-            m_camera.rotate(event.cursor_delta.x * 0.005f);
-            m_camera.pitch(event.cursor_delta.y * 0.005f);
-        }
-        else
-        {
-            m_player_camera_phi -= event.cursor_delta.x * 0.01f;
-            if(m_player_camera_phi >= 2.0f * pi)
-            {
-                m_player_camera_phi -= 2.0f * pi;
-            }
-            else if(m_player_camera_phi <= 0.0f)
-            {
-                m_player_camera_phi += 2.0f * pi;
-            }
-
-            m_player_camera_theta = std::clamp(m_player_camera_theta - event.cursor_delta.y * 0.01f, 0.001f, pi - 0.001f);
-        }
-    }
-    else if(event.event == EventType::MouseScrolledUp)
-    {
-        m_player_camera_radius -= 1.0f;
-
-        if(m_player_camera_radius < 3.0f)
-        {
-            m_player_camera_radius = 3.0f;
-        }
-    }
-    else if(event.event == EventType::MouseScrolledDown)
-    {
-        m_player_camera_radius += 1.0f;
-
-        if(m_player_camera_radius > 10.0f)
-        {
-            m_player_camera_radius = 10.0f;
-        }
-    }
-
-    if(event.event == EventType::KeyPressed)
-    {
-        if(event.key == VKeyM)
-        {
-            m_player_movement = !m_player_movement;
-        }
-        else if(event.key == VKeyF)
-        {
-            m_player->wave();
-        }
-        else if(event.key == VKeyR)
-        {
-            m_player->setPos(vec3(0.0f, 5.0f, -10.0f));
-            m_player->walkBack(false);
-            m_player->walkForward(false);
-            m_player->walkRight(false);
-            m_player->walkLeft(false);
-            m_player->setVelocity(vec3(0.0f, 0.0f, 0.0f));
-            m_player->setAcceleration(vec3(0.0f, 0.0f, 0.0f));
-        }
-        else if(event.key == VKeySpace)
-        {
-            if(m_player->velocity().y == 0)
-            {
-                m_player->jump();
-            }
-        }
-    }
-}
-
 #if EDITOR_ENABLE
 
 Object* Scene::pickObject(const Ray& rayW, float& d)
@@ -690,5 +615,78 @@ void Scene::serialize(std::string_view filename) const
 
     m_terrain->saveToFile();
 }
-
 #endif
+
+/*--- input handling ---*/
+void Scene::onKeyPressed(Key key, const InputState&)
+{
+    switch(key)
+    {
+    case VKeyM:
+        m_player_movement = !m_player_movement;
+        break;
+    case VKeyF:
+        m_player->wave();
+        break;
+    case VKeyR:
+        m_player->setPos(vec3(0.0f, 5.0f, -10.0f));
+        m_player->walkBack(false);
+        m_player->walkForward(false);
+        m_player->walkRight(false);
+        m_player->walkLeft(false);
+        m_player->setVelocity(vec3(0.0f, 0.0f, 0.0f));
+        m_player->setAcceleration(vec3(0.0f, 0.0f, 0.0f));
+        break;
+    case VKeySpace:
+        if(m_player->velocity().y == 0)
+        {
+            m_player->jump();
+        }
+        break;
+    default:
+        break;
+    }
+}
+
+void Scene::onMouseMoved(vec2 cursor_delta, const InputState&)
+{
+    if(!m_player_movement)
+    {
+        m_camera.rotate(cursor_delta.x * 0.005f);
+        m_camera.pitch(cursor_delta.y * 0.005f);
+    }
+    else
+    {
+        m_player_camera_phi -= cursor_delta.x * 0.01f;
+        if(m_player_camera_phi >= 2.0f * pi)
+        {
+            m_player_camera_phi -= 2.0f * pi;
+        }
+        else if(m_player_camera_phi <= 0.0f)
+        {
+            m_player_camera_phi += 2.0f * pi;
+        }
+
+        m_player_camera_theta = std::clamp(m_player_camera_theta - cursor_delta.y * 0.01f, 0.001f, pi - 0.001f);
+    }
+}
+
+void Scene::onMouseScrolledDown(const InputState&)
+{
+    m_player_camera_radius += 1.0f;
+
+    if(m_player_camera_radius > 10.0f)
+    {
+        m_player_camera_radius = 10.0f;
+    }
+}
+
+void Scene::onMouseScrolledUp(const InputState&)
+{
+    m_player_camera_radius -= 1.0f;
+
+    if(m_player_camera_radius < 3.0f)
+    {
+        m_player_camera_radius = 3.0f;
+    }
+}

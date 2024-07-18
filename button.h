@@ -11,14 +11,16 @@ public:
 public:
     void setUpdateCallback(std::move_only_function<void(Button&)>&&);
 
-    virtual void update(Engine3D& engine3d, float dt) override;
+    virtual void update(Engine3D& engine3d) override;
     virtual void draw(Engine3D& engine3d) override;
 
-    virtual void onInputEvent(const Event&, const InputState&) override;
-    virtual void cursorEnter() override;
-    virtual void cursorExit() override;
-    virtual void gotFocus() override;
-    virtual void lostFocus() override;
+    virtual void onMousePressed(MouseButton, const InputState&) override;
+    virtual void onMouseReleased(MouseButton, const InputState&) override;
+    virtual void onKeyPressed(Key, const InputState&) override;
+    virtual void onCursorEnter() override;
+    virtual void onCursorExit() override;
+    virtual void onGotFocus() override;
+    virtual void onLostFocus() override;
 
     virtual bool isPointInside(vec2) override;
 

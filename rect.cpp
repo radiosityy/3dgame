@@ -30,7 +30,7 @@ Rect::Rect(Engine3D& engine3d, float x, float y, float w, float h, TexId tex_id,
     updateVertex();
 }
 
-void Rect::update(Engine3D& engine3d, float dt)
+void Rect::update(Engine3D& engine3d)
 {
     //TODO: only update vertex data when it changes
     engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexUi), &m_vertex);

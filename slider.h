@@ -33,10 +33,17 @@ public:
         return (d.x > 0) && (d.x <= m_width) && (d.y > 0) && (d.y <= m_height);
     }
 
-    virtual void onInputEvent(const Event& event, const InputState& input_state) override
+    virtual void onMousePressed(MouseButton mb, const InputState& input_state) override
     {
-        if(((EventType::MousePressed == event.event) && (LMB == event.mouse)) ||
-           ((EventType::MouseDragged == event.event) && (input_state.mouse & LMB)))
+        if(LMB == mb)
+        {
+            reactToCursor(input_state.cursor_pos);
+        }
+    }
+
+    virtual void onMouseDragged(vec2, const InputState& input_state) override
+    {
+        if(input_state.lmb())
         {
             reactToCursor(input_state.cursor_pos);
         }
@@ -47,15 +54,15 @@ public:
         m_update_callback = std::move(callback);
     }
 
-    virtual void update(Engine3D& engine3d, float dt) override
+    virtual void update(Engine3D& engine3d) override
     {
         if(m_update_callback)
         {
             m_update_callback(*this);
         }
 
-        m_bar.update(engine3d, dt);
-        m_handle.update(engine3d, dt);
+        m_bar.update(engine3d);
+        m_handle.update(engine3d);
     }
 
     virtual void draw(Engine3D& engine3d) override

@@ -59,7 +59,7 @@ LRESULT CALLBACK WindowEventHandler(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
     return g_window->EventHandler(hwnd, uMsg, wParam, lParam);
 }
 
-void Window::manageEvents()
+void Window::handleEvents()
 {
     MSG msg;
 
@@ -399,105 +399,102 @@ LRESULT Window::EventHandler(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             return -1;
         }
 
-        Event event;
+        m_input_state.caps_lock = GetKeyState(VK_CAPITAL) & 1;
 
         //Manage keyboard input
         if(raw.header.dwType == RIM_TYPEKEYBOARD)
         {
+            Key key;
+
             if(VK_SHIFT == raw.data.keyboard.VKey)
             {
                 if(raw.data.keyboard.MakeCode == 54)
                 {
-                    event.key = VKeyRShift;
+                    key = VKeyRShift;
                 }
-                else if(raw.data.keyboard.MakeCode == 42)
+                else
                 {
-                    event.key = VKeyLShift;
+                    key = VKeyLShift;
                 }
             }
             else if(VK_CONTROL == raw.data.keyboard.VKey)
             {
                 if(raw.data.keyboard.Flags & RI_KEY_E0)
                 {
-                    event.key = VKeyRCtrl;
+                    key = VKeyRCtrl;
                 }
                 else
                 {
-                    event.key = VKeyLCtrl;
+                    key = VKeyLCtrl;
                 }
             }
             else if(VK_MENU == raw.data.keyboard.VKey)
             {
                 if(raw.data.keyboard.Flags & RI_KEY_E0)
                 {
-                    event.key = VKeyRAlt;
+                    key = VKeyRAlt;
                 }
                 else
                 {
-                    event.key = VKeyLAlt;
+                    key = VKeyLAlt;
                 }
             }
             else
             {
-                event.key = raw.data.keyboard.VKey;
+                key = raw.data.keyboard.VKey;
             }
 
             if(raw.data.keyboard.Flags & RI_KEY_BREAK)
             {
-                event.event = EventType::KeyReleased;
-                m_input_state.keyboard[event.key] = false;
+                m_input_state.keyboard[key] = false;
+                m_game_engine.onKeyReleased(key, m_input_state);
             }
             else
             {
-                event.event = EventType::KeyPressed;
-                m_input_state.keyboard[event.key] = true;
+                m_input_state.keyboard[key] = true;
+                m_game_engine.onKeyPressed(key, m_input_state);
             }
         }
         //Manage mouse input
         else if(raw.header.dwType == RIM_TYPEMOUSE)
         {
+            //TODO: add handling for more mouse buttons
             switch(raw.data.mouse.usButtonFlags)
             {
             case RI_MOUSE_LEFT_BUTTON_DOWN:
             {
-                event.mouse = LMB;
-                event.event = EventType::MousePressed;
-                m_input_state.mouse |= event.mouse;
+                m_input_state.mouse |= LMB;
+                m_game_engine.onMousePressed(LMB, m_input_state);
                 break;
             }
             case RI_MOUSE_LEFT_BUTTON_UP:
             {
-                event.mouse = LMB;
-                event.event = EventType::MouseReleased;
-                m_input_state.mouse &= ~event.mouse;
+                m_input_state.mouse &= ~LMB;
+                m_game_engine.onMouseReleased(LMB, m_input_state);
                 break;
             }
             case RI_MOUSE_RIGHT_BUTTON_DOWN:
             {
-                event.mouse = RMB;
-                event.event = EventType::MousePressed;
-                m_input_state.mouse |= event.mouse;
+                m_input_state.mouse |= RMB;
+                m_game_engine.onMousePressed(RMB, m_input_state);
                 break;
             }
             case RI_MOUSE_RIGHT_BUTTON_UP:
             {
-                event.mouse = RMB;
-                event.event = EventType::MouseReleased;
-                m_input_state.mouse &= ~event.mouse;
+                m_input_state.mouse &= ~RMB;
+                m_game_engine.onMouseReleased(RMB, m_input_state);
                 break;
             }
             case RI_MOUSE_MIDDLE_BUTTON_DOWN:
             {
-                event.mouse = MMB;
-                event.event = EventType::MousePressed;
-                m_input_state.mouse |= event.mouse;
+                m_input_state.mouse |= MMB;
+                m_game_engine.onMousePressed(MMB, m_input_state);
                 break;
             }
             case RI_MOUSE_MIDDLE_BUTTON_UP:
             {
-                event.mouse = MMB;
-                event.event = EventType::MouseReleased;
-                m_input_state.mouse &= ~event.mouse;
+                m_input_state.mouse &= ~MMB;
+                m_game_engine.onMouseReleased(MMB, m_input_state);
                 break;
             }
             case RI_MOUSE_WHEEL:
@@ -506,11 +503,11 @@ LRESULT Window::EventHandler(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                 if(delta > 0)
                 {
-                    event.event = EventType::MouseScrolledUp;
+                    m_game_engine.onMouseScrolledUp(m_input_state);
                 }
                 else if(delta < 0)
                 {
-                    event.event = EventType::MouseScrolledDown;
+                    m_game_engine.onMouseScrolledDown(m_input_state);
                 }
 
                 break;
@@ -520,10 +517,6 @@ LRESULT Window::EventHandler(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 return 0;
             }
         }
-
-        m_input_state.caps_lock = GetKeyState(VK_CAPITAL) & 1;
-
-        m_game_engine.onInputEvent(event, m_input_state);
 
         return 0;
     }
@@ -550,21 +543,19 @@ LRESULT Window::EventHandler(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         uint32_t x = LOWORD(lParam);
         uint32_t y = HIWORD(lParam);
 
-        Event event;
+        vec2 cursor_delta;
 
         if(m_cursor_left)
         {
             m_cursor_left = false;
             updateCursorPos();
             trackCursor();
-            event.cursor_delta = vec2(0.0f, 0.0f);
+            cursor_delta = vec2(0.0f, 0.0f);
         }
         else
         {
-            event.cursor_delta = vec2(x, y) - m_input_state.cursor_pos;
+            cursor_delta = vec2(x, y) - m_input_state.cursor_pos;
         }
-
-        event.event = (wParam & (MK_LBUTTON | MK_MBUTTON | MK_RBUTTON)) ? EventType::MouseDragged : EventType::MouseMoved;
 
         /*wrap cursor if locked*/
         if(m_cursor_locked)
@@ -603,7 +594,14 @@ LRESULT Window::EventHandler(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         m_input_state.cursor_pos = vec2(x, y);
         m_input_state.caps_lock = GetKeyState(VK_CAPITAL) & 1;
 
-        m_game_engine.onInputEvent(event, m_input_state);
+        if(wParam & (MK_LBUTTON | MK_MBUTTON | MK_RBUTTON))
+        {
+            m_game_engine.onMouseDragged(cursor_delta, m_input_state);
+        }
+        else
+        {
+            m_game_engine.onMouseMoved(cursor_delta, m_input_state);
+        }
 
         return 0;
     }
@@ -749,7 +747,7 @@ uint32_t Window::height() const noexcept
 //    Xcb
 /*------------------------------------------------------*/
 
-void Window::manageEvents()
+void Window::handleEvents()
 {
     std::vector<xcb_generic_event_t*> generic_events;
 

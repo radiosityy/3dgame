@@ -3,31 +3,20 @@
 #include <tuple>
 #include <fstream>
 
-void GuiObject::onInputEvent(const Event&, const InputState&)
-{
-}
+void InputHandler::onKeyPressed(Key, const InputState&) {}
+void InputHandler::onKeyReleased(Key, const InputState&) {}
+void InputHandler::onMousePressed(MouseButton, const InputState&) {}
+void InputHandler::onMouseReleased(MouseButton, const InputState&) {}
+void InputHandler::onMouseMoved(vec2, const InputState&) {}
+void InputHandler::onMouseDragged(vec2, const InputState&) {}
+void InputHandler::onMouseScrolledUp(const InputState&) {}
+void InputHandler::onMouseScrolledDown(const InputState&) {}
 
-void GuiObject::gotFocus()
-{
-}
-
-void GuiObject::lostFocus()
-{
-}
-
-void GuiObject::cursorEnter()
-{
-}
-
-void GuiObject::cursorExit()
-{
-}
-
-void GuiObject::updateAndDraw(Engine3D& engine3d, float dt)
-{
-    update(engine3d, dt);
-    draw(engine3d);
-}
+void GuiObject::onGotFocus() {}
+void GuiObject::onLostFocus() {}
+void GuiObject::onCursorEnter() {}
+void GuiObject::onCursorExit() {}
+void GuiObject::update(Engine3D&) {}
 
 bool GuiObject::isVisible() const noexcept
 {
@@ -57,6 +46,188 @@ void GuiObject::scale(vec2)
 {
 }
 
+void GuiParent::onKeyPressed(Key key, const InputState& input_state)
+{
+    if(!onKeyPressedIntercept(key, input_state))
+    {
+        if(m_keyboard_focus)
+        {
+            m_keyboard_focus->onKeyPressed(key, input_state);
+        }
+        else
+        {
+            onKeyPressedImpl(key, input_state);
+        }
+    }
+}
+
+void GuiParent::onKeyReleased(Key key, const InputState& input_state)
+{
+    if(!onKeyReleasedIntercept(key, input_state))
+    {
+        if(m_keyboard_focus)
+        {
+            m_keyboard_focus->onKeyReleased(key, input_state);
+        }
+        else
+        {
+            onKeyReleasedImpl(key, input_state);
+        }
+    }
+}
+
+void GuiParent::onMousePressed(MouseButton mb, const InputState& input_state)
+{
+    if(!onMousePressedIntercept(mb, input_state))
+    {
+        if(LMB == mb)
+        {
+            determineKeyboardFocus(input_state);
+        }
+
+        if(m_mouse_focus)
+        {
+            m_mouse_focus->onMousePressed(mb, input_state);
+        }
+        else
+        {
+            onMousePressedImpl(mb, input_state);
+        }
+    }
+}
+
+void GuiParent::onMouseReleased(MouseButton mb, const InputState& input_state)
+{
+    if(!onMouseReleasedIntercept(mb, input_state))
+    {
+        if(m_mouse_focus)
+        {
+            m_mouse_focus->onMouseReleased(mb, input_state);
+        }
+        else
+        {
+            onMouseReleasedImpl(mb, input_state);
+        }
+    }
+}
+
+void GuiParent::onMouseMoved(vec2 cursor_delta, const InputState& input_state)
+{
+    if(!onMouseMovedIntercept(cursor_delta, input_state))
+    {
+        determineMouseFocus(input_state);
+
+        if(m_mouse_focus)
+        {
+            m_mouse_focus->onMouseMoved(cursor_delta, input_state);
+        }
+        else
+        {
+            onMouseMovedImpl(cursor_delta, input_state);
+        }
+    }
+}
+
+void GuiParent::onMouseDragged(vec2 cursor_delta, const InputState& input_state)
+{
+    //TODO: figure out how to handle mouse dragged and if it's even needed
+    if(!onMouseDraggedIntercept(cursor_delta, input_state))
+    {
+        if(m_mouse_focus)
+        {
+            m_mouse_focus->onMouseDragged(cursor_delta, input_state);
+        }
+        else
+        {
+            onMouseDraggedImpl(cursor_delta, input_state);
+        }
+    }
+}
+
+void GuiParent::onMouseScrolledUp(const InputState& input_state)
+{
+    if(!onMouseScrolledUpIntercept(input_state))
+    {
+        if(m_mouse_focus)
+        {
+            m_mouse_focus->onMouseScrolledUp(input_state);
+        }
+        else
+        {
+            onMouseScrolledUpImpl(input_state);
+        }
+    }
+}
+
+void GuiParent::onMouseScrolledDown(const InputState& input_state)
+{
+    if(!onMouseScrolledDownIntercept(input_state))
+    {
+        if(m_mouse_focus)
+        {
+            m_mouse_focus->onMouseScrolledDown(input_state);
+        }
+        else
+        {
+            onMouseScrolledDownImpl(input_state);
+        }
+    }
+}
+
+bool GuiParent::onKeyPressedIntercept(Key, const InputState&) {return false;}
+bool GuiParent::onKeyReleasedIntercept(Key, const InputState&) {return false;}
+bool GuiParent::onMousePressedIntercept(MouseButton, const InputState&) {return false;}
+bool GuiParent::onMouseReleasedIntercept(MouseButton, const InputState&) {return false;}
+bool GuiParent::onMouseMovedIntercept(vec2, const InputState&) {return false;}
+bool GuiParent::onMouseDraggedIntercept(vec2, const InputState&) {return false;}
+bool GuiParent::onMouseScrolledUpIntercept(const InputState&) {return false;}
+bool GuiParent::onMouseScrolledDownIntercept(const InputState&) {return false;}
+
+void GuiParent::onKeyPressedImpl(Key, const InputState&) {}
+void GuiParent::onKeyReleasedImpl(Key, const InputState&) {}
+void GuiParent::onMousePressedImpl(MouseButton, const InputState&) {}
+void GuiParent::onMouseReleasedImpl(MouseButton, const InputState&) {}
+void GuiParent::onMouseMovedImpl(vec2, const InputState&) {}
+void GuiParent::onMouseDraggedImpl(vec2, const InputState&) {}
+void GuiParent::onMouseScrolledUpImpl(const InputState&) {}
+void GuiParent::onMouseScrolledDownImpl(const InputState&) {}
+
+void GuiParent::removeChild(GuiObject* child)
+{
+    auto itr = std::ranges::find_if(m_children, [child](const auto& ptr){return ptr.get() == child;});
+    itr->reset();
+    m_children.erase(itr);
+
+    if(m_keyboard_focus == child)
+    {
+        m_keyboard_focus = nullptr;
+    }
+
+    if(m_mouse_focus == child)
+    {
+        m_mouse_focus = nullptr;
+    }
+}
+
+void GuiParent::updateChildren(Engine3D& engine3d)
+{
+    for(auto& child : m_children)
+    {
+        child->update(engine3d);
+    }
+}
+
+void GuiParent::drawChildren(Engine3D& engine3d)
+{
+    for(auto& child : m_children)
+    {
+        if(child->isVisible())
+        {
+            child->draw(engine3d);
+        }
+    }
+}
+
 void GuiParent::setKeyboardFocus(GuiObject* object)
 {
     if(object)
@@ -65,20 +236,20 @@ void GuiParent::setKeyboardFocus(GuiObject* object)
         {
             if(m_keyboard_focus != object)
             {
-                m_keyboard_focus->lostFocus();
+                m_keyboard_focus->onLostFocus();
                 m_keyboard_focus = object;
-                m_keyboard_focus->gotFocus();
+                m_keyboard_focus->onGotFocus();
             }
         }
         else
         {
             m_keyboard_focus = object;
-            m_keyboard_focus->gotFocus();
+            m_keyboard_focus->onGotFocus();
         }
     }
     else if(m_keyboard_focus)
     {
-        m_keyboard_focus->lostFocus();
+        m_keyboard_focus->onLostFocus();
         m_keyboard_focus = nullptr;
     }
 }
@@ -91,20 +262,20 @@ void GuiParent::setMouseFocus(GuiObject* object)
         {
             if(m_mouse_focus != object)
             {
-                m_mouse_focus->cursorExit();
+                m_mouse_focus->onCursorExit();
                 m_mouse_focus = object;
-                m_mouse_focus->cursorEnter();
+                m_mouse_focus->onCursorEnter();
             }
         }
         else
         {
             m_mouse_focus = object;
-            m_mouse_focus->cursorEnter();
+            m_mouse_focus->onCursorEnter();
         }
     }
     else if(m_mouse_focus)
     {
-        m_mouse_focus->cursorExit();
+        m_mouse_focus->onCursorExit();
         m_mouse_focus = nullptr;
     }
 }
@@ -119,66 +290,54 @@ void GuiParent::resetMouseFocus()
     setMouseFocus(nullptr);
 }
 
-void GuiParent::determineKeyboardFocus(GuiObject* object, const Event& event, const InputState& input_state)
+void GuiParent::determineKeyboardFocus(GuiObject* object, const InputState& input_state)
 {
-    if((EventType::MousePressed == event.event) && (LMB == event.mouse))
+    if(object->isVisible() && object->isFocusable() && object->isPointInside(input_state.cursor_pos))
     {
-        if(object->isVisible() && object->isFocusable() && object->isPointInside(input_state.cursor_pos))
-        {
-            setKeyboardFocus(object);
-        }
-        else
-        {
-            setKeyboardFocus(nullptr);
-        }
+        setKeyboardFocus(object);
+    }
+    else
+    {
+        setKeyboardFocus(nullptr);
     }
 }
 
-void GuiParent::determineMouseFocus(GuiObject* object, const Event& event, const InputState& input_state)
+void GuiParent::determineMouseFocus(GuiObject* object, const InputState& input_state)
 {
-    if(EventType::MouseMoved == event.event)
+    if(object->isVisible() && object->isFocusable() && object->isPointInside(input_state.cursor_pos))
     {
-        if(object->isVisible() && object->isFocusable() && object->isPointInside(input_state.cursor_pos))
-        {
-            setMouseFocus(object);
-        }
-        else
-        {
-            setMouseFocus(nullptr);
-        }
+        setMouseFocus(object);
+    }
+    else
+    {
+        setMouseFocus(nullptr);
     }
 }
 
-bool GuiParent::forwardEventToFocused(const Event& event, const InputState& input_state)
+void GuiParentObject::update(Engine3D& engine3d)
 {
-    if(event.keyEvent() && m_keyboard_focus)
-    {
-        m_keyboard_focus->onInputEvent(event, input_state);
-        return true;
-    }
-    else if(event.mouseEvent() && m_mouse_focus)
-    {
-        m_mouse_focus->onInputEvent(event, input_state);
-        return true;
-    }
-
-    return false;
+    updateChildren(engine3d);
 }
 
-void GuiParentObject::lostFocus()
+void GuiParentObject::draw(Engine3D& engine3d)
+{
+    drawChildren(engine3d);
+}
+
+void GuiParentObject::onLostFocus()
 {
     if(m_keyboard_focus)
     {
-        m_keyboard_focus->lostFocus();
+        m_keyboard_focus->onLostFocus();
         m_keyboard_focus = nullptr;
     }
 }
 
-void GuiParentObject::cursorExit()
+void GuiParentObject::onCursorExit()
 {
     if(m_mouse_focus)
     {
-        m_mouse_focus->cursorExit();
+        m_mouse_focus->onCursorExit();
         m_mouse_focus = nullptr;
     }
 }

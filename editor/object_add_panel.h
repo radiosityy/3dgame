@@ -10,12 +10,10 @@ class ObjectAddPanel : public GuiParentObject
 public:
     ObjectAddPanel(Engine3D& engine3d, float x, float y, Scene& scene, const Font& font);
 
-    virtual void update(Engine3D& engine3d, float dt) override;
-    virtual void draw(Engine3D& engine3d) override;
-    virtual void onInputEvent(const Event& event, const InputState& input_state) override;
+    virtual bool onKeyPressedIntercept(Key, const InputState&) override;
     virtual void setScissor(Quad scissor) override;
     virtual bool isPointInside(vec2) override;
-    virtual void gotFocus() override;
+    virtual void onGotFocus() override;
 
 private:
     void addObject(std::string_view mesh_filename);
@@ -32,9 +30,8 @@ private:
 
     float m_list_y = 0.0f;
 
-    std::vector<std::unique_ptr<GuiObject>> m_children;
     Label* m_text_input = nullptr;
-    std::vector<std::unique_ptr<GuiObject>> m_items;
+    std::vector<Button*> m_items;
 
     std::vector<std::string> m_mesh_filenames;
     int m_selected_item_id = -1;

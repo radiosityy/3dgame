@@ -7,29 +7,29 @@
 using Key = uint16_t;
 
 using MouseButton = uint8_t;
-constexpr MouseButton LMB = 1;
-constexpr MouseButton MMB = 2;
-constexpr MouseButton RMB = 4;
-
-using ControllerButton = uint8_t;
+constexpr inline MouseButton LMB = 1;
+constexpr inline MouseButton MMB = 2;
+constexpr inline MouseButton RMB = 4;
 
 /*--- controller buttons ---*/
-constexpr ControllerButton ControllerDPadUp      = 0;
-constexpr ControllerButton ControllerDPadDown    = 1;
-constexpr ControllerButton ControllerDPadLeft    = 2;
-constexpr ControllerButton ControllerDPadRight   = 3;
-constexpr ControllerButton ControllerStart       = 4;
-constexpr ControllerButton ControllerBack        = 5;
-constexpr ControllerButton ControllerLeftThumb   = 6;
-constexpr ControllerButton ControllerRightThumb  = 7;
-constexpr ControllerButton ControllerLeftBumper  = 8;
-constexpr ControllerButton ControllerRightBumper = 9;
-constexpr ControllerButton ControllerA           = 10;
-constexpr ControllerButton ControllerB           = 11;
-constexpr ControllerButton ControllerX           = 12;
-constexpr ControllerButton ControllerY           = 13;
+using ControllerButton = uint8_t;
 
-constexpr uint8_t ControllerButtonCount = 14;
+constexpr inline ControllerButton ControllerDPadUp      = 0;
+constexpr inline ControllerButton ControllerDPadDown    = 1;
+constexpr inline ControllerButton ControllerDPadLeft    = 2;
+constexpr inline ControllerButton ControllerDPadRight   = 3;
+constexpr inline ControllerButton ControllerStart       = 4;
+constexpr inline ControllerButton ControllerBack        = 5;
+constexpr inline ControllerButton ControllerLeftThumb   = 6;
+constexpr inline ControllerButton ControllerRightThumb  = 7;
+constexpr inline ControllerButton ControllerLeftBumper  = 8;
+constexpr inline ControllerButton ControllerRightBumper = 9;
+constexpr inline ControllerButton ControllerA           = 10;
+constexpr inline ControllerButton ControllerB           = 11;
+constexpr inline ControllerButton ControllerX           = 12;
+constexpr inline ControllerButton ControllerY           = 13;
+
+constexpr inline uint8_t ControllerButtonCount = 14;
 
 #ifdef _WIN32
 #include "platform_win32.h"

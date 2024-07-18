@@ -7,19 +7,19 @@
 class Checkbox : public Rect
 {
 public:
-    Checkbox(Engine3D& engine3d, float x, float y, float w, float h, bool init_state = false);
+    Checkbox(Engine3D& engine3d, float x, float y, float w, float h, bool init_checked = false);
 
-    virtual void onInputEvent(const Event& event, const InputState& input_state) override;
+    virtual void onMouseReleased(MouseButton, const InputState&) override;
 
     bool state() const;
-    void setState(bool);
+    void setChecked(bool);
     void toggle();
 
     void setOnCheckCallback(std::move_only_function<void()>&& callback);
     void setOnUncheckCallback(std::move_only_function<void()>&& callback);
 
 private:
-    bool m_state = false;
+    bool m_checked = false;
 
     const TexId m_unchecked_tex;
     const TexId m_checked_tex;

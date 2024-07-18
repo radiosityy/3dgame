@@ -9,14 +9,15 @@ class Console : public GuiObject
 public:
     Console(Engine3D& engine3d, float x, float y, float w, float h, const Font& font, std::move_only_function<void(const std::string&)>&& command_process_callback = {});
 
-    virtual void update(Engine3D& engine3d, float dt) override;
+    virtual void update(Engine3D& engine3d) override;
     virtual void draw(Engine3D& engine3d) override;
 
     void print(std::string_view text);
 
-    void gotFocus() override;
-    void lostFocus() override;
-    void onInputEvent(const Event&, const InputState&) override;
+    void onGotFocus() override;
+    void onLostFocus() override;
+    virtual void onKeyPressed(Key, const InputState&) override;
+    virtual void onMousePressed(MouseButton, const InputState&) override;
 
     bool isPointInside(vec2) override;
 

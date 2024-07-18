@@ -1,12 +1,12 @@
 #include "checkbox.h"
 
-Checkbox::Checkbox(Engine3D& engine3d, float x, float y, float w, float h, bool init_state)
+Checkbox::Checkbox(Engine3D& engine3d, float x, float y, float w, float h, bool init_checked)
     : Rect(engine3d, x, y, w, h)
-    , m_state(init_state)
+    , m_checked(init_checked)
     , m_unchecked_tex(TexId(engine3d.loadTexture("checkbox_unchecked.png"), 0))
     , m_checked_tex(TexId(engine3d.loadTexture("checkbox_checked.png"), 0))
 {
-    if(m_state)
+    if(m_checked)
     {
         setTexture(m_checked_tex);
     }
@@ -16,9 +16,9 @@ Checkbox::Checkbox(Engine3D& engine3d, float x, float y, float w, float h, bool 
     }
 }
 
-void Checkbox::onInputEvent(const Event& event, const InputState& input_state)
+void Checkbox::onMouseReleased(MouseButton mb, const InputState& input_state)
 {
-    if(event.event == EventType::MouseReleased && event.mouse == LMB)
+    if(LMB == mb)
     {
         toggle();
     }
@@ -26,14 +26,14 @@ void Checkbox::onInputEvent(const Event& event, const InputState& input_state)
 
 bool Checkbox::state() const
 {
-    return m_state;
+    return m_checked;
 }
 
-void Checkbox::setState(bool state)
+void Checkbox::setChecked(bool checked)
 {
-    m_state = state;
+    m_checked = checked;
 
-    if(m_state)
+    if(m_checked)
     {
         setTexture(m_checked_tex);
 
@@ -55,7 +55,7 @@ void Checkbox::setState(bool state)
 
 void Checkbox::toggle()
 {
-    setState(!m_state);
+    setChecked(!m_checked);
 }
 
 void Checkbox::setOnCheckCallback(std::move_only_function<void()>&& callback)

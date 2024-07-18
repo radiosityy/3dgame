@@ -25,8 +25,11 @@ public:
 
     void update(float dt, const InputState& input_state) noexcept;
     void draw(RenderData&) noexcept;
-    void onInputEvent(const Event&, const InputState&);
     void onWindowResize(float aspect_ratio) noexcept;
+    void onKeyPressed(Key, const InputState&);
+    void onMouseMoved(vec2, const InputState&);
+    void onMouseScrolledDown(const InputState&);
+    void onMouseScrolledUp(const InputState&);
 
     void addObject(auto&&... args)
     {

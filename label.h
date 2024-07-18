@@ -13,11 +13,12 @@ public:
     Label(Engine3D& engine3d, float x, float y, const Font& font, const std::string& text, bool editable = false, HorizontalAlignment = HorizontalAlignment::Left, VerticalAlignment = VerticalAlignment::Top);
     Label(Engine3D& engine3d, float x, float y, float width, float height, const Font& font, const std::string& text, bool editable = false, HorizontalAlignment = HorizontalAlignment::Center, VerticalAlignment = VerticalAlignment::Center);
 
-    virtual void onInputEvent(const Event& event, const InputState& input_state) override;
+    virtual void onKeyPressed(Key, const InputState&) override;
+    virtual void onMousePressed(MouseButton, const InputState&) override;
 
     virtual void setUpdateCallback(std::move_only_function<void(Label&)>&&);
     virtual void setTextChangedCallback(std::move_only_function<void(std::string_view)>&&);
-    virtual void update(Engine3D& engine3d, float dt) override;
+    virtual void update(Engine3D& engine3d) override;
     virtual void draw(Engine3D& engine3d) override;
 
     void setBackgroundColor(ColorRGBA color);
@@ -43,8 +44,8 @@ public:
 
     void setActionOnFocusLost(Action);
 
-    void gotFocus() override;
-    void lostFocus() override;
+    void onGotFocus() override;
+    void onLostFocus() override;
 
 private:
     void updateVertexData();

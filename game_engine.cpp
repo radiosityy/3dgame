@@ -250,7 +250,7 @@ void GameEngine::run()
 
     while(true)
     {
-        m_window->manageEvents();
+        m_window->handleEvents();
 
         if(m_stop)
         {
@@ -299,11 +299,13 @@ void GameEngine::run()
         }
 #endif
 
-        m_fps_label->updateAndDraw(*m_engine3d, frametime);
+        m_fps_label->update(*m_engine3d);
+        m_fps_label->draw(*m_engine3d);
 
         if(m_console_active)
         {
-            m_console->updateAndDraw(*m_engine3d, frametime);
+            m_console->update(*m_engine3d);
+            m_console->draw(*m_engine3d);
         }
 
         m_engine3d->updateAndRender(render_data, m_scene->camera());
@@ -330,6 +332,7 @@ void GameEngine::onWindowResizeEvent(uint32_t width, uint32_t height, float scal
     {
         m_invalid_window = false;
 
+        //TODO: gui scale is not used and neither are the scale_x, scale_y parameters
         m_gui_scale.x = static_cast<float>(width) / reference_resolution.x;
         m_gui_scale.y = static_cast<float>(height) / reference_resolution.y;
 
@@ -343,71 +346,168 @@ void GameEngine::onWindowResizeEvent(uint32_t width, uint32_t height, float scal
 
 /*--------------------------------------- input handling -----------------------------------------*/
 
-void GameEngine::onInputEvent(const Event& event, const InputState& input_state)
+void GameEngine::onKeyPressed(Key key, const InputState& input_state)
 {
-    if(EventType::KeyPressed == event.event)
+    if(VKeyTidle == key)
     {
-        if(VKeyTidle == event.key)
-        {
-            if(m_console_active)
-            {
-                m_console_active = false;
-                m_console->setVisible(false);
-                m_console->lostFocus();
-            }
-            else
-            {
-                m_console_active = true;
-                m_console->setVisible(true);
-                m_console->gotFocus();
-            }
-
-            return;
-        }
-
         if(m_console_active)
         {
-            m_console->onInputEvent(event, input_state);
-            return;
+            m_console_active = false;
+            m_console->setVisible(false);
+            m_console->onLostFocus();
         }
+        else
+        {
+            m_console_active = true;
+            m_console->setVisible(true);
+            m_console->onGotFocus();
+        }
+
+        return;
+    }
+
+    if(m_console_active)
+    {
+        m_console->onKeyPressed(key, input_state);
+        return;
+    }
 
 #if EDITOR_ENABLE
-        if(event.key == VKeyF2)
-        {
-            m_edit_mode = !m_edit_mode;
-            m_window->showCursor(m_edit_mode);
-            return;
-        }
+    if(key == VKeyF2)
+    {
+        m_edit_mode = !m_edit_mode;
+        m_window->showCursor(m_edit_mode);
+        return;
+    }
 #endif
 
-        if(input_state.ctrl())
+    if(input_state.ctrl())
+    {
+        if(key == VKeyL)
         {
-            if(event.key == VKeyL)
-            {
-                m_window->toggleCursorLock();
-                return;
-            }
+            m_window->toggleCursorLock();
+            return;
+        }
 
-            if(event.key == VKeyQ)
-            {
-                stop();
-                return;
-            }
+        if(key == VKeyQ)
+        {
+            stop();
+            return;
         }
     }
 
 #if EDITOR_ENABLE
     if(m_edit_mode)
     {
-        m_editor->onInputEvent(event, input_state);
+        m_editor->onKeyPressed(key, input_state);
     }
     else
 #endif
     {
-        m_scene->onInputEvent(event, input_state);
+        m_scene->onKeyPressed(key, input_state);
     }
 }
 
-void GameEngine::onControllerEvent(const ControllerEvent&, const ControllerState&)
+void GameEngine::onKeyReleased(Key key, const InputState& input_state)
 {
+#if EDITOR_ENABLE
+    if(m_edit_mode)
+    {
+        m_editor->onKeyReleased(key, input_state);
+    }
+    else
+#endif
+    {
+        // m_scene->onKeyReleased(key, input_state);
+    }
+}
+
+void GameEngine::onMousePressed(MouseButton mb, const InputState& input_state)
+{
+    if(m_console_active)
+    {
+        m_console->onMousePressed(mb, input_state);
+        return;
+    }
+
+#if EDITOR_ENABLE
+    if(m_edit_mode)
+    {
+        m_editor->onMousePressed(mb, input_state);
+    }
+    else
+#endif
+    {
+        // m_scene->onMousePressed(mb, input_state);
+    }
+}
+
+void GameEngine::onMouseReleased(MouseButton mb, const InputState& input_state)
+{
+#if EDITOR_ENABLE
+    if(m_edit_mode)
+    {
+        m_editor->onMouseReleased(mb, input_state);
+    }
+    else
+#endif
+    {
+        // m_scene->onMouseReleased(mb, input_state);
+    }
+}
+
+void GameEngine::onMouseMoved(vec2 cursor_delta, const InputState& input_state)
+{
+#if EDITOR_ENABLE
+    if(m_edit_mode)
+    {
+        m_editor->onMouseMoved(cursor_delta, input_state);
+    }
+    else
+#endif
+    {
+        m_scene->onMouseMoved(cursor_delta, input_state);
+    }
+}
+
+void GameEngine::onMouseDragged(vec2 cursor_delta, const InputState& input_state)
+{
+#if EDITOR_ENABLE
+    if(m_edit_mode)
+    {
+        m_editor->onMouseDragged(cursor_delta, input_state);
+    }
+    else
+#endif
+    {
+        // m_scene->onMouseDragged(cursor_delta, input_state);
+    }
+}
+
+void GameEngine::onMouseScrolledUp(const InputState& input_state)
+{
+#if EDITOR_ENABLE
+    if(m_edit_mode)
+    {
+        m_editor->onMouseScrolledUp(input_state);
+    }
+    else
+#endif
+    {
+        m_scene->onMouseScrolledUp(input_state);
+    }
+}
+
+void GameEngine::onMouseScrolledDown(const InputState& input_state)
+{
+#if EDITOR_ENABLE
+    if(m_edit_mode)
+    {
+        m_editor->onMouseScrolledDown(input_state);
+    }
+    else
+#endif
+    {
+        m_scene->onMouseScrolledDown(input_state);
+    }
 }

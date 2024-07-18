@@ -39,11 +39,11 @@ Console::Console(Engine3D& engine3d, float x, float y, float w, float h, const F
     m_text_input.setScissor({m_x, m_y, m_width, m_height});
 }
 
-void Console::update(Engine3D& engine3d, float dt)
+void Console::update(Engine3D& engine3d)
 {
-    m_rect.update(engine3d, dt);
-    m_text_label.update(engine3d, dt);
-    m_text_input.update(engine3d, dt);
+    m_rect.update(engine3d);
+    m_text_label.update(engine3d);
+    m_text_input.update(engine3d);
 }
 
 void Console::draw(Engine3D& engine3d)
@@ -65,43 +65,14 @@ void Console::print(std::string_view text)
     }
 }
 
-void Console::gotFocus()
+void Console::onGotFocus()
 {
-    m_text_input.gotFocus();
+    m_text_input.onGotFocus();
 }
 
-void Console::lostFocus()
+void Console::onLostFocus()
 {
-    m_text_input.lostFocus();
-}
-
-void Console::onInputEvent(const Event& event, const InputState& input_state)
-{
-    if(event.event == EventType::KeyPressed)
-    {
-        if(event.key == VKeyUp)
-        {
-            if(auto prev = std::next(m_command_history_itr); prev != m_command_history.end())
-            {
-                *m_command_history_itr = m_text_input.text();
-                m_command_history_itr = prev;
-                m_text_input.setText(*m_command_history_itr);
-            }
-            return;
-        }
-        else if(event.key == VKeyDown)
-        {
-            if(m_command_history_itr != m_command_history.begin())
-            {
-                *m_command_history_itr = m_text_input.text();
-                m_command_history_itr--;
-                m_text_input.setText(*m_command_history_itr);
-            }
-            return;
-        }
-    }
-
-    m_text_input.onInputEvent(event, input_state);
+    m_text_input.onLostFocus();
 }
 
 bool Console::isPointInside(vec2 p)
@@ -118,4 +89,36 @@ void Console::setScissor(Quad scissor)
 
     m_text_label.setScissor(min_scissor);
     m_text_input.setScissor(min_scissor);
+}
+
+void Console::onKeyPressed(Key key, const InputState& input_state)
+{
+    switch(key)
+    {
+    case VKeyUp:
+        if(auto prev = std::next(m_command_history_itr); prev != m_command_history.end())
+        {
+            *m_command_history_itr = m_text_input.text();
+            m_command_history_itr = prev;
+            m_text_input.setText(*m_command_history_itr);
+        }
+        return;
+    case VKeyDown:
+        if(m_command_history_itr != m_command_history.begin())
+        {
+            *m_command_history_itr = m_text_input.text();
+            m_command_history_itr--;
+            m_text_input.setText(*m_command_history_itr);
+        }
+        return;
+    default:
+        break;
+    }
+
+    m_text_input.onKeyPressed(key, input_state);
+}
+
+void Console::onMousePressed(MouseButton mb, const InputState& input_state)
+{
+    m_text_input.onMousePressed(mb, input_state);
 }

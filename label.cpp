@@ -79,259 +79,262 @@ Label::Label(Engine3D& engine3d, float x, float y, float width, float height, co
     updateCursor(m_text.size());
 }
 
-void Label::onInputEvent(const Event& event, const InputState& input_state)
+void Label::onKeyPressed(Key key, const InputState& input_state)
 {
     if(!m_editable)
     {
         return;
     }
 
-    if(EventType::KeyPressed == event.event)
+    const bool uppercase = input_state.shift() != input_state.caps_lock;
+
+    switch(key)
     {
-        const bool uppercase = input_state.shift() != input_state.caps_lock;
-
-        switch(event.key)
+    case VKeyLeft:
+        if(m_cursor_position > 0)
         {
-        case VKeyLeft:
-            if(m_cursor_position > 0)
-            {
-                updateCursor(m_cursor_position - 1);
-            }
-            break;
-        case VKeyRight:
-            if(m_cursor_position < text().size())
-            {
-                updateCursor(m_cursor_position + 1);
-            }
-            break;
-        case VKeyHome:
-            updateCursor(0);
-            break;
-        case VKeyEnd:
-            updateCursor(text().size());
-            break;
-        case VKeyA:
-            typeCharacter(uppercase ? "A" : "a");
-            break;
-        case VKeyB:
-            typeCharacter(uppercase ? "B" : "b");
-            break;
-        case VKeyC:
-            typeCharacter(uppercase ? "C" : "c");
-            break;
-        case VKeyD:
-            typeCharacter(uppercase ? "D" : "d");
-            break;
-        case VKeyE:
-            typeCharacter(uppercase ? "E" : "e");
-            break;
-        case VKeyF:
-            typeCharacter(uppercase ? "F" : "f");
-            break;
-        case VKeyG:
-            typeCharacter(uppercase ? "G" : "g");
-            break;
-        case VKeyH:
-            typeCharacter(uppercase ? "H" : "h");
-            break;
-        case VKeyI:
-            typeCharacter(uppercase ? "I" : "i");
-            break;
-        case VKeyJ:
-            typeCharacter(uppercase ? "J" : "j");
-            break;
-        case VKeyK:
-            typeCharacter(uppercase ? "K" : "k");
-            break;
-        case VKeyL:
-            typeCharacter(uppercase ? "L" : "l");
-            break;
-        case VKeyM:
-            typeCharacter(uppercase ? "M" : "m");
-            break;
-        case VKeyN:
-            typeCharacter(uppercase ? "N" : "n");
-            break;
-        case VKeyO:
-            typeCharacter(uppercase ? "O" : "o");
-            break;
-        case VKeyP:
-            typeCharacter(uppercase ? "P" : "p");
-            break;
-        case VKeyQ:
-            typeCharacter(uppercase ? "Q" : "q");
-            break;
-        case VKeyR:
-            typeCharacter(uppercase ? "R" : "r");
-            break;
-        case VKeyS:
-            typeCharacter(uppercase ? "S" : "s");
-            break;
-        case VKeyT:
-            typeCharacter(uppercase ? "T" : "t");
-            break;
-        case VKeyU:
-            typeCharacter(uppercase ? "U" : "u");
-            break;
-        case VKeyV:
-            typeCharacter(uppercase ? "V" : "v");
-            break;
-        case VKeyW:
-            typeCharacter(uppercase ? "W" : "w");
-            break;
-        case VKeyX:
-            typeCharacter(uppercase ? "X" : "x");
-            break;
-        case VKeyY:
-            typeCharacter(uppercase ? "Y" : "y");
-            break;
-        case VKeyZ:
-            typeCharacter(uppercase ? "Z" : "z");
-            break;
-        case VKey1:
-            typeCharacter(input_state.shift() ? "!" : "1");
-            break;
-        case VKey2:
-            typeCharacter(input_state.shift() ? "@" : "2");
-            break;
-        case VKey3:
-            typeCharacter(input_state.shift() ? "#" : "3");
-            break;
-        case VKey4:
-            typeCharacter(input_state.shift() ? "$" : "4");
-            break;
-        case VKey5:
-            typeCharacter(input_state.shift() ? "%" : "5");
-            break;
-        case VKey6:
-            typeCharacter(input_state.shift() ? "^" : "6");
-            break;
-        case VKey7:
-            typeCharacter(input_state.shift() ? "&" : "7");
-            break;
-        case VKey8:
-            typeCharacter(input_state.shift() ? "*" : "8");
-            break;
-        case VKey9:
-            typeCharacter(input_state.shift() ? "(" : "9");
-            break;
-        case VKey0:
-            typeCharacter(input_state.shift() ? ")" : "0");
-            break;
-        case VKeyColon:
-            typeCharacter(input_state.shift() ? ":" : ";");
-            break;
-        case VKeyLBracket:
-            typeCharacter(input_state.shift() ? "{" : "[");
-            break;
-        case VKeyRBracket:
-            typeCharacter(input_state.shift() ? "}" : "]");
-            break;
-        case VKeyQuote:
-            typeCharacter(input_state.shift() ? "'" : "\"");
-            break;
-        case VKeyComma:
-            typeCharacter(input_state.shift() ? "<" : ",");
-            break;
-        case VKeyPeriod:
-            typeCharacter(input_state.shift() ? ">" : ".");
-            break;
-        case VKeyMinus:
-            typeCharacter(input_state.shift() ? "_" : "-");
-            break;
-        case VKeyPlus:
-            typeCharacter(input_state.shift() ? "+" : "=");
-            break;
-        case VKeySlash:
-            typeCharacter(input_state.shift() ? "?" : "/");
-            break;
-        case VKeyBackslash:
-            typeCharacter(input_state.shift() ? "|" : "\\");
-            break;
-        case VKeySpace:
-            typeCharacter(" ");
-            break;
-        case VKeyBackspace:
-            if((m_cursor_position > 0) && !m_text.empty())
-            {
-                const size_t pos_from_back = m_text.size() - m_cursor_position;
-
-                auto text = m_text;
-                text.erase(m_cursor_position - 1, 1);
-                setTextNoCursorUpdate(text);
-                updateCursor(m_text.size() - pos_from_back);
-            }
-            break;
-        case VKeyDelete:
-            if((m_cursor_position < text().size()) && !m_text.empty())
-            {
-                auto text = m_text;
-                text.erase(m_cursor_position, 1);
-                setTextNoCursorUpdate(text);
-                updateCursor(m_cursor_position);
-            }
-            break;
-        case VKeyEnter:
-            if(m_confirm_callback)
-            {
-                m_confirm_callback(*this);
-                if(m_cancelable)
-                {
-                    m_prev_text = text();
-                }
-            }
-            else if(m_multiline)
-            {
-                setText(m_text + '\n');
-            }
-            break;
-        case VKeyEsc:
-            cancel();
-            break;
+            updateCursor(m_cursor_position - 1);
         }
-    }
-    else if(EventType::MousePressed == event.event)
-    {
-        if(m_editable && !m_text.empty())
+        break;
+    case VKeyRight:
+        if(m_cursor_position < text().size())
         {
-            float base_x = m_base_x;
+            updateCursor(m_cursor_position + 1);
+        }
+        break;
+    case VKeyHome:
+        updateCursor(0);
+        break;
+    case VKeyEnd:
+        updateCursor(text().size());
+        break;
+    case VKeyA:
+        typeCharacter(uppercase ? "A" : "a");
+        break;
+    case VKeyB:
+        typeCharacter(uppercase ? "B" : "b");
+        break;
+    case VKeyC:
+        typeCharacter(uppercase ? "C" : "c");
+        break;
+    case VKeyD:
+        typeCharacter(uppercase ? "D" : "d");
+        break;
+    case VKeyE:
+        typeCharacter(uppercase ? "E" : "e");
+        break;
+    case VKeyF:
+        typeCharacter(uppercase ? "F" : "f");
+        break;
+    case VKeyG:
+        typeCharacter(uppercase ? "G" : "g");
+        break;
+    case VKeyH:
+        typeCharacter(uppercase ? "H" : "h");
+        break;
+    case VKeyI:
+        typeCharacter(uppercase ? "I" : "i");
+        break;
+    case VKeyJ:
+        typeCharacter(uppercase ? "J" : "j");
+        break;
+    case VKeyK:
+        typeCharacter(uppercase ? "K" : "k");
+        break;
+    case VKeyL:
+        typeCharacter(uppercase ? "L" : "l");
+        break;
+    case VKeyM:
+        typeCharacter(uppercase ? "M" : "m");
+        break;
+    case VKeyN:
+        typeCharacter(uppercase ? "N" : "n");
+        break;
+    case VKeyO:
+        typeCharacter(uppercase ? "O" : "o");
+        break;
+    case VKeyP:
+        typeCharacter(uppercase ? "P" : "p");
+        break;
+    case VKeyQ:
+        typeCharacter(uppercase ? "Q" : "q");
+        break;
+    case VKeyR:
+        typeCharacter(uppercase ? "R" : "r");
+        break;
+    case VKeyS:
+        typeCharacter(uppercase ? "S" : "s");
+        break;
+    case VKeyT:
+        typeCharacter(uppercase ? "T" : "t");
+        break;
+    case VKeyU:
+        typeCharacter(uppercase ? "U" : "u");
+        break;
+    case VKeyV:
+        typeCharacter(uppercase ? "V" : "v");
+        break;
+    case VKeyW:
+        typeCharacter(uppercase ? "W" : "w");
+        break;
+    case VKeyX:
+        typeCharacter(uppercase ? "X" : "x");
+        break;
+    case VKeyY:
+        typeCharacter(uppercase ? "Y" : "y");
+        break;
+    case VKeyZ:
+        typeCharacter(uppercase ? "Z" : "z");
+        break;
+    case VKey1:
+        typeCharacter(input_state.shift() ? "!" : "1");
+        break;
+    case VKey2:
+        typeCharacter(input_state.shift() ? "@" : "2");
+        break;
+    case VKey3:
+        typeCharacter(input_state.shift() ? "#" : "3");
+        break;
+    case VKey4:
+        typeCharacter(input_state.shift() ? "$" : "4");
+        break;
+    case VKey5:
+        typeCharacter(input_state.shift() ? "%" : "5");
+        break;
+    case VKey6:
+        typeCharacter(input_state.shift() ? "^" : "6");
+        break;
+    case VKey7:
+        typeCharacter(input_state.shift() ? "&" : "7");
+        break;
+    case VKey8:
+        typeCharacter(input_state.shift() ? "*" : "8");
+        break;
+    case VKey9:
+        typeCharacter(input_state.shift() ? "(" : "9");
+        break;
+    case VKey0:
+        typeCharacter(input_state.shift() ? ")" : "0");
+        break;
+    case VKeyColon:
+        typeCharacter(input_state.shift() ? ":" : ";");
+        break;
+    case VKeyLBracket:
+        typeCharacter(input_state.shift() ? "{" : "[");
+        break;
+    case VKeyRBracket:
+        typeCharacter(input_state.shift() ? "}" : "]");
+        break;
+    case VKeyQuote:
+        typeCharacter(input_state.shift() ? "'" : "\"");
+        break;
+    case VKeyComma:
+        typeCharacter(input_state.shift() ? "<" : ",");
+        break;
+    case VKeyPeriod:
+        typeCharacter(input_state.shift() ? ">" : ".");
+        break;
+    case VKeyMinus:
+        typeCharacter(input_state.shift() ? "_" : "-");
+        break;
+    case VKeyPlus:
+        typeCharacter(input_state.shift() ? "+" : "=");
+        break;
+    case VKeySlash:
+        typeCharacter(input_state.shift() ? "?" : "/");
+        break;
+    case VKeyBackslash:
+        typeCharacter(input_state.shift() ? "|" : "\\");
+        break;
+    case VKeySpace:
+        typeCharacter(" ");
+        break;
+    case VKeyBackspace:
+        if((m_cursor_position > 0) && !m_text.empty())
+        {
+            const size_t pos_from_back = m_text.size() - m_cursor_position;
 
-            //first check if cursor is to the left of the first glyph (if it is we can immediately return)
+            auto text = m_text;
+            text.erase(m_cursor_position - 1, 1);
+            setTextNoCursorUpdate(text);
+            updateCursor(m_text.size() - pos_from_back);
+        }
+        break;
+    case VKeyDelete:
+        if((m_cursor_position < text().size()) && !m_text.empty())
+        {
+            auto text = m_text;
+            text.erase(m_cursor_position, 1);
+            setTextNoCursorUpdate(text);
+            updateCursor(m_cursor_position);
+        }
+        break;
+    case VKeyEnter:
+        if(m_confirm_callback)
+        {
+            m_confirm_callback(*this);
+            if(m_cancelable)
             {
-                const float start_x = base_x;
-                if(input_state.cursor_pos.x < std::truncf(start_x))
-                {
-                    return;
-                }
+                m_prev_text = text();
             }
+        }
+        else if(m_multiline)
+        {
+            setText(m_text + '\n');
+        }
+        break;
+    case VKeyEsc:
+        cancel();
+        break;
+    }
+}
 
-            //then loop over consecutive characters and check if the cursor is to the left of any of them
-            //if it is then we can select the previous glyph
-            for(size_t i = 1; i < m_text.size(); i++)
+void Label::onMousePressed(MouseButton mb, const InputState& input_state)
+{
+    if(LMB != mb)
+    {
+        return;
+    }
+
+    if(m_editable && !m_text.empty())
+    {
+        float base_x = m_base_x;
+
+        //first check if cursor is to the left of the first glyph (if it is we can immediately return)
+        {
+            const float start_x = base_x;
+            if(input_state.cursor_pos.x < std::truncf(start_x))
             {
-                const auto& prev_g = m_font->glyphInfo(m_text[i - 1]);
-
-                base_x += prev_g.advance + prev_g.kerning[m_text[i]];
-
-                if(input_state.cursor_pos.x < std::truncf(base_x))
-                {
-                    updateCursor(i - 1);
-                    return;
-                }
-            }
-
-            //finally, if we got here, check if cursor is to the left of the end of the last glyph
-            const auto& g = m_font->glyphInfo(m_text.back());
-            const float end_x = base_x + g.advance;
-            if(input_state.cursor_pos.x < std::truncf(end_x))
-            {
-                updateCursor(m_text.size() - 1);
                 return;
             }
-
-            //if we click completely to the right of the text then put the label cursor past the end of the text
-            updateCursor(m_text.size());
         }
+
+        //then loop over consecutive characters and check if the cursor is to the left of any of them
+        //if it is then we can select the previous glyph
+        for(size_t i = 1; i < m_text.size(); i++)
+        {
+            const auto& prev_g = m_font->glyphInfo(m_text[i - 1]);
+
+            base_x += prev_g.advance + prev_g.kerning[m_text[i]];
+
+            if(input_state.cursor_pos.x < std::truncf(base_x))
+            {
+                updateCursor(i - 1);
+                return;
+            }
+        }
+
+        //finally, if we got here, check if cursor is to the left of the end of the last glyph
+        const auto& g = m_font->glyphInfo(m_text.back());
+        const float end_x = base_x + g.advance;
+        if(input_state.cursor_pos.x < std::truncf(end_x))
+        {
+            updateCursor(m_text.size() - 1);
+            return;
+        }
+
+        //if we click completely to the right of the text then put the label cursor past the end of the text
+        updateCursor(m_text.size());
     }
 }
 
@@ -345,7 +348,7 @@ void Label::setTextChangedCallback(std::move_only_function<void (std::string_vie
     m_text_changed_callback = std::move(callback);
 }
 
-void Label::update(Engine3D& engine3d, float dt)
+void Label::update(Engine3D& engine3d)
 {
     if((!m_editable || !m_focused) && m_update_callback)
     {
@@ -365,10 +368,10 @@ void Label::update(Engine3D& engine3d, float dt)
         engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexUi) * m_vertices.size(), m_vertices.data());
     }
 
-    m_background_rect.update(engine3d, dt);
+    m_background_rect.update(engine3d);
     if(m_focused)
     {
-        m_cursor_rect.update(engine3d, dt);
+        m_cursor_rect.update(engine3d);
     }
 
     m_vertex_data_updated = false;
@@ -468,14 +471,14 @@ void Label::setActionOnFocusLost(Label::Action action)
     m_action_on_focus_lost = action;
 }
 
-void Label::gotFocus()
+void Label::onGotFocus()
 {
     m_focused = true;
 
     m_prev_text = text();
 }
 
-void Label::lostFocus()
+void Label::onLostFocus()
 {
     m_focused = false;
 

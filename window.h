@@ -32,7 +32,7 @@ public:
     void unlockCursor();
     void toggleCursorLock();
 
-    void manageEvents();
+    void handleEvents();
 
     int32_t x() const noexcept;
     int32_t y() const noexcept;
@@ -58,7 +58,7 @@ private:
     WindowParameters m_params;
 
     InputState m_input_state;
-    ControllerState m_controller_state;
+    // ControllerState m_controller_state;
 
     bool m_has_focus = false;
     bool m_cursor_visible = true;

@@ -4,26 +4,33 @@
 #include "platform.h"
 #include "geometry.h"
 
+//TODO: rename this file to input_event.h or input.h or something
+
 struct InputState
 {
-    bool shift() const
+    bool shift() const noexcept
     {
-        return keyboard[VKeyRShift] || keyboard[VKeyLShift];
+        return keyboard[VKeyLShift] || keyboard[VKeyRShift];
     }
 
-    bool ctrl() const
+    bool ctrl() const noexcept
     {
-        return keyboard[VKeyRCtrl] || keyboard[VKeyLCtrl];
+        return keyboard[VKeyLCtrl] || keyboard[VKeyRCtrl];
     }
 
-    bool alt() const
+    bool alt() const noexcept
     {
-        return keyboard[VKeyRAlt] || keyboard[VKeyLAlt];
+        return keyboard[VKeyLAlt] || keyboard[VKeyRAlt];
     }
 
-    bool meta() const
+    bool meta() const noexcept
     {
-        return keyboard[VKeyRMeta] || keyboard[VKeyLMeta];
+        return keyboard[VKeyLMeta] || keyboard[VKeyRMeta];
+    }
+
+    bool lmb() const noexcept
+    {
+        return mouse & LMB;
     }
 
     std::array<bool, 256> keyboard{};
@@ -32,36 +39,7 @@ struct InputState
     vec2 cursor_pos;
 };
 
-enum class EventType
-{
-    KeyPressed,
-    KeyReleased,
-    MousePressed,
-    MouseReleased,
-    MouseScrolledUp,
-    MouseScrolledDown,
-    MouseMoved,
-    MouseDragged
-};
-
-struct Event
-{
-    bool keyEvent() const
-    {
-        return (EventType::KeyPressed == event) || (EventType::KeyReleased == event);
-    }
-
-    bool mouseEvent() const
-    {
-        return !keyEvent();
-    }
-
-    EventType event;
-    MouseButton mouse = 0;
-    Key key = 0;
-    vec2 cursor_delta= {0, 0};
-};
-
+/*
 struct ControllerState
 {
     std::array<bool, ControllerButtonCount> buttons = {};
@@ -89,5 +67,6 @@ struct ControllerEvent
     float trigger_delta = 0.0f;
     vec2 stick_delta = vec2(0.0f, 0.0f);
 };
+*/
 
 #endif // EVENT_H

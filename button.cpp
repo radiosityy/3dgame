@@ -17,14 +17,14 @@ void Button::setUpdateCallback(std::move_only_function<void (Button&)>&& callbac
     m_update_callback = std::move(callback);
 }
 
-void Button::update(Engine3D& engine3d, float dt)
+void Button::update(Engine3D& engine3d)
 {
     if(m_update_callback)
     {
         m_update_callback(*this);
     }
 
-    m_label.update(engine3d, dt);
+    m_label.update(engine3d);
 }
 
 void Button::draw(Engine3D& engine3d)
@@ -32,42 +32,47 @@ void Button::draw(Engine3D& engine3d)
     m_label.draw(engine3d);
 }
 
-void Button::onInputEvent(const Event& event, const InputState&)
+void Button::onMousePressed(MouseButton mb, const InputState&)
 {
-    if((EventType::MousePressed == event.event) && (LMB == event.mouse))
+    if(LMB == mb)
     {
         m_label.setBackgroundColor(m_pressed_color);
     }
-    else if((EventType::MouseReleased == event.event) && (LMB == event.mouse))
+}
+
+void Button::onMouseReleased(MouseButton mb, const InputState&)
+{
+    if(LMB == mb)
     {
         m_label.setBackgroundColor(m_highlighted_color);
         m_mouse_pressed_callback();
     }
-    else if(EventType::KeyPressed == event.event)
+}
+
+void Button::onKeyPressed(Key key, const InputState&)
+{
+    if(key == VKeyEnter)
     {
-        if(event.key == VKeyEnter)
-        {
-            m_mouse_pressed_callback();
-        }
+        m_mouse_pressed_callback();
     }
 }
 
-void Button::cursorEnter()
+void Button::onCursorEnter()
 {
     m_label.setBackgroundColor(m_highlighted_color);
 }
 
-void Button::cursorExit()
+void Button::onCursorExit()
 {
     m_label.setBackgroundColor(m_color);
 }
 
-void Button::gotFocus()
+void Button::onGotFocus()
 {
     m_label.setBackgroundColor(m_highlighted_color);
 }
 
-void Button::lostFocus()
+void Button::onLostFocus()
 {
     m_label.setBackgroundColor(m_color);
 }
