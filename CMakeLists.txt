@@ -9,6 +9,9 @@ find_package(Freetype REQUIRED)
 find_package(PNG REQUIRED)
 
 set(GLSLC_PATH "" CACHE FILEPATH "Glslc spir-v compiler path")
+if(NOT GLSLC_PATH)
+    message(FATAL_ERROR "GLSLC_PATH is empty!")
+endif()
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
     add_compile_definitions(DEBUG=1)
