@@ -1,6 +1,15 @@
 #ifndef ENGINE_3D_H
 #define ENGINE_3D_H
 
+#ifdef _WIN32
+#define VK_USE_PLATFORM_WIN32_KHR 1
+#define VK_PLATFORM_SURFACE_EXTENSION_NAME VK_KHR_WIN32_SURFACE_EXTENSION_NAME
+#elif defined(__linux__)
+#define VK_USE_PLATFORM_XCB_KHR 1
+#define VK_PLATFORM_SURFACE_EXTENSION_NAME VK_KHR_XCB_SURFACE_EXTENSION_NAME
+#endif
+#include <vulkan/vulkan.h>
+
 #include <memory>
 #include <vector>
 #include <string>
@@ -8,8 +17,6 @@
 #include <list>
 
 #include "collision.h"
-#include "platform.h"
-#include <vulkan/vulkan.h>
 #include "window.h"
 #include "render_data.h"
 #include "font.h"

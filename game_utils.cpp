@@ -21,3 +21,17 @@ void error(std::string_view msg, std::source_location srcl)
     log(error_msg, srcl);
     throw std::runtime_error(msg.data());
 }
+
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+void messageBox(std::string_view msg)
+{
+    MessageBox(NULL, msg.data(), "ERROR", MB_OK);
+}
+#elif defined(__linux__)
+void messageBox(std::string_view msg)
+{
+   std::println("{}", msg);
+}
+#endif

@@ -1,4 +1,5 @@
 #include "game_engine.h"
+#include "game_utils.h"
 
 int main()
 {

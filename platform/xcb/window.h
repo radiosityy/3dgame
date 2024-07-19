@@ -1,9 +1,11 @@
-#ifndef WINDOW_H
-#define WINDOW_H
+#ifndef WINDOW_XCB_H
+#define WINDOW_XCB_H
 
 #include "platform.h"
 #include <vector>
 #include <memory>
+#include <xcb/xcb.h>
+#include <xcb/xcb_image.h>
 #include "event.h"
 
 class GameEngine;
@@ -18,10 +20,6 @@ public:
     Window(const Window&&) = delete;
     Window& operator=(const Window&) = delete;
     Window& operator=(const Window&&) = delete;
-
-#ifdef PLATFORM_WIN32
-    LRESULT EventHandler(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-#endif
 
     void show();
 
@@ -39,7 +37,8 @@ public:
     uint32_t width() const noexcept;
     uint32_t height() const noexcept;
 
-    const WindowParameters& getParams() const noexcept;
+    xcb_connection_t* xcbConnection() const noexcept;
+    xcb_window_t* xcbWindow() const noexcept;
     const InputState& inputState()const;
     bool hasFocus() const noexcept;
     bool isCursorVisible() const noexcept;
@@ -55,7 +54,8 @@ private:
     uint32_t m_height;
 
     GameEngine& m_game_engine;
-    WindowParameters m_params;
+    xcb_connection_t* m_connection;
+    xcb_window_t m_window;
 
     InputState m_input_state;
     // ControllerState m_controller_state;
@@ -67,16 +67,6 @@ private:
     bool m_cursor_locked_backup = m_cursor_locked;
 
     bool m_ignore_next_mouse_move_event = false;
-
-#ifdef PLATFORM_WIN32
-    const std::string m_class_name;
-
-    void trackCursor();
-    bool m_cursor_left = false;
-
-    void handleControllerEvents();
-    DWORD m_prev_xinput_packet_number = 0;
-#endif
 };
 
-#endif //WINDOW_H
+#endif //WINDOW_XCB_H

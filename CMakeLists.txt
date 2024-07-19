@@ -32,10 +32,8 @@ endif()
 file(GLOB SOURCES *.h *.cpp)
 
 if(EDITOR_ENABLE)
-file(GLOB EDITOR_SOURCES
-    editor/*.h
-    editor/*.cpp
-)
+file(GLOB EDITOR_SOURCES editor/*.h editor/*.cpp )
+#TODO: use target_sources here and in other places to set sources?
 set(SOURCES ${SOURCES} ${EDITOR_SOURCES})
 endif()
 
@@ -54,15 +52,21 @@ add_custom_target(
 
 if(UNIX)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE xcb xcb-image)
+    target_include_directories(${PROJECT_NAME} PRIVATE platform/xcb)
+    file(GLOB PLATFORM_SOURCES platform/xcb/*.h platform/xcb/*.cpp)
+    target_sources(${PROJECT_NAME} PRIVATE ${PLATFORM_SOURCES})
+    target_link_libraries(${PROJECT_NAME} PRIVATE xcb xcb-image)
 
 elseif(WIN32)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE stdc++exp)
-target_link_libraries(${PROJECT_NAME} PRIVATE User32.dll)
-#target_link_libraries(${PROJECT_NAME} xinput)
+    target_include_directories(${PROJECT_NAME} PRIVATE platform/win32)
+    file(GLOB PLATFORM_SOURCES platform/win32/*.h platform/win32/*.cpp)
+    target_sources(${PROJECT_NAME} PRIVATE ${PLATFORM_SOURCES})
+    target_link_libraries(${PROJECT_NAME} PRIVATE stdc++exp)
+    target_link_libraries(${PROJECT_NAME} PRIVATE User32.dll)
+    #target_link_libraries(${PROJECT_NAME} xinput)
 
-set(CMAKE_CXX_STANDARD_LIBRARIES "-static-libgcc -static-libstdc++ ${CMAKE_CXX_STANDARD_LIBRARIES}")
-set(CMAKE_EXE_LINKER_FLAGS "-mwindows ${CMAKE_EXE_LINKER_FLAGS} -Wl,-Bstatic,--whole-archive -lwinpthread -Wl,--no-whole-archive")
+    set(CMAKE_CXX_STANDARD_LIBRARIES "-static-libgcc -static-libstdc++ ${CMAKE_CXX_STANDARD_LIBRARIES}")
+    set(CMAKE_EXE_LINKER_FLAGS "-mwindows ${CMAKE_EXE_LINKER_FLAGS} -Wl,-Bstatic,--whole-archive -lwinpthread -Wl,--no-whole-archive")
 
 endif()

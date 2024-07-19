@@ -3,7 +3,7 @@
 
 #include "camera.h"
 #include "player.h"
-#include "event.h"
+#include "input_state.h"
 #include "terrain.h"
 
 #include <vector>

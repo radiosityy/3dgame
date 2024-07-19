@@ -1,7 +1,7 @@
 #ifndef GUI_OBJECT_H
 #define GUI_OBJECT_H
 
-#include "event.h"
+#include "input_state.h"
 #include "render_data.h"
 #include "geometry.h"
 #include "engine_3d.h"

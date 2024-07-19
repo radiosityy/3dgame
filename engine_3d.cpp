@@ -2343,23 +2343,23 @@ void Engine3D::pickPhysicalDevice()
 
 void Engine3D::createSurface(const Window& window)
 {
-#ifdef PLATFORM_WIN32
+#ifdef VK_USE_PLATFORM_WIN32_KHR
     VkWin32SurfaceCreateInfoKHR create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
     create_info.pNext = NULL;
     create_info.flags = 0;
-    create_info.hwnd = window.getParams().hwnd;
-    create_info.hinstance = window.getParams().hinstance;
+    create_info.hwnd = window.hwnd();
+    create_info.hinstance = window.hinstance();
 
     VkResult res = vkCreateWin32SurfaceKHR(m_instance, &create_info, NULL, &m_surface);
     assertVkSuccess(res, "Failed to create Xcb surface.");
-#elif defined(PLATFORM_XCB)
+#elif defined(VK_USE_PLATFORM_XCB_KHR)
     VkXcbSurfaceCreateInfoKHR create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR;
     create_info.pNext = NULL;
     create_info.flags = 0;
-    create_info.connection = window.getParams().connection;
-    create_info.window = window.getParams().window;
+    create_info.connection = window.xcbConnection();
+    create_info.window = window.xcbWindow();
 
     VkResult res = vkCreateXcbSurfaceKHR(m_instance, &create_info, NULL, &m_surface);
     assertVkSuccess(res, "Failed to create Xcb surface.");
