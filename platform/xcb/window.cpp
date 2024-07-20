@@ -65,7 +65,7 @@ void Window::handleEvents()
         {
             if(XCB_DESTROY_NOTIFY == generic_event->response_type)
             {
-                m_game_engine.onWindowDestroyEvent();
+                m_game_engine.onWindowDestroy();
                 return;
             }
             generic_events.push_back(generic_event);
@@ -242,15 +242,7 @@ void Window::handleEvents()
 
             m_input_state.cursor_pos = vec2(x, y);
 
-            /* check state for buttons pressed */
-            if(xcb_event.state & 0x700)
-            {
-                event.event = EventType::MouseDragged;
-            }
-            else
-            {
-                event.event = EventType::MouseMoved;
-            }
+            event.event = EventType::MouseMoved;
 
             m_input_state.caps_lock = xcb_event.state & 0x2;
 
@@ -371,7 +363,7 @@ void Window::handleEvents()
                 const float scale_x = static_cast<float>(m_width) / static_cast<float>(old_width);
                 const float scale_y = static_cast<float>(m_height) / static_cast<float>(old_height);
 
-                m_game_engine.onWindowResizeEvent(m_width, m_height, scale_x, scale_y);
+                m_game_engine.onWindowResize(m_width, m_height, scale_x, scale_y);
             }
 
             break;

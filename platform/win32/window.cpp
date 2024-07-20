@@ -596,14 +596,7 @@ LRESULT Window::EventHandler(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         m_input_state.cursor_pos = vec2(x, y);
         m_input_state.caps_lock = GetKeyState(VK_CAPITAL) & 1;
 
-        if(wParam & (MK_LBUTTON | MK_MBUTTON | MK_RBUTTON))
-        {
-            m_game_engine.onMouseDragged(cursor_delta, m_input_state);
-        }
-        else
-        {
-            m_game_engine.onMouseMoved(cursor_delta, m_input_state);
-        }
+        m_game_engine.onMouseMoved(cursor_delta, m_input_state);
 
         return 0;
     }
@@ -641,7 +634,7 @@ LRESULT Window::EventHandler(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             const float scale_x = static_cast<float>(m_width) / static_cast<float>(old_width);
             const float scale_y = static_cast<float>(m_height) / static_cast<float>(old_height);
 
-            m_game_engine.onWindowResizeEvent(m_width, m_height, scale_x, scale_y);
+            m_game_engine.onWindowResize(m_width, m_height, scale_x, scale_y);
         }
 
         return 0;
@@ -686,14 +679,12 @@ LRESULT Window::EventHandler(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     }
     case WM_DESTROY:
     {
-        //TODO: call onWindowDestroyEvent
+        m_game_engine.onWindowDestroy();
         return 0;
     }
     default:
-        break;
+        return DefWindowProc(hwnd, uMsg, wParam, lParam);
     }
-
-    return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
 
 void Window::show()

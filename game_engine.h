@@ -28,12 +28,13 @@ public:
     void onMousePressed(MouseButton mb, const InputState&);
     void onMouseReleased(MouseButton mb, const InputState&);
     void onMouseMoved(vec2, const InputState&);
-    void onMouseDragged(vec2, const InputState&);
     void onMouseScrolledUp(const InputState&);
     void onMouseScrolledDown(const InputState&);
-    //void onControllerEvent(const ControllerEvent& event, const ControllerState& state);
-    void onWindowResizeEvent(uint32_t width, uint32_t height, float scale_x, float scale_y) noexcept;
-    void onWindowDestroyEvent() noexcept;
+#if 0
+    void onControllerEvent(const ControllerEvent& event, const ControllerState& state);
+#endif
+    void onWindowResize(uint32_t width, uint32_t height, float scale_x, float scale_y) noexcept;
+    void onWindowDestroy() noexcept;
 
 private:
     void setDefaultIni();

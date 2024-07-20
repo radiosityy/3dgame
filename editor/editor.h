@@ -39,7 +39,6 @@ public:
     virtual void onKeyPressedImpl(Key, const InputState&) override;
     virtual void onMousePressedImpl(MouseButton, const InputState&) override;
     virtual void onMouseMovedImpl(vec2, const InputState&) override;
-    virtual void onMouseDraggedImpl(vec2, const InputState&) override;
     virtual void onMouseScrolledUpImpl(const InputState&) override;
     virtual void onMouseScrolledDownImpl(const InputState&) override;
 

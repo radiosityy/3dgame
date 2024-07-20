@@ -31,7 +31,6 @@ public:
     virtual void onMousePressed(MouseButton, const InputState&);
     virtual void onMouseReleased(MouseButton, const InputState&);
     virtual void onMouseMoved(vec2, const InputState&);
-    virtual void onMouseDragged(vec2, const InputState&);
     virtual void onMouseScrolledUp(const InputState&);
     virtual void onMouseScrolledDown(const InputState&);
 };
@@ -74,7 +73,6 @@ public:
     virtual void onMousePressed(MouseButton, const InputState&) final;
     virtual void onMouseReleased(MouseButton, const InputState&) final;
     virtual void onMouseMoved(vec2, const InputState&) final;
-    virtual void onMouseDragged(vec2, const InputState&) final;
     virtual void onMouseScrolledUp(const InputState&) final;
     virtual void onMouseScrolledDown(const InputState&) final;
 
@@ -84,7 +82,6 @@ protected:
     virtual bool onMousePressedIntercept(MouseButton, const InputState&);
     virtual bool onMouseReleasedIntercept(MouseButton, const InputState&);
     virtual bool onMouseMovedIntercept(vec2, const InputState&);
-    virtual bool onMouseDraggedIntercept(vec2, const InputState&);
     virtual bool onMouseScrolledUpIntercept(const InputState&);
     virtual bool onMouseScrolledDownIntercept(const InputState&);
 
@@ -93,7 +90,6 @@ protected:
     virtual void onMousePressedImpl(MouseButton, const InputState&);
     virtual void onMouseReleasedImpl(MouseButton, const InputState&);
     virtual void onMouseMovedImpl(vec2, const InputState&);
-    virtual void onMouseDraggedImpl(vec2, const InputState&);
     virtual void onMouseScrolledUpImpl(const InputState&);
     virtual void onMouseScrolledDownImpl(const InputState&);
 

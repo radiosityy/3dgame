@@ -648,26 +648,29 @@ void Scene::onKeyPressed(Key key, const InputState&)
     }
 }
 
-void Scene::onMouseMoved(vec2 cursor_delta, const InputState&)
+void Scene::onMouseMoved(vec2 cursor_delta, const InputState& input_state)
 {
-    if(!m_player_movement)
+    if(!input_state.mouse)
     {
-        m_camera.rotate(cursor_delta.x * 0.005f);
-        m_camera.pitch(cursor_delta.y * 0.005f);
-    }
-    else
-    {
-        m_player_camera_phi -= cursor_delta.x * 0.01f;
-        if(m_player_camera_phi >= 2.0f * pi)
+        if(!m_player_movement)
         {
-            m_player_camera_phi -= 2.0f * pi;
+            m_camera.rotate(cursor_delta.x * 0.005f);
+            m_camera.pitch(cursor_delta.y * 0.005f);
         }
-        else if(m_player_camera_phi <= 0.0f)
+        else
         {
-            m_player_camera_phi += 2.0f * pi;
-        }
+            m_player_camera_phi -= cursor_delta.x * 0.01f;
+            if(m_player_camera_phi >= 2.0f * pi)
+            {
+                m_player_camera_phi -= 2.0f * pi;
+            }
+            else if(m_player_camera_phi <= 0.0f)
+            {
+                m_player_camera_phi += 2.0f * pi;
+            }
 
-        m_player_camera_theta = std::clamp(m_player_camera_theta - cursor_delta.y * 0.01f, 0.001f, pi - 0.001f);
+            m_player_camera_theta = std::clamp(m_player_camera_theta - cursor_delta.y * 0.01f, 0.001f, pi - 0.001f);
+        }
     }
 }
 

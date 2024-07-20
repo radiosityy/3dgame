@@ -41,7 +41,7 @@ public:
         }
     }
 
-    virtual void onMouseDragged(vec2, const InputState& input_state) override
+    virtual void onMouseMoved(vec2, const InputState& input_state) override
     {
         if(input_state.lmb())
         {

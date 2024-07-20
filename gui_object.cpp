@@ -8,7 +8,6 @@ void InputHandler::onKeyReleased(Key, const InputState&) {}
 void InputHandler::onMousePressed(MouseButton, const InputState&) {}
 void InputHandler::onMouseReleased(MouseButton, const InputState&) {}
 void InputHandler::onMouseMoved(vec2, const InputState&) {}
-void InputHandler::onMouseDragged(vec2, const InputState&) {}
 void InputHandler::onMouseScrolledUp(const InputState&) {}
 void InputHandler::onMouseScrolledDown(const InputState&) {}
 
@@ -128,22 +127,6 @@ void GuiParent::onMouseMoved(vec2 cursor_delta, const InputState& input_state)
     }
 }
 
-void GuiParent::onMouseDragged(vec2 cursor_delta, const InputState& input_state)
-{
-    //TODO: figure out how to handle mouse dragged and if it's even needed
-    if(!onMouseDraggedIntercept(cursor_delta, input_state))
-    {
-        if(m_mouse_focus)
-        {
-            m_mouse_focus->onMouseDragged(cursor_delta, input_state);
-        }
-        else
-        {
-            onMouseDraggedImpl(cursor_delta, input_state);
-        }
-    }
-}
-
 void GuiParent::onMouseScrolledUp(const InputState& input_state)
 {
     if(!onMouseScrolledUpIntercept(input_state))
@@ -179,7 +162,6 @@ bool GuiParent::onKeyReleasedIntercept(Key, const InputState&) {return false;}
 bool GuiParent::onMousePressedIntercept(MouseButton, const InputState&) {return false;}
 bool GuiParent::onMouseReleasedIntercept(MouseButton, const InputState&) {return false;}
 bool GuiParent::onMouseMovedIntercept(vec2, const InputState&) {return false;}
-bool GuiParent::onMouseDraggedIntercept(vec2, const InputState&) {return false;}
 bool GuiParent::onMouseScrolledUpIntercept(const InputState&) {return false;}
 bool GuiParent::onMouseScrolledDownIntercept(const InputState&) {return false;}
 
@@ -188,7 +170,6 @@ void GuiParent::onKeyReleasedImpl(Key, const InputState&) {}
 void GuiParent::onMousePressedImpl(MouseButton, const InputState&) {}
 void GuiParent::onMouseReleasedImpl(MouseButton, const InputState&) {}
 void GuiParent::onMouseMovedImpl(vec2, const InputState&) {}
-void GuiParent::onMouseDraggedImpl(vec2, const InputState&) {}
 void GuiParent::onMouseScrolledUpImpl(const InputState&) {}
 void GuiParent::onMouseScrolledDownImpl(const InputState&) {}
 

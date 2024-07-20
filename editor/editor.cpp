@@ -539,110 +539,109 @@ void Editor::onMousePressedImpl(MouseButton mb, const InputState& input_state)
 
 void Editor::onMouseMovedImpl(vec2 cursor_delta, const InputState& input_state)
 {
-    switch(m_mode)
+    if(!input_state.mouse)
     {
-    case Mode::Move:
-    {
-        Camera& camera = m_scene.camera();
-        vec3 v = 0.01f * (camera.right() * cursor_delta.x + camera.up() * -cursor_delta.y);
+        switch(m_mode)
+        {
+        case Mode::Move:
+        {
+            Camera& camera = m_scene.camera();
+            vec3 v = 0.01f * (camera.right() * cursor_delta.x + camera.up() * -cursor_delta.y);
 
-        switch(m_axis_lock)
-        {
-        case Axis::X:
-            v.y = 0.0f;
-            v.z = 0.0f;
-            break;
-        case Axis::Y:
-            v.x = 0.0f;
-            v.z = 0.0f;
-            break;
-        case Axis::Z:
-            v.x = 0.0f;
-            v.y = 0.0f;
-            break;
-        }
+            switch(m_axis_lock)
+            {
+            case Axis::X:
+                v.y = 0.0f;
+                v.z = 0.0f;
+                break;
+            case Axis::Y:
+                v.x = 0.0f;
+                v.z = 0.0f;
+                break;
+            case Axis::Z:
+                v.x = 0.0f;
+                v.y = 0.0f;
+                break;
+            }
 
-        if(m_selected_object)
-        {
-            m_selected_object->move(v);
+            if(m_selected_object)
+            {
+                m_selected_object->move(v);
+            }
+            else if(m_selected_point_light_id)
+            {
+                selectedPointLight().pos += v;
+                updateSelectedPointLight();
+            }
+            return;
         }
-        else if(m_selected_point_light_id)
+        case Mode::Scale:
         {
-            selectedPointLight().pos += v;
-            updateSelectedPointLight();
+            Camera& camera = m_scene.camera();
+            vec3 v = 0.01f * (camera.right() * cursor_delta.x + camera.up() * -cursor_delta.y);
+
+            switch(m_axis_lock)
+            {
+            case Axis::None:
+                v = vec3(cursor_delta.x >= 0.0f ? length(v) : -length(v));
+                break;
+            case Axis::X:
+                v.y = 0.0f;
+                v.z = 0.0f;
+                break;
+            case Axis::Y:
+                v.x = 0.0f;
+                v.z = 0.0f;
+                break;
+            case Axis::Z:
+                v.x = 0.0f;
+                v.y = 0.0f;
+                break;
+            default:
+                error("Incorrect Axis!");
+            }
+
+            m_selected_object->setScale(m_selected_object->scale() + v);
+            return;
         }
-        return;
+        case Mode::Rotate:
+        {
+            Camera& camera = m_scene.camera();
+            const vec2 curr_cursor_pos = input_state.cursor_pos - vec2(m_window.width() / 2.0f, m_window.height() / 2.0f);
+
+            const auto dot_product = dot(m_rot_cursor_pos, curr_cursor_pos) / (m_rot_cursor_pos.length() * curr_cursor_pos.length());
+            const auto cross_product = (m_rot_cursor_pos.x * curr_cursor_pos.y - m_rot_cursor_pos.y * curr_cursor_pos.x) / (m_rot_cursor_pos.length() * curr_cursor_pos.length());
+            float a = -std::atan2(cross_product, dot_product);
+
+            //        if(a < 0)
+            //        {
+            //            a += 2.0f * M_PI;
+            //        }
+
+            m_rot_cursor_pos = curr_cursor_pos;
+
+            switch(m_axis_lock)
+            {
+            case Axis::None:
+                m_selected_object->rotate(camera.forward(), a);
+                break;
+            case Axis::X:
+                m_selected_object->rotateX(a);
+                break;
+            case Axis::Y:
+                m_selected_object->rotateY(a);
+                break;
+            case Axis::Z:
+                m_selected_object->rotateZ(a);
+                break;
+            default:
+                error("Incorrect Axis!");
+            }
+            return;
+        }
+        }
     }
-    case Mode::Scale:
-    {
-        Camera& camera = m_scene.camera();
-        vec3 v = 0.01f * (camera.right() * cursor_delta.x + camera.up() * -cursor_delta.y);
-
-        switch(m_axis_lock)
-        {
-        case Axis::None:
-            v = vec3(cursor_delta.x >= 0.0f ? length(v) : -length(v));
-            break;
-        case Axis::X:
-            v.y = 0.0f;
-            v.z = 0.0f;
-            break;
-        case Axis::Y:
-            v.x = 0.0f;
-            v.z = 0.0f;
-            break;
-        case Axis::Z:
-            v.x = 0.0f;
-            v.y = 0.0f;
-            break;
-        default:
-            error("Incorrect Axis!");
-        }
-
-        m_selected_object->setScale(m_selected_object->scale() + v);
-        return;
-    }
-    case Mode::Rotate:
-    {
-        Camera& camera = m_scene.camera();
-        const vec2 curr_cursor_pos = input_state.cursor_pos - vec2(m_window.width() / 2.0f, m_window.height() / 2.0f);
-
-        const auto dot_product = dot(m_rot_cursor_pos, curr_cursor_pos) / (m_rot_cursor_pos.length() * curr_cursor_pos.length());
-        const auto cross_product = (m_rot_cursor_pos.x * curr_cursor_pos.y - m_rot_cursor_pos.y * curr_cursor_pos.x) / (m_rot_cursor_pos.length() * curr_cursor_pos.length());
-        float a = -std::atan2(cross_product, dot_product);
-
-//        if(a < 0)
-//        {
-//            a += 2.0f * M_PI;
-//        }
-
-        m_rot_cursor_pos = curr_cursor_pos;
-
-        switch(m_axis_lock)
-        {
-        case Axis::None:
-            m_selected_object->rotate(camera.forward(), a);
-            break;
-        case Axis::X:
-            m_selected_object->rotateX(a);
-            break;
-        case Axis::Y:
-            m_selected_object->rotateY(a);
-            break;
-        case Axis::Z:
-            m_selected_object->rotateZ(a);
-            break;
-        default:
-            error("Incorrect Axis!");
-        }
-        return;
-    }
-    }
-}
-
-void Editor::onMouseDraggedImpl(vec2 cursor_delta, const InputState& input_state)
-{
-    if(input_state.mouse & MMB)
+    else if(input_state.mouse & MMB)
     {
         m_scene.camera().rotate(cursor_delta.x * 0.005f);
         m_scene.camera().pitch(cursor_delta.y * 0.005f);

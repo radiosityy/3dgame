@@ -317,12 +317,12 @@ void GameEngine::stop() noexcept
     m_stop = true;
 }
 
-void GameEngine::onWindowDestroyEvent() noexcept
+void GameEngine::onWindowDestroy() noexcept
 {
     stop();
 }
 
-void GameEngine::onWindowResizeEvent(uint32_t width, uint32_t height, float scale_x, float scale_y) noexcept
+void GameEngine::onWindowResize(uint32_t width, uint32_t height, float scale_x, float scale_y) noexcept
 {
     if((0 == width) || (0 == height))
     {
@@ -467,20 +467,6 @@ void GameEngine::onMouseMoved(vec2 cursor_delta, const InputState& input_state)
 #endif
     {
         m_scene->onMouseMoved(cursor_delta, input_state);
-    }
-}
-
-void GameEngine::onMouseDragged(vec2 cursor_delta, const InputState& input_state)
-{
-#if EDITOR_ENABLE
-    if(m_edit_mode)
-    {
-        m_editor->onMouseDragged(cursor_delta, input_state);
-    }
-    else
-#endif
-    {
-        // m_scene->onMouseDragged(cursor_delta, input_state);
     }
 }
 
