@@ -1,11 +1,11 @@
 #include "button.h"
 
-Button::Button(Engine3D& engine3d, float x, float y, float w, float h, const Font& font, const std::string& text, std::move_only_function<void()>&& mouse_pressed_callback, HorizontalAlignment hor_align, VerticalAlignment ver_align)
+Button::Button(Renderer& renderer, float x, float y, float w, float h, const Font& font, const std::string& text, std::move_only_function<void()>&& mouse_pressed_callback, HorizontalAlignment hor_align, VerticalAlignment ver_align)
     : m_x(x)
     , m_y(y)
     , m_width(w)
     , m_height(h)
-    , m_label(engine3d, m_x, m_y, m_width, m_height, font, text, false, hor_align, ver_align)
+    , m_label(renderer, m_x, m_y, m_width, m_height, font, text, false, hor_align, ver_align)
     , m_mouse_pressed_callback(std::move(mouse_pressed_callback))
 {
     m_label.setScissor({m_x, m_y, m_width, m_height});
@@ -17,19 +17,19 @@ void Button::setUpdateCallback(std::move_only_function<void (Button&)>&& callbac
     m_update_callback = std::move(callback);
 }
 
-void Button::update(Engine3D& engine3d)
+void Button::update(Renderer& renderer)
 {
     if(m_update_callback)
     {
         m_update_callback(*this);
     }
 
-    m_label.update(engine3d);
+    m_label.update(renderer);
 }
 
-void Button::draw(Engine3D& engine3d)
+void Button::draw(Renderer& renderer)
 {
-    m_label.draw(engine3d);
+    m_label.draw(renderer);
 }
 
 void Button::onMousePressed(MouseButton mb, const InputState&)

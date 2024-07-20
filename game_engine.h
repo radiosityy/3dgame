@@ -2,7 +2,7 @@
 #define GAME_ENGINE_H
 
 #include "window.h"
-#include "engine_3d.h"
+#include "renderer.h"
 #include "scene.h"
 #include "console.h"
 #include "timer.h"
@@ -54,7 +54,7 @@ private:
     } m_init_params;
 
     std::unique_ptr<Window> m_window;
-    std::unique_ptr<Engine3D> m_engine3d;
+    std::unique_ptr<Renderer> m_renderer;
     std::unique_ptr<Scene> m_scene;
     Timer m_timer;
 

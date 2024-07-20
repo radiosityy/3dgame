@@ -6,7 +6,7 @@
 #include <sstream>
 #include <iomanip>
 
-PointLightEditPanel::PointLightEditPanel(Engine3D& engine3d, float x, float y, Scene& scene, uint32_t point_light_id, const Font& font)
+PointLightEditPanel::PointLightEditPanel(Renderer& renderer, float x, float y, Scene& scene, uint32_t point_light_id, const Font& font)
     : m_x(x)
     , m_y(y)
     , m_scene(scene)
@@ -22,16 +22,16 @@ PointLightEditPanel::PointLightEditPanel(Engine3D& engine3d, float x, float y, S
     const float checkbox_size = 20.0f;
 
     /*background rect*/
-    addChild(std::make_unique<Rect>(engine3d, m_x, m_y, m_width, m_height, ColorRGBA(0.2f, 0.2f, 0.2f, 1.0f)));
+    addChild(std::make_unique<Rect>(renderer, m_x, m_y, m_width, m_height, ColorRGBA(0.2f, 0.2f, 0.2f, 1.0f)));
 
     /*--- Position ---*/
     y = m_y + 0.1f * m_width;
-    auto label = addChild(std::make_unique<Label>(engine3d, m_x + padding_x, y, font, "Position", false, HorizontalAlignment::Left, VerticalAlignment::Top));
+    auto label = addChild(std::make_unique<Label>(renderer, m_x + padding_x, y, font, "Position", false, HorizontalAlignment::Left, VerticalAlignment::Top));
     y += label->height() + 5.0f;
 
     /*X*/
-    label = addChild(std::make_unique<Label>(engine3d, m_x + padding_x, y, font, "x", false, HorizontalAlignment::Left, VerticalAlignment::Top));
-    auto text_input = addChild(std::make_unique<Label>(engine3d, m_x + text_input_x, y, text_input_width, label->height(), font, "", true, HorizontalAlignment::Center, VerticalAlignment::Top));
+    label = addChild(std::make_unique<Label>(renderer, m_x + padding_x, y, font, "x", false, HorizontalAlignment::Left, VerticalAlignment::Top));
+    auto text_input = addChild(std::make_unique<Label>(renderer, m_x + text_input_x, y, text_input_width, label->height(), font, "", true, HorizontalAlignment::Center, VerticalAlignment::Top));
     text_input->setCancalable(true);
     text_input->setUpdateCallback([this](Label& l)
     {
@@ -47,8 +47,8 @@ PointLightEditPanel::PointLightEditPanel(Engine3D& engine3d, float x, float y, S
     y += label->height() + vertical_spacing;
 
     /*Y*/
-    label = addChild(std::make_unique<Label>(engine3d, m_x + padding_x, y, font, "y", false, HorizontalAlignment::Left, VerticalAlignment::Top));
-    text_input = addChild(std::make_unique<Label>(engine3d, m_x + text_input_x, y, text_input_width, label->height(), font, "", true, HorizontalAlignment::Center, VerticalAlignment::Top));
+    label = addChild(std::make_unique<Label>(renderer, m_x + padding_x, y, font, "y", false, HorizontalAlignment::Left, VerticalAlignment::Top));
+    text_input = addChild(std::make_unique<Label>(renderer, m_x + text_input_x, y, text_input_width, label->height(), font, "", true, HorizontalAlignment::Center, VerticalAlignment::Top));
     text_input->setCancalable(true);
     text_input->setUpdateCallback([this](Label& l)
     {
@@ -64,8 +64,8 @@ PointLightEditPanel::PointLightEditPanel(Engine3D& engine3d, float x, float y, S
     y += label->height() + vertical_spacing;
 
     /*Z*/
-    label = addChild(std::make_unique<Label>(engine3d, m_x + padding_x, y, font, "z", false, HorizontalAlignment::Left, VerticalAlignment::Top));
-    text_input = addChild(std::make_unique<Label>(engine3d, m_x + text_input_x, y, text_input_width, label->height(), font, "", true, HorizontalAlignment::Center, VerticalAlignment::Top));
+    label = addChild(std::make_unique<Label>(renderer, m_x + padding_x, y, font, "z", false, HorizontalAlignment::Left, VerticalAlignment::Top));
+    text_input = addChild(std::make_unique<Label>(renderer, m_x + text_input_x, y, text_input_width, label->height(), font, "", true, HorizontalAlignment::Center, VerticalAlignment::Top));
     text_input->setCancalable(true);
     text_input->setUpdateCallback([this](Label& l)
     {
@@ -82,9 +82,9 @@ PointLightEditPanel::PointLightEditPanel(Engine3D& engine3d, float x, float y, S
 
     /*--- Color ---*/
     y += 5.0f;
-    label = addChild(std::make_unique<Label>(engine3d, m_x + padding_x, y, font, "Color", false, HorizontalAlignment::Left, VerticalAlignment::Top));
+    label = addChild(std::make_unique<Label>(renderer, m_x + padding_x, y, font, "Color", false, HorizontalAlignment::Left, VerticalAlignment::Top));
     y += label->height() + vertical_spacing;
-//    auto button = addChild(std::make_unique<Button>(engine3d, m_x + 0.5 * m_width, y, color_rect_size, color_rect_size, font, "", []()
+//    auto button = addChild(std::make_unique<Button>(renderer, m_x + 0.5 * m_width, y, color_rect_size, color_rect_size, font, "", []()
 //    {
 
 //    }));
@@ -101,8 +101,8 @@ PointLightEditPanel::PointLightEditPanel(Engine3D& engine3d, float x, float y, S
 //    y += color_rect_size + vertical_spacing;
 
     /*r*/
-    label = addChild(std::make_unique<Label>(engine3d, m_x + padding_x, y, font, "r", false, HorizontalAlignment::Left, VerticalAlignment::Top));
-    text_input = addChild(std::make_unique<Label>(engine3d, m_x + text_input_x, y, text_input_width, label->height(), font, "", true, HorizontalAlignment::Center, VerticalAlignment::Top));
+    label = addChild(std::make_unique<Label>(renderer, m_x + padding_x, y, font, "r", false, HorizontalAlignment::Left, VerticalAlignment::Top));
+    text_input = addChild(std::make_unique<Label>(renderer, m_x + text_input_x, y, text_input_width, label->height(), font, "", true, HorizontalAlignment::Center, VerticalAlignment::Top));
     text_input->setCancalable(true);
     text_input->setUpdateCallback([this](Label& l)
     {
@@ -117,7 +117,7 @@ PointLightEditPanel::PointLightEditPanel(Engine3D& engine3d, float x, float y, S
     });
     y += label->height() + vertical_spacing;
 
-    auto slider = addChild(std::make_unique<Slider<float>>(engine3d, m_x + padding_x, y, m_width - 2.0f * padding_x, slider_height, 0.0f, 1.0f, m_point_light.color.r, [this](float value)
+    auto slider = addChild(std::make_unique<Slider<float>>(renderer, m_x + padding_x, y, m_width - 2.0f * padding_x, slider_height, 0.0f, 1.0f, m_point_light.color.r, [this](float value)
     {
         m_point_light.color.r = value;
         updatePointLight();
@@ -132,8 +132,8 @@ PointLightEditPanel::PointLightEditPanel(Engine3D& engine3d, float x, float y, S
     y += slider_height + vertical_spacing;
 
     /*g*/
-    label = addChild(std::make_unique<Label>(engine3d, m_x + padding_x, y, font, "g", false, HorizontalAlignment::Left, VerticalAlignment::Top));
-    text_input = addChild(std::make_unique<Label>(engine3d, m_x + text_input_x, y, text_input_width, label->height(), font, "", true, HorizontalAlignment::Center, VerticalAlignment::Top));
+    label = addChild(std::make_unique<Label>(renderer, m_x + padding_x, y, font, "g", false, HorizontalAlignment::Left, VerticalAlignment::Top));
+    text_input = addChild(std::make_unique<Label>(renderer, m_x + text_input_x, y, text_input_width, label->height(), font, "", true, HorizontalAlignment::Center, VerticalAlignment::Top));
     text_input->setCancalable(true);
     text_input->setUpdateCallback([this](Label& l)
     {
@@ -148,7 +148,7 @@ PointLightEditPanel::PointLightEditPanel(Engine3D& engine3d, float x, float y, S
     });
     y += label->height() + vertical_spacing;
 
-    slider = addChild(std::make_unique<Slider<float>>(engine3d, m_x + padding_x, y, m_width - 2.0f * padding_x, slider_height, 0.0f, 1.0f, m_point_light.color.g, [this](float value)
+    slider = addChild(std::make_unique<Slider<float>>(renderer, m_x + padding_x, y, m_width - 2.0f * padding_x, slider_height, 0.0f, 1.0f, m_point_light.color.g, [this](float value)
     {
         m_point_light.color.g = value;
         updatePointLight();
@@ -163,8 +163,8 @@ PointLightEditPanel::PointLightEditPanel(Engine3D& engine3d, float x, float y, S
     y += slider_height + vertical_spacing;
 
     /*b*/
-    label = addChild(std::make_unique<Label>(engine3d, m_x + padding_x, y, font, "b", false, HorizontalAlignment::Left, VerticalAlignment::Top));
-    text_input = addChild(std::make_unique<Label>(engine3d, m_x + text_input_x, y, text_input_width, label->height(), font, "", true, HorizontalAlignment::Center, VerticalAlignment::Top));
+    label = addChild(std::make_unique<Label>(renderer, m_x + padding_x, y, font, "b", false, HorizontalAlignment::Left, VerticalAlignment::Top));
+    text_input = addChild(std::make_unique<Label>(renderer, m_x + text_input_x, y, text_input_width, label->height(), font, "", true, HorizontalAlignment::Center, VerticalAlignment::Top));
     text_input->setCancalable(true);
     text_input->setUpdateCallback([this](Label& l)
     {
@@ -179,7 +179,7 @@ PointLightEditPanel::PointLightEditPanel(Engine3D& engine3d, float x, float y, S
     });
     y += label->height() + vertical_spacing;
 
-    slider = addChild(std::make_unique<Slider<float>>(engine3d, m_x + padding_x, y, m_width - 2.0f * padding_x, slider_height, 0.0f, 1.0f, m_point_light.color.b, [this](float value)
+    slider = addChild(std::make_unique<Slider<float>>(renderer, m_x + padding_x, y, m_width - 2.0f * padding_x, slider_height, 0.0f, 1.0f, m_point_light.color.b, [this](float value)
     {
         m_point_light.color.b = value;
         updatePointLight();
@@ -194,8 +194,8 @@ PointLightEditPanel::PointLightEditPanel(Engine3D& engine3d, float x, float y, S
     y += slider_height + vertical_spacing;
 
     /*Power*/
-    label = addChild(std::make_unique<Label>(engine3d, m_x + padding_x, y, font, "power", false, HorizontalAlignment::Left, VerticalAlignment::Top));
-    text_input = addChild(std::make_unique<Label>(engine3d, m_x + 2.0f * text_input_x, y, text_input_width - text_input_x, label->height(), font, "", true, HorizontalAlignment::Center, VerticalAlignment::Top));
+    label = addChild(std::make_unique<Label>(renderer, m_x + padding_x, y, font, "power", false, HorizontalAlignment::Left, VerticalAlignment::Top));
+    text_input = addChild(std::make_unique<Label>(renderer, m_x + 2.0f * text_input_x, y, text_input_width - text_input_x, label->height(), font, "", true, HorizontalAlignment::Center, VerticalAlignment::Top));
     text_input->setCancalable(true);
     text_input->setUpdateCallback([this](Label& l)
     {
@@ -210,7 +210,7 @@ PointLightEditPanel::PointLightEditPanel(Engine3D& engine3d, float x, float y, S
     });
     y += label->height() + vertical_spacing;
 
-    slider = addChild(std::make_unique<Slider<float>>(engine3d, m_x + padding_x, y, m_width - 2.0f * padding_x, slider_height, 0.0f, 1000.0f, m_point_light.power, [this](float value)
+    slider = addChild(std::make_unique<Slider<float>>(renderer, m_x + padding_x, y, m_width - 2.0f * padding_x, slider_height, 0.0f, 1000.0f, m_point_light.power, [this](float value)
     {
         m_point_light.power = value;
         updatePointLight();
@@ -225,8 +225,8 @@ PointLightEditPanel::PointLightEditPanel(Engine3D& engine3d, float x, float y, S
     y += slider_height + vertical_spacing;
 
     /*Max Distance*/
-    label = addChild(std::make_unique<Label>(engine3d, m_x + padding_x, y, font, "max distance", false, HorizontalAlignment::Left, VerticalAlignment::Top));
-    text_input = addChild(std::make_unique<Label>(engine3d, m_x + padding_x + label->width() + 10, y, m_width - (padding_x + label->width() + 10) - padding_x, label->height(), font, "", true, HorizontalAlignment::Center, VerticalAlignment::Top));
+    label = addChild(std::make_unique<Label>(renderer, m_x + padding_x, y, font, "max distance", false, HorizontalAlignment::Left, VerticalAlignment::Top));
+    text_input = addChild(std::make_unique<Label>(renderer, m_x + padding_x + label->width() + 10, y, m_width - (padding_x + label->width() + 10) - padding_x, label->height(), font, "", true, HorizontalAlignment::Center, VerticalAlignment::Top));
     text_input->setCancalable(true);
     text_input->setUpdateCallback([this](Label& l)
     {
@@ -241,7 +241,7 @@ PointLightEditPanel::PointLightEditPanel(Engine3D& engine3d, float x, float y, S
     });
     y += label->height() + vertical_spacing;
 
-    slider = addChild(std::make_unique<Slider<float>>(engine3d, m_x + padding_x, y, m_width - 2.0f * padding_x, slider_height, 0.0f, 100.0f, m_point_light.max_d, [this](float value)
+    slider = addChild(std::make_unique<Slider<float>>(renderer, m_x + padding_x, y, m_width - 2.0f * padding_x, slider_height, 0.0f, 100.0f, m_point_light.max_d, [this](float value)
     {
         m_point_light.max_d = value;
         updatePointLight();
@@ -257,12 +257,12 @@ PointLightEditPanel::PointLightEditPanel(Engine3D& engine3d, float x, float y, S
 
     /*--- Attenuation ---*/
     y += 5.0f;
-    label = addChild(std::make_unique<Label>(engine3d, m_x + padding_x, y, font, "Attenuation", false, HorizontalAlignment::Left, VerticalAlignment::Top));
+    label = addChild(std::make_unique<Label>(renderer, m_x + padding_x, y, font, "Attenuation", false, HorizontalAlignment::Left, VerticalAlignment::Top));
     y += label->height() + vertical_spacing;
 
     /*a0*/
-    label = addChild(std::make_unique<Label>(engine3d, m_x + padding_x, y, font, "a0", false, HorizontalAlignment::Left, VerticalAlignment::Top));
-    text_input = addChild(std::make_unique<Label>(engine3d, m_x + text_input_x, y, text_input_width, label->height(), font, "", true, HorizontalAlignment::Center, VerticalAlignment::Top));
+    label = addChild(std::make_unique<Label>(renderer, m_x + padding_x, y, font, "a0", false, HorizontalAlignment::Left, VerticalAlignment::Top));
+    text_input = addChild(std::make_unique<Label>(renderer, m_x + text_input_x, y, text_input_width, label->height(), font, "", true, HorizontalAlignment::Center, VerticalAlignment::Top));
     text_input->setCancalable(true);
     text_input->setUpdateCallback([this](Label& l)
     {
@@ -277,7 +277,7 @@ PointLightEditPanel::PointLightEditPanel(Engine3D& engine3d, float x, float y, S
     });
     y += label->height() + vertical_spacing;
 
-    slider = addChild(std::make_unique<Slider<float>>(engine3d, m_x + padding_x, y, m_width - 2.0f * padding_x, slider_height, 0.0f, 1.0f, m_point_light.a0, [this](float value)
+    slider = addChild(std::make_unique<Slider<float>>(renderer, m_x + padding_x, y, m_width - 2.0f * padding_x, slider_height, 0.0f, 1.0f, m_point_light.a0, [this](float value)
     {
         m_point_light.a0 = value;
         updatePointLight();
@@ -292,8 +292,8 @@ PointLightEditPanel::PointLightEditPanel(Engine3D& engine3d, float x, float y, S
     y += slider_height + vertical_spacing;
 
     /*a1*/
-    label = addChild(std::make_unique<Label>(engine3d, m_x + padding_x, y, font, "a1", false, HorizontalAlignment::Left, VerticalAlignment::Top));
-    text_input = addChild(std::make_unique<Label>(engine3d, m_x + text_input_x, y, text_input_width, label->height(), font, "", true, HorizontalAlignment::Center, VerticalAlignment::Top));
+    label = addChild(std::make_unique<Label>(renderer, m_x + padding_x, y, font, "a1", false, HorizontalAlignment::Left, VerticalAlignment::Top));
+    text_input = addChild(std::make_unique<Label>(renderer, m_x + text_input_x, y, text_input_width, label->height(), font, "", true, HorizontalAlignment::Center, VerticalAlignment::Top));
     text_input->setCancalable(true);
     text_input->setUpdateCallback([this](Label& l)
     {
@@ -308,7 +308,7 @@ PointLightEditPanel::PointLightEditPanel(Engine3D& engine3d, float x, float y, S
     });
     y += label->height() + vertical_spacing;
 
-    slider = addChild(std::make_unique<Slider<float>>(engine3d, m_x + padding_x, y, m_width - 2.0f * padding_x, slider_height, 0.0f, 1.0f, m_point_light.a1, [this](float value)
+    slider = addChild(std::make_unique<Slider<float>>(renderer, m_x + padding_x, y, m_width - 2.0f * padding_x, slider_height, 0.0f, 1.0f, m_point_light.a1, [this](float value)
     {
         m_point_light.a1 = value;
         updatePointLight();
@@ -323,8 +323,8 @@ PointLightEditPanel::PointLightEditPanel(Engine3D& engine3d, float x, float y, S
     y += slider_height + vertical_spacing;
 
     /*a2*/
-    label = addChild(std::make_unique<Label>(engine3d, m_x + padding_x, y, font, "a2", false, HorizontalAlignment::Left, VerticalAlignment::Top));
-    text_input = addChild(std::make_unique<Label>(engine3d, m_x + text_input_x, y, text_input_width, label->height(), font, "", true, HorizontalAlignment::Center, VerticalAlignment::Top));
+    label = addChild(std::make_unique<Label>(renderer, m_x + padding_x, y, font, "a2", false, HorizontalAlignment::Left, VerticalAlignment::Top));
+    text_input = addChild(std::make_unique<Label>(renderer, m_x + text_input_x, y, text_input_width, label->height(), font, "", true, HorizontalAlignment::Center, VerticalAlignment::Top));
     text_input->setCancalable(true);
     text_input->setUpdateCallback([this](Label& l)
     {
@@ -339,7 +339,7 @@ PointLightEditPanel::PointLightEditPanel(Engine3D& engine3d, float x, float y, S
     });
     y += label->height() + vertical_spacing;
 
-    slider = addChild(std::make_unique<Slider<float>>(engine3d, m_x + padding_x, y, m_width - 2.0f * padding_x, slider_height, 0.0f, 1.0f, m_point_light.a2, [this](float value)
+    slider = addChild(std::make_unique<Slider<float>>(renderer, m_x + padding_x, y, m_width - 2.0f * padding_x, slider_height, 0.0f, 1.0f, m_point_light.a2, [this](float value)
     {
         m_point_light.a2 = value;
         updatePointLight();
@@ -353,9 +353,9 @@ PointLightEditPanel::PointLightEditPanel(Engine3D& engine3d, float x, float y, S
     });
     y += slider_height + vertical_spacing;
 
-    addChild(std::make_unique<Label>(engine3d, m_x + padding_x, y + 0.5f * checkbox_size, font, "Enable shadowmap", false, HorizontalAlignment::Left, VerticalAlignment::Center));
+    addChild(std::make_unique<Label>(renderer, m_x + padding_x, y + 0.5f * checkbox_size, font, "Enable shadowmap", false, HorizontalAlignment::Left, VerticalAlignment::Center));
 
-    auto checkbox = addChild(std::make_unique<Checkbox>(engine3d, m_x + m_width - padding_x - checkbox_size, y, checkbox_size, checkbox_size, m_point_light.shadow_map_res != 0));
+    auto checkbox = addChild(std::make_unique<Checkbox>(renderer, m_x + m_width - padding_x - checkbox_size, y, checkbox_size, checkbox_size, m_point_light.shadow_map_res != 0));
     checkbox->setOnCheckCallback([this]()
     {
         m_point_light.shadow_map_res = 512;
@@ -369,9 +369,9 @@ PointLightEditPanel::PointLightEditPanel(Engine3D& engine3d, float x, float y, S
 
     y += std::max(checkbox_size, 0.5f * checkbox_size + font.height()) + vertical_spacing;
 
-    addChild(std::make_unique<Label>(engine3d, m_x + padding_x, y, font, "Shadowmap\nresolution", false, HorizontalAlignment::Left, VerticalAlignment::Top));
+    addChild(std::make_unique<Label>(renderer, m_x + padding_x, y, font, "Shadowmap\nresolution", false, HorizontalAlignment::Left, VerticalAlignment::Top));
 
-    text_input = addChild(std::make_unique<Label>(engine3d, m_x + 2.0f * text_input_x, y, text_input_width - text_input_x, font.height(), font, "", true, HorizontalAlignment::Center, VerticalAlignment::Top));
+    text_input = addChild(std::make_unique<Label>(renderer, m_x + 2.0f * text_input_x, y, text_input_width - text_input_x, font.height(), font, "", true, HorizontalAlignment::Center, VerticalAlignment::Top));
     text_input->setCancalable(true);
     text_input->setUpdateCallback([this](Label& l)
     {

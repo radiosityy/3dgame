@@ -8,7 +8,7 @@ class Player : public Object
 public:
     using Object::Object;
 
-    void update(Engine3D& engine3d, float dt);
+    void update(Renderer& renderer, float dt);
 
     void walkForward(bool);
     void walkBack(bool);

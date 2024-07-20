@@ -10,13 +10,13 @@
 #include <sstream>
 #include <fstream>
 
-Scene::Scene(Engine3D& engine3d, float aspect_ratio, const Font& font)
-    : m_engine3d(engine3d)
+Scene::Scene(Renderer& renderer, float aspect_ratio, const Font& font)
+    : m_renderer(renderer)
     , m_camera(aspect_ratio, 1.0f, 2000.0f, degToRad(90.0f))
 {
-    engine3d.loadTexture("Ground003_4K_Color.png");
-    engine3d.loadNormalMap("Ground003_4K_Normal.png");
-    m_time_label = std::make_unique<Label>(m_engine3d, 0, 20.0f, font, "", false, HorizontalAlignment::Left, VerticalAlignment::Top);
+    renderer.loadTexture("Ground003_4K_Color.png");
+    renderer.loadNormalMap("Ground003_4K_Normal.png");
+    m_time_label = std::make_unique<Label>(m_renderer, 0, 20.0f, font, "", false, HorizontalAlignment::Left, VerticalAlignment::Top);
     m_time_label->setUpdateCallback([&](Label& label)
     {
         const uint32_t h = static_cast<uint32_t>(m_time_of_day) / 3600;
@@ -30,7 +30,7 @@ Scene::Scene(Engine3D& engine3d, float aspect_ratio, const Font& font)
     m_sun.shadow_map_count = 4;
     m_sun.shadow_map_res_x = 2048;
     m_sun.shadow_map_res_y = 2048;
-    engine3d.addDirLight(m_sun);
+    renderer.addDirLight(m_sun);
 
     m_time_of_day = 11.0f * 3600.0f;
     updateSun();
@@ -56,7 +56,7 @@ void Scene::loadFromFile(std::string_view filename)
 
         for(uint64_t i = 0; i < obj_count; i++)
         {
-            addObject(m_engine3d, scene_file);
+            addObject(m_renderer, scene_file);
         }
 
         uint64_t point_light_count = 0;
@@ -75,28 +75,28 @@ void Scene::loadFromFile(std::string_view filename)
     }
 
     /*add sky dome*/
-    addObject(m_engine3d, "assets/meshes/sky_dome.3d", RenderMode::Sky, vec3(0.0f), vec3(1000.0f));
+    addObject(m_renderer, "assets/meshes/sky_dome.3d", RenderMode::Sky, vec3(0.0f), vec3(1000.0f));
 #if EDITOR_ENABLE
     m_objects.back().setSerializable(false);
 #endif
 
     /*add player*/
-    m_player = std::make_unique<Player>(m_engine3d, "assets/meshes/man.3d", RenderMode::Default, vec3(0.0f, 5.0f, -10.0f));
+    m_player = std::make_unique<Player>(m_renderer, "assets/meshes/man.3d", RenderMode::Default, vec3(0.0f, 5.0f, -10.0f));
 #if EDITOR_ENABLE
     m_player->setSerializable(false);
 #endif
 
     /*add terrain*/
-    m_terrain = std::make_unique<Terrain>(m_engine3d);
+    m_terrain = std::make_unique<Terrain>(m_renderer);
 }
 
 void Scene::update(float dt, const InputState& input_state) noexcept
 {
     for(auto& obj : m_objects)
     {
-        obj.update(m_engine3d, dt);
+        obj.update(m_renderer, dt);
     }
-    m_player->update(m_engine3d, dt);
+    m_player->update(m_renderer, dt);
 
     /*advance time of day (wrap around after a whole day has passed)*/
     m_time_of_day += dt * m_time_scale;
@@ -110,7 +110,7 @@ void Scene::update(float dt, const InputState& input_state) noexcept
 
     updateSun();
 
-    m_time_label->update(m_engine3d);
+    m_time_label->update(m_renderer);
 
     if(m_player_movement)
     {
@@ -184,17 +184,17 @@ void Scene::draw(RenderData& render_data) noexcept
     {
         if(obj.cull(view_frustum_planes))
         {
-            obj.draw(m_engine3d);
+            obj.draw(m_renderer);
         }
     }
     if(m_player->cull(view_frustum_planes))
     {
-        m_player->draw(m_engine3d);
+        m_player->draw(m_renderer);
     }
 
-    m_terrain->draw(m_engine3d);
+    m_terrain->draw(m_renderer);
 
-    m_time_label->draw(m_engine3d);
+    m_time_label->draw(m_renderer);
 }
 
 void Scene::tryPlayerRotation(float dt)
@@ -386,7 +386,7 @@ void Scene::updateSun()
 
     m_sun.dir = -m_effective_sun_pos;
 
-    m_engine3d.updateDirLight(0, m_sun);
+    m_renderer.updateDirLight(0, m_sun);
 }
 
 template<class Collider>
@@ -457,12 +457,12 @@ void Scene::removeObject(Object* obj)
 
 PointLightId Scene::addPointLight(const PointLight& point_light) const
 {
-    return m_engine3d.addPointLight(point_light);
+    return m_renderer.addPointLight(point_light);
 }
 
 void Scene::updatePointLight(PointLightId id, const PointLight& point_light) const
 {
-    m_engine3d.updatePointLight(id, point_light);
+    m_renderer.updatePointLight(id, point_light);
 }
 
 Terrain& Scene::terrain() noexcept
@@ -549,7 +549,7 @@ void Scene::addStaticPointLight(const PointLight& point_light)
 
 void Scene::removeStaticPointLight(uint32_t id)
 {
-    m_engine3d.removePointLight(m_static_point_light_ids[id]);
+    m_renderer.removePointLight(m_static_point_light_ids[id]);
     m_static_point_lights.erase(m_static_point_lights.begin() + id);
     m_static_point_light_ids.erase(m_static_point_light_ids.begin() + id);
 }

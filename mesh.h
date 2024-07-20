@@ -6,12 +6,12 @@
 #include "vertex.h"
 #include "collision.h"
 #include "shaders/shader_constants.h"
-#include "engine_3d.h"
+#include "renderer.h"
 
 class Mesh
 {
 public:
-    Mesh(Engine3D& engine3d, std::ifstream& model_file);
+    Mesh(Renderer& renderer, std::ifstream& model_file);
 
     uint32_t textureId() const;
     uint32_t normalMapId() const;

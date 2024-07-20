@@ -3,7 +3,7 @@
 #include <print>
 #include <format>
 
-Terrain::Terrain(Engine3D& engine3d)
+Terrain::Terrain(Renderer& renderer)
 {
 #if EDITOR_ENABLE
     {
@@ -16,7 +16,7 @@ Terrain::Terrain(Engine3D& engine3d)
     }
 #endif
 
-    loadFromFile(engine3d);
+    loadFromFile(renderer);
 }
 
 void Terrain::calcXYFromSize() noexcept
@@ -57,7 +57,7 @@ void Terrain::createNew()
 }
 #endif
 
-void Terrain::loadFromFile(Engine3D& engine3d)
+void Terrain::loadFromFile(Renderer& renderer)
 {
     std::ifstream in(TERRAIN_FILENAME, std::ios::binary);
 
@@ -89,11 +89,11 @@ void Terrain::loadFromFile(Engine3D& engine3d)
     m_heightmaps.resize(m_patch_vertices.size());
     in.read(reinterpret_cast<char*>(m_heightmaps.data()), m_heightmaps.size() * sizeof(m_heightmaps[0]));
 
-    m_vb_alloc = engine3d.requestVertexBufferAllocation<VertexTerrain>(m_patch_vertices.size());
-    engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexTerrain) * m_patch_vertices.size(), m_patch_vertices.data());
+    m_vb_alloc = renderer.requestVertexBufferAllocation<VertexTerrain>(m_patch_vertices.size());
+    renderer.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexTerrain) * m_patch_vertices.size(), m_patch_vertices.data());
 
-    engine3d.requestTerrainBufferAllocation(m_vertex_data.size() * sizeof(VertexData));
-    engine3d.updateTerrainData(m_vertex_data.data(), 0, m_vertex_data.size() * sizeof(VertexData));
+    renderer.requestTerrainBufferAllocation(m_vertex_data.size() * sizeof(VertexData));
+    renderer.updateTerrainData(m_vertex_data.data(), 0, m_vertex_data.size() * sizeof(VertexData));
 
     //TODO:don't do this after we add proper patch streaming
     std::vector<std::pair<float*, uint32_t>> heightmap_reqs(m_heightmaps.size());
@@ -101,18 +101,18 @@ void Terrain::loadFromFile(Engine3D& engine3d)
     {
         heightmap_reqs[i] = std::make_pair(m_heightmaps[i].data(), i);
     }
-    engine3d.requestTerrainHeightmaps(heightmap_reqs);
+    renderer.requestTerrainHeightmaps(heightmap_reqs);
 }
 
-void Terrain::draw(Engine3D& engine3d)
+void Terrain::draw(Renderer& renderer)
 {
     //TODO: do frustum culling (both camera and light sources views!) and only draw visible patches, also stream heightmaps onto GPU
     //try and compare the following approaches:
     //1. Update vertex buffer with only the patches to draw this frame (the ones that passed frustum culling) and draw the whole VB in a single draw call
     //2. Always have all patch vertex data on the GPU and use an index buffer and update it with indices of vertices that passed frustum culling and are to be drawn this frame and draw in a single draw call
     //3. Always have all patch vertex data on the GPU and issue multiple draw calls to pick the vertices to be drawn this frame that passed frustum culling
-    engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexTerrain) * m_patch_vertices.size(), m_patch_vertices.data());
-    engine3d.draw(m_render_mode, m_vb_alloc.vb, m_vb_alloc.vertex_offset, m_patch_vertices.size(), 0, {});
+    renderer.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexTerrain) * m_patch_vertices.size(), m_patch_vertices.data());
+    renderer.draw(m_render_mode, m_vb_alloc.vb, m_vb_alloc.vertex_offset, m_patch_vertices.size(), 0, {});
 }
 
 float Terrain::patchSize() const
@@ -436,7 +436,7 @@ void Terrain::saveToFile()
     out.write(reinterpret_cast<const char*>(m_heightmaps.data()), m_heightmaps.size() * sizeof(m_heightmaps[0]));
 }
 
-void Terrain::setSize(Engine3D& engine3d, float size)
+void Terrain::setSize(Renderer& renderer, float size)
 {
     m_size = size;
     m_x = -0.5f * m_size;
@@ -454,7 +454,7 @@ void Terrain::setSize(Engine3D& engine3d, float size)
         }
     }
 
-    engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexTerrain) * m_patch_vertices.size(), m_patch_vertices.data());
+    renderer.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexTerrain) * m_patch_vertices.size(), m_patch_vertices.data());
 }
 
 bool Terrain::rayIntersection(const Ray& ray, float& d) const
@@ -524,7 +524,7 @@ bool Terrain::rayIntersection(const Ray& ray, float& d) const
 #endif
 }
 
-void Terrain::toolEdit(Engine3D& engine3d, const vec3& center, float radius, float dh)
+void Terrain::toolEdit(Renderer& renderer, const vec3& center, float radius, float dh)
 {
 #if 0
     const float min_x_coord = std::max<float>((center.x - radius - m_x) / m_patch_size, 0);
@@ -576,7 +576,7 @@ void Terrain::toolEdit(Engine3D& engine3d, const vec3& center, float radius, flo
     }
 
     //TODO: only update the data that's changed
-    engine3d.updateTerrainData(m_vertex_data.data(), 0, m_vertex_data.size() * sizeof(VertexData));
+    renderer.updateTerrainData(m_vertex_data.data(), 0, m_vertex_data.size() * sizeof(VertexData));
 #endif
 }
 

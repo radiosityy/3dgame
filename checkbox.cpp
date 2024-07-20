@@ -1,10 +1,10 @@
 #include "checkbox.h"
 
-Checkbox::Checkbox(Engine3D& engine3d, float x, float y, float w, float h, bool init_checked)
-    : Rect(engine3d, x, y, w, h)
+Checkbox::Checkbox(Renderer& renderer, float x, float y, float w, float h, bool init_checked)
+    : Rect(renderer, x, y, w, h)
     , m_checked(init_checked)
-    , m_unchecked_tex(TexId(engine3d.loadTexture("checkbox_unchecked.png"), 0))
-    , m_checked_tex(TexId(engine3d.loadTexture("checkbox_checked.png"), 0))
+    , m_unchecked_tex(TexId(renderer.loadTexture("checkbox_unchecked.png"), 0))
+    , m_checked_tex(TexId(renderer.loadTexture("checkbox_checked.png"), 0))
 {
     if(m_checked)
     {

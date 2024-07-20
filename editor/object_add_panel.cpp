@@ -4,28 +4,28 @@
 #include <filesystem>
 #include <print>
 
-ObjectAddPanel::ObjectAddPanel(Engine3D& engine3d, float x, float y, Scene& scene, const Font& font)
-    : m_engine3d(engine3d)
+ObjectAddPanel::ObjectAddPanel(Renderer& renderer, float x, float y, Scene& scene, const Font& font)
+    : m_renderer(renderer)
     , m_scene(scene)
     , m_font(&font)
     , m_x(x)
     , m_y(y)
 {
     /*background rect*/
-    addChild(std::make_unique<Rect>(m_engine3d, m_x, m_y, m_width, m_height, ColorRGBA(0.2f, 0.2f, 0.2f, 1.0f)));
+    addChild(std::make_unique<Rect>(m_renderer, m_x, m_y, m_width, m_height, ColorRGBA(0.2f, 0.2f, 0.2f, 1.0f)));
 
     /*top bar*/
-    auto label = std::make_unique<Label>(m_engine3d, m_x + 5.0f, m_y + 5.0f, font, "Pick mesh file", false, HorizontalAlignment::Left, VerticalAlignment::Top);
+    auto label = std::make_unique<Label>(m_renderer, m_x + 5.0f, m_y + 5.0f, font, "Pick mesh file", false, HorizontalAlignment::Left, VerticalAlignment::Top);
     const float bar_height = 10.0f + label->height();
-    addChild(std::make_unique<Rect>(m_engine3d, m_x, m_y, m_width, bar_height, ColorRGBA(0.3f, 0.3f, 0.3f, 1.0f)));
+    addChild(std::make_unique<Rect>(m_renderer, m_x, m_y, m_width, bar_height, ColorRGBA(0.3f, 0.3f, 0.3f, 1.0f)));
     addChild(std::move(label));
 
-    m_text_input = addChild(std::make_unique<Label>(m_engine3d, m_x, m_y + bar_height, 0.7f * m_width, font.height(), font, "", true, HorizontalAlignment::Left, VerticalAlignment::Center));
+    m_text_input = addChild(std::make_unique<Label>(m_renderer, m_x, m_y + bar_height, 0.7f * m_width, font.height(), font, "", true, HorizontalAlignment::Left, VerticalAlignment::Center));
     m_text_input->setBackgroundColor(ColorRGBA(0.1f, 0.1f, 0.1f, 1.0f));
     m_text_input->setConfirmCallback([&](Label& l){addObject(l.text());});
     m_text_input->setTextChangedCallback([this](std::string_view){updateList();});
 
-    addChild(std::make_unique<Button>(m_engine3d, m_x + 0.7f * m_width, m_y + bar_height, 0.3f * m_width, font.height(), font, "Select", [&](){addObject(m_text_input->text());}));
+    addChild(std::make_unique<Button>(m_renderer, m_x + 0.7f * m_width, m_y + bar_height, 0.3f * m_width, font.height(), font, "Select", [&](){addObject(m_text_input->text());}));
 
     m_list_y = m_y + bar_height + static_cast<float>(font.height());
 
@@ -108,7 +108,7 @@ void ObjectAddPanel::addObject(std::string_view mesh_filename)
 
     try
     {
-        m_scene.addObject(m_engine3d, mesh_file_path, RenderMode::Default, object_pos);
+        m_scene.addObject(m_renderer, mesh_file_path, RenderMode::Default, object_pos);
     }
     catch(std::exception& e)
     {
@@ -143,7 +143,7 @@ void ObjectAddPanel::updateList()
 
         const auto id = m_mesh_filenames.size() - 1;
 
-        auto button = addChild(std::make_unique<Button>(m_engine3d, m_x, y, m_width, item_height, *m_font, filename, [id, this]()
+        auto button = addChild(std::make_unique<Button>(m_renderer, m_x, y, m_width, item_height, *m_font, filename, [id, this]()
         {
             m_selected_item_id = -1;
             setKeyboardFocus(m_text_input);

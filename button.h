@@ -6,13 +6,13 @@
 class Button : public GuiObject
 {
 public:
-    Button(Engine3D& engine3d, float x, float y, float w, float h, const Font& font, const std::string& text, std::move_only_function<void()>&& mouse_pressed_callback, HorizontalAlignment = HorizontalAlignment::Center, VerticalAlignment = VerticalAlignment::Center);
+    Button(Renderer& renderer, float x, float y, float w, float h, const Font& font, const std::string& text, std::move_only_function<void()>&& mouse_pressed_callback, HorizontalAlignment = HorizontalAlignment::Center, VerticalAlignment = VerticalAlignment::Center);
 
 public:
     void setUpdateCallback(std::move_only_function<void(Button&)>&&);
 
-    virtual void update(Engine3D& engine3d) override;
-    virtual void draw(Engine3D& engine3d) override;
+    virtual void update(Renderer& renderer) override;
+    virtual void draw(Renderer& renderer) override;
 
     virtual void onMousePressed(MouseButton, const InputState&) override;
     virtual void onMouseReleased(MouseButton, const InputState&, bool) override;

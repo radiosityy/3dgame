@@ -1,7 +1,7 @@
 #include "label.h"
 #include "game_utils.h"
 
-Label::Label(Engine3D& engine3d, float x, float y, const Font& font, const std::string& text, bool editable, HorizontalAlignment hor_align, VerticalAlignment ver_align)
+Label::Label(Renderer& renderer, float x, float y, const Font& font, const std::string& text, bool editable, HorizontalAlignment hor_align, VerticalAlignment ver_align)
     : m_font(&font)
     , m_editable(editable)
     , m_reference_x(x)
@@ -9,8 +9,8 @@ Label::Label(Engine3D& engine3d, float x, float y, const Font& font, const std::
     , m_horizontal_alignment(hor_align)
     , m_vertical_alignment(ver_align)
     , m_fixed_rect(false)
-    , m_background_rect(engine3d, 0.0f, 0.0f, 0.0f, 0.0f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.0f))
-    , m_cursor_rect(engine3d, 0.0f, 0.0f, 0.0f, 0.0f, ColorRGBA(0.2f, 0.2f, 0.5f, 1.0f))
+    , m_background_rect(renderer, 0.0f, 0.0f, 0.0f, 0.0f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.0f))
+    , m_cursor_rect(renderer, 0.0f, 0.0f, 0.0f, 0.0f, ColorRGBA(0.2f, 0.2f, 0.5f, 1.0f))
 {
     if(m_editable)
     {
@@ -24,7 +24,7 @@ Label::Label(Engine3D& engine3d, float x, float y, const Font& font, const std::
     updateCursor(m_text.size());
 }
 
-Label::Label(Engine3D& engine3d, float x, float y, float width, float height, const Font& font, const std::string& text, bool editable, HorizontalAlignment hor_align, VerticalAlignment ver_align)
+Label::Label(Renderer& renderer, float x, float y, float width, float height, const Font& font, const std::string& text, bool editable, HorizontalAlignment hor_align, VerticalAlignment ver_align)
     : m_font(&font)
     , m_editable(editable)
     , m_x(x)
@@ -34,8 +34,8 @@ Label::Label(Engine3D& engine3d, float x, float y, float width, float height, co
     , m_horizontal_alignment(hor_align)
     , m_vertical_alignment(ver_align)
     , m_fixed_rect(true)
-    , m_background_rect(engine3d, m_x, m_y, m_width, m_height, ColorRGBA(0.0f, 0.0f, 0.0f, 0.0f))
-    , m_cursor_rect(engine3d, 0.0f, 0.0f, 0.0f, 0.0f, ColorRGBA(0.2f, 0.2f, 0.5f, 1.0f))
+    , m_background_rect(renderer, m_x, m_y, m_width, m_height, ColorRGBA(0.0f, 0.0f, 0.0f, 0.0f))
+    , m_cursor_rect(renderer, 0.0f, 0.0f, 0.0f, 0.0f, ColorRGBA(0.2f, 0.2f, 0.5f, 1.0f))
 {
     if(m_editable)
     {
@@ -348,7 +348,7 @@ void Label::setTextChangedCallback(std::move_only_function<void (std::string_vie
     m_text_changed_callback = std::move(callback);
 }
 
-void Label::update(Engine3D& engine3d)
+void Label::update(Renderer& renderer)
 {
     if((!m_editable || !m_focused) && m_update_callback)
     {
@@ -359,35 +359,35 @@ void Label::update(Engine3D& engine3d)
     {
         m_vb_alloc_vertex_count = m_vertices.size();
         //TODO: free up current allocation or find some other way to not waste current allocation
-        m_vb_alloc = engine3d.requestVertexBufferAllocation<VertexUi>(m_vb_alloc_vertex_count);
+        m_vb_alloc = renderer.requestVertexBufferAllocation<VertexUi>(m_vb_alloc_vertex_count);
     }
     //TODO: for some reason we call updateVertexData() with empty string and without checking for empty m_vertices here we crash
     //I have no idea why we do that, should check
     if(m_vertex_data_updated && !m_vertices.empty())
     {
-        engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexUi) * m_vertices.size(), m_vertices.data());
+        renderer.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexUi) * m_vertices.size(), m_vertices.data());
     }
 
-    m_background_rect.update(engine3d);
+    m_background_rect.update(renderer);
     if(m_focused)
     {
-        m_cursor_rect.update(engine3d);
+        m_cursor_rect.update(renderer);
     }
 
     m_vertex_data_updated = false;
 }
 
-void Label::draw(Engine3D& engine3d)
+void Label::draw(Renderer& renderer)
 {
-    m_background_rect.draw(engine3d);
+    m_background_rect.draw(renderer);
     if(m_focused)
     {
-        m_cursor_rect.draw(engine3d);
+        m_cursor_rect.draw(renderer);
     }
 
     if(!m_vertices.empty())
     {
-        engine3d.drawUi(RenderModeUi::Font, m_vb_alloc.vb, m_vb_alloc.vertex_offset, m_vertices.size(), m_scissor);
+        renderer.drawUi(RenderModeUi::Font, m_vb_alloc.vb, m_vb_alloc.vertex_offset, m_vertices.size(), m_scissor);
     }
 }
 

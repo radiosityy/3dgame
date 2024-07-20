@@ -1,5 +1,5 @@
-#ifndef ENGINE_3D_H
-#define ENGINE_3D_H
+#ifndef RENDERER_H
+#define RENDERER_H
 
 #ifdef _WIN32
 #define VK_USE_PLATFORM_WIN32_KHR 1
@@ -42,7 +42,7 @@ struct VertexBufferAllocation
     uint32_t vertex_offset = 0;
 };
 
-class Engine3D
+class Renderer
 {
     struct RenderBatch
     {
@@ -210,13 +210,13 @@ class Engine3D
     };
 
 public:
-    Engine3D(const Window& window, std::string_view app_name);
+    Renderer(const Window& window, std::string_view app_name);
 
-    ~Engine3D();
-    Engine3D(const Engine3D&) = delete;
-    Engine3D(const Engine3D&&) = delete;
-    Engine3D& operator=(const Engine3D&) = delete;
-    Engine3D& operator=(const Engine3D&&) = delete;
+    ~Renderer();
+    Renderer(const Renderer&) = delete;
+    Renderer(const Renderer&&) = delete;
+    Renderer& operator=(const Renderer&) = delete;
+    Renderer& operator=(const Renderer&&) = delete;
 
     void updateAndRender(const RenderData&, Camera& camera);
 
@@ -572,4 +572,4 @@ private:
     void setDebugObjectName(VkSwapchainKHR swapchain, std::string_view name);
 };
 
-#endif // ENGINE_3D_H
+#endif // RENDERER_H

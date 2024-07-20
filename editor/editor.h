@@ -27,7 +27,7 @@ class Editor : public GuiParent
     };
 
 public:
-    Editor(Window& window, Scene& scene, Engine3D& engine3d, const Font& font);
+    Editor(Window& window, Scene& scene, Renderer& renderer, const Font& font);
     virtual ~Editor() = default;
 
     void update(const InputState& input_state, float dt);
@@ -59,7 +59,7 @@ private:
 
     Scene& m_scene;
     Window& m_window;
-    Engine3D& m_engine3d;
+    Renderer& m_renderer;
     const Font& m_font;
 
     Object* m_selected_object = nullptr;

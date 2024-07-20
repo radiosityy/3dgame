@@ -1,13 +1,13 @@
 #include "rect.h"
 
-Rect::Rect(Engine3D& engine3d, float x, float y, float w, float h, ColorRGBA color, Quad scissor)
+Rect::Rect(Renderer& renderer, float x, float y, float w, float h, ColorRGBA color, Quad scissor)
     : m_x(x)
     , m_y(y)
     , m_width(w)
     , m_height(h)
     , m_scissor(scissor)
 {
-    m_vb_alloc = engine3d.requestVertexBufferAllocation<VertexUi>(1);
+    m_vb_alloc = renderer.requestVertexBufferAllocation<VertexUi>(1);
 
     m_vertex.use_texture = 0;
     setFocusable(false);
@@ -15,14 +15,14 @@ Rect::Rect(Engine3D& engine3d, float x, float y, float w, float h, ColorRGBA col
     updateVertex();
 }
 
-Rect::Rect(Engine3D& engine3d, float x, float y, float w, float h, TexId tex_id, ColorRGBA color, Quad scissor)
+Rect::Rect(Renderer& renderer, float x, float y, float w, float h, TexId tex_id, ColorRGBA color, Quad scissor)
     : m_x(x)
     , m_y(y)
     , m_width(w)
     , m_height(h)
     , m_scissor(scissor)
 {
-    m_vb_alloc = engine3d.requestVertexBufferAllocation<VertexUi>(1);
+    m_vb_alloc = renderer.requestVertexBufferAllocation<VertexUi>(1);
 
     setFocusable(false);
     setColor(color);
@@ -30,15 +30,15 @@ Rect::Rect(Engine3D& engine3d, float x, float y, float w, float h, TexId tex_id,
     updateVertex();
 }
 
-void Rect::update(Engine3D& engine3d)
+void Rect::update(Renderer& renderer)
 {
     //TODO: only update vertex data when it changes
-    engine3d.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexUi), &m_vertex);
+    renderer.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexUi), &m_vertex);
 }
 
-void Rect::draw(Engine3D& engine3d)
+void Rect::draw(Renderer& renderer)
 {
-    engine3d.drawUi(RenderModeUi::Ui, m_vb_alloc.vb, m_vb_alloc.vertex_offset, 1, m_scissor);
+    renderer.drawUi(RenderModeUi::Ui, m_vb_alloc.vb, m_vb_alloc.vertex_offset, 1, m_scissor);
 }
 
 bool Rect::isPointInside(vec2 p)

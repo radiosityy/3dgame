@@ -1,7 +1,7 @@
 #include "model.h"
 #include "game_utils.h"
 
-Model::Model(Engine3D& engine3d, std::string_view filename)
+Model::Model(Renderer& renderer, std::string_view filename)
 {
     if(m_model_datas.contains(filename.data()))
     {
@@ -81,7 +81,7 @@ Model::Model(Engine3D& engine3d, std::string_view filename)
 
         for(uint64_t mesh_id = 0; mesh_id < mesh_count; mesh_id++)
         {
-            model_data->meshes.emplace_back(engine3d, model_file);
+            model_data->meshes.emplace_back(renderer, model_file);
         }
 
         model_file.read(reinterpret_cast<char*>(&model_data->bounding_sphere), sizeof(Sphere));
@@ -112,8 +112,8 @@ Model::Model(Engine3D& engine3d, std::string_view filename)
         m_curr_pose.resize(m_model_data->bone_count);
         m_bone_transforms.resize(m_model_data->bone_count);
         resetPose();
-        m_bone_offset = engine3d.requestBoneTransformBufferAllocation(m_model_data->bone_count);
-        engine3d.updateBoneTransformData(m_bone_offset, m_model_data->bone_count, m_bone_transforms.data());
+        m_bone_offset = renderer.requestBoneTransformBufferAllocation(m_model_data->bone_count);
+        renderer.updateBoneTransformData(m_bone_offset, m_model_data->bone_count, m_bone_transforms.data());
     }
 }
 
@@ -246,7 +246,7 @@ void Model::setPose(std::string_view pose_name)
     m_curr_pose = m_model_data->poses.at(pose_name.data());
 }
 
-void Model::animationUpdate(Engine3D& engine3d, float dt)
+void Model::animationUpdate(Renderer& renderer, float dt)
 {
     if(m_model_data->bone_count != 0)
     {
@@ -306,7 +306,7 @@ void Model::animationUpdate(Engine3D& engine3d, float dt)
         }
 
         //TODO: only update if data changed
-        engine3d.updateBoneTransformData(m_bone_offset, m_model_data->bone_count, m_bone_transforms.data());
+        renderer.updateBoneTransformData(m_bone_offset, m_model_data->bone_count, m_bone_transforms.data());
     }
 }
 

@@ -10,16 +10,16 @@ class Label : public GuiObject
 public:
     enum class Action {None, Confirm, Cancel};
 
-    Label(Engine3D& engine3d, float x, float y, const Font& font, const std::string& text, bool editable = false, HorizontalAlignment = HorizontalAlignment::Left, VerticalAlignment = VerticalAlignment::Top);
-    Label(Engine3D& engine3d, float x, float y, float width, float height, const Font& font, const std::string& text, bool editable = false, HorizontalAlignment = HorizontalAlignment::Center, VerticalAlignment = VerticalAlignment::Center);
+    Label(Renderer& renderer, float x, float y, const Font& font, const std::string& text, bool editable = false, HorizontalAlignment = HorizontalAlignment::Left, VerticalAlignment = VerticalAlignment::Top);
+    Label(Renderer& renderer, float x, float y, float width, float height, const Font& font, const std::string& text, bool editable = false, HorizontalAlignment = HorizontalAlignment::Center, VerticalAlignment = VerticalAlignment::Center);
 
     virtual void onKeyPressed(Key, const InputState&) override;
     virtual void onMousePressed(MouseButton, const InputState&) override;
 
     virtual void setUpdateCallback(std::move_only_function<void(Label&)>&&);
     virtual void setTextChangedCallback(std::move_only_function<void(std::string_view)>&&);
-    virtual void update(Engine3D& engine3d) override;
-    virtual void draw(Engine3D& engine3d) override;
+    virtual void update(Renderer& renderer) override;
+    virtual void draw(Renderer& renderer) override;
 
     void setBackgroundColor(ColorRGBA color);
     void setBackgroundTex(TexId tex);

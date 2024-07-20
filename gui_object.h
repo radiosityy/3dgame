@@ -4,7 +4,7 @@
 #include "input_state.h"
 #include "render_data.h"
 #include "geometry.h"
-#include "engine_3d.h"
+#include "renderer.h"
 
 #include <memory>
 
@@ -45,8 +45,8 @@ public:
     virtual void onCursorEnter();
     virtual void onCursorExit();
 
-    virtual void update(Engine3D& engine3d);
-    virtual void draw(Engine3D& engine3d) = 0;
+    virtual void update(Renderer& renderer);
+    virtual void draw(Renderer& renderer) = 0;
 
     virtual void move(vec2);
     virtual void scale(vec2);
@@ -101,8 +101,8 @@ protected:
         return p;
     }
     void removeChild(GuiObject*);
-    void updateChildren(Engine3D&);
-    void drawChildren(Engine3D&);
+    void updateChildren(Renderer&);
+    void drawChildren(Renderer&);
 
     void setKeyboardFocus(GuiObject*);
     void setMouseFocus(GuiObject*);
@@ -166,8 +166,8 @@ private:
 class GuiParentObject : public GuiObject, public GuiParent
 {
 public:
-    virtual void update(Engine3D&) override;
-    virtual void draw(Engine3D&) override;
+    virtual void update(Renderer&) override;
+    virtual void draw(Renderer&) override;
 
     virtual void onLostFocus() override;
     virtual void onCursorExit() override;

@@ -1,15 +1,15 @@
 #include "console.h"
 #include <format>
 
-Console::Console(Engine3D& engine3d, float x, float y, float w, float h, const Font& font, std::move_only_function<void(const std::string&)>&& command_process_callback)
+Console::Console(Renderer& renderer, float x, float y, float w, float h, const Font& font, std::move_only_function<void(const std::string&)>&& command_process_callback)
     : m_x(x)
     , m_y(y)
     , m_width(w)
     , m_height(h)
     , m_command_process_callback(std::move(command_process_callback))
-    , m_rect(engine3d, m_x, m_y, m_width, 0.9f * m_height, ColorRGBA(0.2f, 0.2f, 0.2f, 1.0f))
-    , m_text_label(engine3d, m_x, m_y + 0.9f * m_height, font, "", false, HorizontalAlignment::Left, VerticalAlignment::Bottom)
-    , m_text_input(engine3d, m_x, m_y + 0.9f * m_height, m_width, 0.1f * m_height, font, "", true, HorizontalAlignment::Left, VerticalAlignment::Center)
+    , m_rect(renderer, m_x, m_y, m_width, 0.9f * m_height, ColorRGBA(0.2f, 0.2f, 0.2f, 1.0f))
+    , m_text_label(renderer, m_x, m_y + 0.9f * m_height, font, "", false, HorizontalAlignment::Left, VerticalAlignment::Bottom)
+    , m_text_input(renderer, m_x, m_y + 0.9f * m_height, m_width, 0.1f * m_height, font, "", true, HorizontalAlignment::Left, VerticalAlignment::Center)
 {
     m_text_input.setConfirmCallback([&](Label& text_input)
     {
@@ -39,18 +39,18 @@ Console::Console(Engine3D& engine3d, float x, float y, float w, float h, const F
     m_text_input.setScissor({m_x, m_y, m_width, m_height});
 }
 
-void Console::update(Engine3D& engine3d)
+void Console::update(Renderer& renderer)
 {
-    m_rect.update(engine3d);
-    m_text_label.update(engine3d);
-    m_text_input.update(engine3d);
+    m_rect.update(renderer);
+    m_text_label.update(renderer);
+    m_text_input.update(renderer);
 }
 
-void Console::draw(Engine3D& engine3d)
+void Console::draw(Renderer& renderer)
 {
-    m_rect.draw(engine3d);
-    m_text_label.draw(engine3d);
-    m_text_input.draw(engine3d);
+    m_rect.draw(renderer);
+    m_text_label.draw(renderer);
+    m_text_input.draw(renderer);
 }
 
 void Console::print(std::string_view text)

@@ -2,12 +2,12 @@
 #define CHECKBOX_H
 
 #include "rect.h"
-#include "engine_3d.h"
+#include "renderer.h"
 
 class Checkbox : public Rect
 {
 public:
-    Checkbox(Engine3D& engine3d, float x, float y, float w, float h, bool init_checked = false);
+    Checkbox(Renderer& renderer, float x, float y, float w, float h, bool init_checked = false);
 
     virtual void onMouseReleased(MouseButton, const InputState&, bool) override;
 

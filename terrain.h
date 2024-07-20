@@ -1,16 +1,16 @@
 #ifndef TERRAIN_H
 #define TERRAIN_H
 
-#include "engine_3d.h"
+#include "renderer.h"
 #include "collision.h"
 #include "vertex.h"
 
 class Terrain
 {
 public:
-    Terrain(Engine3D& engine3d);
+    Terrain(Renderer& renderer);
 
-    void draw(Engine3D& engine3d);
+    void draw(Renderer& renderer);
 
     float patchSize() const;
 
@@ -21,9 +21,9 @@ public:
 
     bool rayIntersection(const Ray& ray, float& d) const;
     //std::optional<std::pair<PatchType, uint32_t>> pickPatch(const Ray& ray) const;
-    void toolEdit(Engine3D& engine3d, const vec3& center, float radius, float dh);
+    void toolEdit(Renderer& renderer, const vec3& center, float radius, float dh);
 
-    void setSize(Engine3D& engine3d, float size);
+    void setSize(Renderer& renderer, float size);
 
     void toggleWireframe();
     void toggleLod();
@@ -39,7 +39,7 @@ private:
 #endif
     static constexpr uint32_t TOTAL_PATCH_VERTEX_COUNT = (MAX_TESS_LEVEL + 1) * (MAX_TESS_LEVEL + 1);
     void calcXYFromSize() noexcept;
-    void loadFromFile(Engine3D&);
+    void loadFromFile(Renderer&);
 
     float m_size;
     float m_x;

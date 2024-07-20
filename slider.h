@@ -3,13 +3,13 @@
 
 #include "gui_object.h"
 #include "rect.h"
-#include "engine_3d.h"
+#include "renderer.h"
 
 template<class T = float, std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
 class Slider : public GuiObject
 {
 public:
-    Slider(Engine3D& engine3d, float x, float y, float w, float h, T min_value, T max_value, T init_value, std::move_only_function<void(T)>&& value_changed_callback = {})
+    Slider(Renderer& renderer, float x, float y, float w, float h, T min_value, T max_value, T init_value, std::move_only_function<void(T)>&& value_changed_callback = {})
         : m_handle_width(h)
         , m_bar_width(w - m_handle_width)
         , m_bar_x(x + 0.5f * m_handle_width)
@@ -21,8 +21,8 @@ public:
         , m_value(init_value)
         , m_min_value(min_value)
         , m_value_range(max_value - min_value)
-        , m_bar(engine3d, m_bar_x, m_y + 0.5f * (1.0f - m_bar_height) * m_height, m_width - m_handle_width, m_bar_height * m_height, ColorRGBA(0.1f, 0.1f, 0.1f, 1.0f))
-        , m_handle(engine3d, 0.0f, 0.0f, 0.0f, 0.0f, TexId(engine3d.loadTexture("circle.png"), 0))
+        , m_bar(renderer, m_bar_x, m_y + 0.5f * (1.0f - m_bar_height) * m_height, m_width - m_handle_width, m_bar_height * m_height, ColorRGBA(0.1f, 0.1f, 0.1f, 1.0f))
+        , m_handle(renderer, 0.0f, 0.0f, 0.0f, 0.0f, TexId(renderer.loadTexture("circle.png"), 0))
     {
         updateHandle();
     }
@@ -54,21 +54,21 @@ public:
         m_update_callback = std::move(callback);
     }
 
-    virtual void update(Engine3D& engine3d) override
+    virtual void update(Renderer& renderer) override
     {
         if(m_update_callback)
         {
             m_update_callback(*this);
         }
 
-        m_bar.update(engine3d);
-        m_handle.update(engine3d);
+        m_bar.update(renderer);
+        m_handle.update(renderer);
     }
 
-    virtual void draw(Engine3D& engine3d) override
+    virtual void draw(Renderer& renderer) override
     {
-        m_bar.draw(engine3d);
-        m_handle.draw(engine3d);
+        m_bar.draw(renderer);
+        m_handle.draw(renderer);
     }
 
     void setValue(T value) noexcept

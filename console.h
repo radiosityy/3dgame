@@ -7,10 +7,10 @@
 class Console : public GuiObject
 {
 public:
-    Console(Engine3D& engine3d, float x, float y, float w, float h, const Font& font, std::move_only_function<void(const std::string&)>&& command_process_callback = {});
+    Console(Renderer& renderer, float x, float y, float w, float h, const Font& font, std::move_only_function<void(const std::string&)>&& command_process_callback = {});
 
-    virtual void update(Engine3D& engine3d) override;
-    virtual void draw(Engine3D& engine3d) override;
+    virtual void update(Renderer& renderer) override;
+    virtual void draw(Renderer& renderer) override;
 
     void print(std::string_view text);
 

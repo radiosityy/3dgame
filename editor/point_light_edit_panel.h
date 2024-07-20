@@ -9,7 +9,7 @@
 class PointLightEditPanel : public GuiParentObject
 {
 public:
-    PointLightEditPanel(Engine3D& engine3d, float x, float y, Scene& scene, uint32_t point_light_id, const Font& font);
+    PointLightEditPanel(Renderer& renderer, float x, float y, Scene& scene, uint32_t point_light_id, const Font& font);
 
     virtual bool isPointInside(vec2) override;
     virtual void setScissor(Quad scissor) override;

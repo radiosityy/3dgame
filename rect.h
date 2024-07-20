@@ -4,17 +4,17 @@
 #include "gui_object.h"
 #include "color.h"
 #include "vertex.h"
-#include "engine_3d.h"
+#include "renderer.h"
 
 class Rect : public GuiObject
 {
 public:
-    Rect(Engine3D& engine3d, float x, float y, float w, float h, ColorRGBA color = ColorRGBA::White, Quad scissor = Quad::defaultScissor());
-    Rect(Engine3D& engine3d, float x, float y, float w, float h, TexId tex_id, ColorRGBA color = ColorRGBA::White, Quad scissor = Quad::defaultScissor());
+    Rect(Renderer& renderer, float x, float y, float w, float h, ColorRGBA color = ColorRGBA::White, Quad scissor = Quad::defaultScissor());
+    Rect(Renderer& renderer, float x, float y, float w, float h, TexId tex_id, ColorRGBA color = ColorRGBA::White, Quad scissor = Quad::defaultScissor());
 
 public:
-    virtual void update(Engine3D& engine3d) override;
-    virtual void draw(Engine3D& engine3d) override;
+    virtual void update(Renderer& renderer) override;
+    virtual void draw(Renderer& renderer) override;
 
     virtual bool isPointInside(vec2) override;
 

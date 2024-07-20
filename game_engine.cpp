@@ -96,19 +96,17 @@ GameEngine::GameEngine()
     const std::string app_name = "3dgame";
     const std::string font_directory = "assets/fonts/";
 
-    /*create the application window*/
     m_window = std::make_unique<Window>(*this, app_name, m_init_params.res_x, m_init_params.res_y);
 
-    /*create 3D graphics engine*/
-    m_engine3d = std::make_unique<Engine3D>(*m_window, app_name);
+    m_renderer = std::make_unique<Renderer>(*m_window, app_name);
     //TODO: vsync flag should just be passed to engine's constructor probably
-    m_engine3d->enableVsync(m_init_params.vsync);
+    m_renderer->enableVsync(m_init_params.vsync);
 
     m_fonts.emplace_back(font_directory + "font.ttf", 18);
 
     setupGui();
 
-    m_scene = std::make_unique<Scene>(*m_engine3d, static_cast<float>(m_window->width()) / static_cast<float>(m_window->height()), m_fonts[0]);
+    m_scene = std::make_unique<Scene>(*m_renderer, static_cast<float>(m_window->width()) / static_cast<float>(m_window->height()), m_fonts[0]);
 
     SceneInitData scene_init_data;
 
@@ -117,16 +115,16 @@ GameEngine::GameEngine()
         scene_init_data.fonts.push_back(&font);
     }
 
-    m_engine3d->onSceneLoad(scene_init_data);
+    m_renderer->onSceneLoad(scene_init_data);
 
 #if EDITOR_ENABLE
-    m_editor = std::make_unique<Editor>(*m_window, *m_scene, *m_engine3d, m_fonts[0]);
+    m_editor = std::make_unique<Editor>(*m_window, *m_scene, *m_renderer, m_fonts[0]);
 #endif
 }
 
 void GameEngine::setupGui()
 {
-    m_fps_label = std::make_unique<Label>(*m_engine3d, 0, 0, m_fonts[0], "", false, HorizontalAlignment::Left, VerticalAlignment::Top);
+    m_fps_label = std::make_unique<Label>(*m_renderer, 0, 0, m_fonts[0], "", false, HorizontalAlignment::Left, VerticalAlignment::Top);
     m_fps_label->setUpdateCallback([this](Label& label)
     {
         static auto interval_start = std::chrono::steady_clock::now();
@@ -142,7 +140,7 @@ void GameEngine::setupGui()
         label.setText(std::format("Fps: {} | {:.2f}ms", m_timer.getFps(), dt * 1000.0));
     });
 
-    m_console = std::make_unique<Console>(*m_engine3d, 0, 0, static_cast<float>(m_window->width()), 0.4f * static_cast<float>(m_window->height()), m_fonts[0], [&](const std::string& text)
+    m_console = std::make_unique<Console>(*m_renderer, 0, 0, static_cast<float>(m_window->width()), 0.4f * static_cast<float>(m_window->height()), m_fonts[0], [&](const std::string& text)
     {
         processConsoleCmd(text);
     });
@@ -204,7 +202,7 @@ void GameEngine::processConsoleCmd(const std::string& text)
 
         if("on" == words[1])
         {
-            if(m_engine3d->enableVsync(true))
+            if(m_renderer->enableVsync(true))
             {
                 m_console->print("Vsync enabled.");
             }
@@ -215,7 +213,7 @@ void GameEngine::processConsoleCmd(const std::string& text)
         }
         else if("off" == words[1])
         {
-            if(m_engine3d->enableVsync(false))
+            if(m_renderer->enableVsync(false))
             {
                 m_console->print("Vsync disabled.");
             }
@@ -299,16 +297,16 @@ void GameEngine::run()
         }
 #endif
 
-        m_fps_label->update(*m_engine3d);
-        m_fps_label->draw(*m_engine3d);
+        m_fps_label->update(*m_renderer);
+        m_fps_label->draw(*m_renderer);
 
         if(m_console_active)
         {
-            m_console->update(*m_engine3d);
-            m_console->draw(*m_engine3d);
+            m_console->update(*m_renderer);
+            m_console->draw(*m_renderer);
         }
 
-        m_engine3d->updateAndRender(render_data, m_scene->camera());
+        m_renderer->updateAndRender(render_data, m_scene->camera());
     }
 }
 
@@ -337,7 +335,7 @@ void GameEngine::onWindowResize(uint32_t width, uint32_t height, float scale_x, 
         m_gui_scale.y = static_cast<float>(height) / reference_resolution.y;
 
         m_scene->onWindowResize(static_cast<float>(width) / static_cast<float>(height));
-        m_engine3d->onWindowResize(width, height);
+        m_renderer->onWindowResize(width, height);
 #if EDITOR_ENABLE
         m_editor->onWindowResize(width, height, scale_x, scale_y);
 #endif

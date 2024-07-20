@@ -1,6 +1,6 @@
 #include "object.h"
 
-Object::Object(Engine3D& engine3d, std::ifstream& scene_file)
+Object::Object(Renderer& renderer, std::ifstream& scene_file)
 {
     uint8_t mesh_filename_length = 0;
     scene_file.read(reinterpret_cast<char*>(&mesh_filename_length), sizeof(uint8_t));
@@ -12,9 +12,9 @@ Object::Object(Engine3D& engine3d, std::ifstream& scene_file)
     scene_file.read(reinterpret_cast<char*>(&m_scale), sizeof(vec3));
     scene_file.read(reinterpret_cast<char*>(&m_rot), sizeof(quat));
 
-    m_model = std::make_unique<Model>(engine3d, model_filename);
+    m_model = std::make_unique<Model>(renderer, model_filename);
     m_instance_data.resize(m_model->mehes().size());
-    m_instance_id = engine3d.requestInstanceVertexBufferAllocation(m_instance_data.size());
+    m_instance_id = renderer.requestInstanceVertexBufferAllocation(m_instance_data.size());
 
     for(auto& instance_data : m_instance_data)
     {
@@ -26,7 +26,7 @@ Object::Object(Engine3D& engine3d, std::ifstream& scene_file)
 #endif
 }
 
-Object::Object(Engine3D& engine3d, std::string_view model_filename, RenderMode render_mode, vec3 pos, vec3 scale, quat rot)
+Object::Object(Renderer& renderer, std::string_view model_filename, RenderMode render_mode, vec3 pos, vec3 scale, quat rot)
     : m_pos(pos)
     , m_scale(scale)
     , m_rot(rot)
@@ -36,9 +36,9 @@ Object::Object(Engine3D& engine3d, std::string_view model_filename, RenderMode r
 #endif
 
 {
-    m_model = std::make_unique<Model>(engine3d, model_filename);
+    m_model = std::make_unique<Model>(renderer, model_filename);
     m_instance_data.resize(m_model->mehes().size());
-    m_instance_id = engine3d.requestInstanceVertexBufferAllocation(m_instance_data.size());
+    m_instance_id = renderer.requestInstanceVertexBufferAllocation(m_instance_data.size());
 
     for(auto& instance_data : m_instance_data)
     {
@@ -51,12 +51,12 @@ bool Object::cull(const std::array<vec4, 6>& frustum_planes_W)
     return true;
 }
 
-void Object::update(Engine3D& engine3d, float dt)
+void Object::update(Renderer& renderer, float dt)
 {
-    m_model->animationUpdate(engine3d, dt);
+    m_model->animationUpdate(renderer, dt);
 }
 
-void Object::draw(Engine3D& engine3d)
+void Object::draw(Renderer& renderer)
 {
     Sphere s = m_model->boundingSphere();
     s.transform(m_pos, m_scale);
@@ -70,10 +70,10 @@ void Object::draw(Engine3D& engine3d)
        m_instance_data[i].tex_id = mesh.textureId();
        m_instance_data[i].normal_map_id = mesh.normalMapId();
 
-        engine3d.draw(m_render_mode, mesh.vertexBuffer(), mesh.vertexBufferOffset(), mesh.vertexCount(), m_instance_id + i, s);
+        renderer.draw(m_render_mode, mesh.vertexBuffer(), mesh.vertexBufferOffset(), mesh.vertexCount(), m_instance_id + i, s);
     }
 
-    engine3d.updateInstanceVertexData(m_instance_id, m_instance_data.size(), m_instance_data.data());
+    renderer.updateInstanceVertexData(m_instance_id, m_instance_data.size(), m_instance_data.data());
 }
 
 const std::vector<AABB>& Object::aabbs() const
@@ -232,14 +232,14 @@ void Object::serialize(std::ofstream& outfile) const
     outfile.write(reinterpret_cast<const char*>(&m_rot), sizeof(quat));
 }
 
-void Object::drawHighlight(Engine3D& engine3d)
+void Object::drawHighlight(Renderer& renderer)
 {
     Sphere s = m_model->boundingSphere();
     s.transform(m_pos, m_scale);
 
     for(const auto& mesh : m_model->mehes())
     {
-        engine3d.draw(RenderMode::Highlight, mesh.vertexBuffer(), mesh.vertexBufferOffset(), mesh.vertexCount(), m_instance_id, s);
+        renderer.draw(RenderMode::Highlight, mesh.vertexBuffer(), mesh.vertexBufferOffset(), mesh.vertexCount(), m_instance_id, s);
     }
 }
 

@@ -44,7 +44,7 @@ class Model
     static inline std::unordered_map<std::string, std::shared_ptr<const ModelData>> m_model_datas;
 
 public:
-    Model(Engine3D& engine3d, std::string_view filename);
+    Model(Renderer& renderer, std::string_view filename);
 
     const std::vector<Mesh>& mehes() const;
 
@@ -59,7 +59,7 @@ public:
     void playAnimation(std::string_view);
     void stopAnimation();
     void setPose(std::string_view);
-    void animationUpdate(Engine3D& engine3d, float dt);
+    void animationUpdate(Renderer& renderer, float dt);
 
     //TODO: these two
     bool forPlayer1(std::string_view);

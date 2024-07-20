@@ -11,7 +11,7 @@ float angleBetweenQuats(const quat& q1, const quat& q2)
     return 2.0f * std::asin(norm);
 }
 
-void Player::update(Engine3D& engine3d, float dt)
+void Player::update(Renderer& renderer, float dt)
 {
     if(m_walking && m_rotating)
     {
@@ -43,7 +43,7 @@ void Player::update(Engine3D& engine3d, float dt)
         m_velocity += m_moving_direction * speed;
     }
 
-    Object::update(engine3d, dt);
+    Object::update(renderer, dt);
 }
 
 void Player::walkForward(bool b)

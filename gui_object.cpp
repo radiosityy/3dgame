@@ -15,7 +15,7 @@ void GuiObject::onGotFocus() {}
 void GuiObject::onLostFocus() {}
 void GuiObject::onCursorEnter() {}
 void GuiObject::onCursorExit() {}
-void GuiObject::update(Engine3D&) {}
+void GuiObject::update(Renderer&) {}
 
 bool GuiObject::isVisible() const noexcept
 {
@@ -216,21 +216,21 @@ void GuiParent::removeChild(GuiObject* child)
     }
 }
 
-void GuiParent::updateChildren(Engine3D& engine3d)
+void GuiParent::updateChildren(Renderer& renderer)
 {
     for(auto& child : m_children)
     {
-        child->update(engine3d);
+        child->update(renderer);
     }
 }
 
-void GuiParent::drawChildren(Engine3D& engine3d)
+void GuiParent::drawChildren(Renderer& renderer)
 {
     for(auto& child : m_children)
     {
         if(child->isVisible())
         {
-            child->draw(engine3d);
+            child->draw(renderer);
         }
     }
 }
@@ -313,14 +313,14 @@ void GuiParent::updateMouseFocus(const InputState& input_state)
     setMouseFocus(determineMouseFocus(input_state));
 }
 
-void GuiParentObject::update(Engine3D& engine3d)
+void GuiParentObject::update(Renderer& renderer)
 {
-    updateChildren(engine3d);
+    updateChildren(renderer);
 }
 
-void GuiParentObject::draw(Engine3D& engine3d)
+void GuiParentObject::draw(Renderer& renderer)
 {
-    drawChildren(engine3d);
+    drawChildren(renderer);
 }
 
 void GuiParentObject::onLostFocus()

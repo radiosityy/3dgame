@@ -9,12 +9,12 @@
 #include <vector>
 #include <memory>
 #include "label.h"
-#include "engine_3d.h"
+#include "renderer.h"
 
 class Scene
 {
 public:
-    Scene(Engine3D& engine3d, float aspect_ratio, const Font& font);
+    Scene(Renderer& renderer, float aspect_ratio, const Font& font);
 
     Scene(const Scene&) = delete;
     Scene(const Scene&&) = delete;
@@ -67,7 +67,7 @@ private:
     template<class Collider>
     bool objectCollision(const Object*, const Collider&);
 
-    Engine3D& m_engine3d;
+    Renderer& m_renderer;
 
     std::unique_ptr<Terrain> m_terrain;
 

@@ -1,4 +1,4 @@
-#include "engine_3d.h"
+#include "renderer.h"
 #include "game_utils.h"
 
 #include <format>
@@ -145,7 +145,7 @@ static void checkIfLayersAndExtensionsAvailable(const std::vector<const char*>& 
     }
 }
 
-VkPipelineShaderStageCreateInfo Engine3D::loadShader(const std::string& filename, VkShaderStageFlagBits stage, VkShaderModule* shader_module, const VkSpecializationInfo* spec_info)
+VkPipelineShaderStageCreateInfo Renderer::loadShader(const std::string& filename, VkShaderStageFlagBits stage, VkShaderModule* shader_module, const VkSpecializationInfo* spec_info)
 {
     std::ifstream file(filename, std::ios::binary | std::ios::ate);
 
@@ -182,7 +182,7 @@ VkPipelineShaderStageCreateInfo Engine3D::loadShader(const std::string& filename
     return stage_create_info;
 }
 
-std::pair<VkDeviceMemory, bool> Engine3D::allocateMemory(VkMemoryRequirements mem_req, bool host_visible_required) const
+std::pair<VkDeviceMemory, bool> Renderer::allocateMemory(VkMemoryRequirements mem_req, bool host_visible_required) const
 {
     VkDeviceMemory mem = VK_NULL_HANDLE;
     VkMemoryPropertyFlags preferred = host_visible_required ? VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT : VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
@@ -236,7 +236,7 @@ std::pair<VkDeviceMemory, bool> Engine3D::allocateMemory(VkMemoryRequirements me
     error("Failed to allocate memory");
 }
 
-void Engine3D::allocateAndBindMemory(VkImageWrapper& image) const
+void Renderer::allocateAndBindMemory(VkImageWrapper& image) const
 {
     VkMemoryRequirements mem_req;
     vkGetImageMemoryRequirements(m_device, image.img, &mem_req);
@@ -251,7 +251,7 @@ void Engine3D::allocateAndBindMemory(VkImageWrapper& image) const
     }
 }
 
-void Engine3D::allocateAndBindMemory(VkBufferWrapper& buffer) const
+void Renderer::allocateAndBindMemory(VkBufferWrapper& buffer) const
 {
     VkMemoryRequirements mem_req;
     vkGetBufferMemoryRequirements(m_device, buffer.buf, &mem_req);
@@ -266,7 +266,7 @@ void Engine3D::allocateAndBindMemory(VkBufferWrapper& buffer) const
     }
 }
 
-void Engine3D::createImage(VkImageWrapper& image, const VkImageCreateInfo& img_create_info, VkImageViewCreateInfo& img_view_create_info) const
+void Renderer::createImage(VkImageWrapper& image, const VkImageCreateInfo& img_create_info, VkImageViewCreateInfo& img_view_create_info) const
 {
     VkResult res;
 
@@ -289,7 +289,7 @@ void Engine3D::createImage(VkImageWrapper& image, const VkImageCreateInfo& img_c
     }
 }
 
-Engine3D::VkImageWrapper Engine3D::createImage(const VkImageCreateInfo& img_create_info, VkImageViewCreateInfo& img_view_create_info) const
+Renderer::VkImageWrapper Renderer::createImage(const VkImageCreateInfo& img_create_info, VkImageViewCreateInfo& img_view_create_info) const
 {
     VkImageWrapper image;
 
@@ -298,7 +298,7 @@ Engine3D::VkImageWrapper Engine3D::createImage(const VkImageCreateInfo& img_crea
     return image;
 }
 
-void Engine3D::destroyImage(VkImageWrapper& image) const noexcept
+void Renderer::destroyImage(VkImageWrapper& image) const noexcept
 {
     vkFreeMemory(m_device, image.mem, NULL);
     vkDestroyImageView(m_device, image.img_view, NULL);
@@ -309,7 +309,7 @@ void Engine3D::destroyImage(VkImageWrapper& image) const noexcept
     image.mem = VK_NULL_HANDLE;
 }
 
-void Engine3D::createBuffer(VkBufferWrapper& buffer, VkDeviceSize size)
+void Renderer::createBuffer(VkBufferWrapper& buffer, VkDeviceSize size)
 {
     if(buffer.transfer_buffer)
     {
@@ -392,7 +392,7 @@ void Engine3D::createBuffer(VkBufferWrapper& buffer, VkDeviceSize size)
     }
 }
 
-void Engine3D::destroyBuffer(VkBufferWrapper& buffer) const noexcept
+void Renderer::destroyBuffer(VkBufferWrapper& buffer) const noexcept
 {
     vkFreeMemory(m_device, buffer.mem, NULL);
     vkDestroyBufferView(m_device, buffer.buf_view, NULL);
@@ -415,43 +415,43 @@ void Engine3D::destroyBuffer(VkBufferWrapper& buffer) const noexcept
     }
 }
 
-VkPipeline& Engine3D::getPipeline(RenderMode rm) noexcept
+VkPipeline& Renderer::getPipeline(RenderMode rm) noexcept
 {
     return m_pipelines[static_cast<size_t>(rm)];
 }
 
-VkPipeline& Engine3D::getPipeline(RenderModeUi rm) noexcept
+VkPipeline& Renderer::getPipeline(RenderModeUi rm) noexcept
 {
     return m_pipelines_ui[static_cast<size_t>(rm)];
 }
 
-uint32_t Engine3D::loadTexture(std::string_view texture_filename)
+uint32_t Renderer::loadTexture(std::string_view texture_filename)
 {
     return loadTextures({texture_filename})[0];
 }
 
-std::vector<uint32_t> Engine3D::loadTextures(const std::vector<std::string_view>& texture_filenames)
+std::vector<uint32_t> Renderer::loadTextures(const std::vector<std::string_view>& texture_filenames)
 {
     return loadTexturesGeneric(texture_filenames, m_textures, true);
 }
 
-uint32_t Engine3D::loadNormalMap(std::string_view texture_filename)
+uint32_t Renderer::loadNormalMap(std::string_view texture_filename)
 {
     return loadNormalMaps({texture_filename})[0];
 }
 
-std::vector<uint32_t> Engine3D::loadNormalMaps(const std::vector<std::string_view>& texture_filenames)
+std::vector<uint32_t> Renderer::loadNormalMaps(const std::vector<std::string_view>& texture_filenames)
 {
     return loadTexturesGeneric(texture_filenames, m_normal_maps, true);
 }
 
-void Engine3D::deviceWaitIdle()
+void Renderer::deviceWaitIdle()
 {
     VkResult res = vkDeviceWaitIdle(m_device);
     assertVkSuccess(res, "vkDeviceWaitIdle error");
 }
 
-std::vector<uint32_t> Engine3D::loadTexturesGeneric(const std::vector<std::string_view>& texture_filenames_, TextureCollection& tex_col, bool generate_mipmaps)
+std::vector<uint32_t> Renderer::loadTexturesGeneric(const std::vector<std::string_view>& texture_filenames_, TextureCollection& tex_col, bool generate_mipmaps)
 {
     std::vector<std::string> texture_filenames(texture_filenames_.size());
     for(size_t i = 0; i < texture_filenames_.size(); i++)
@@ -786,7 +786,7 @@ std::vector<uint32_t> Engine3D::loadTexturesGeneric(const std::vector<std::strin
 
 /*---------------- main methods ----------------*/
 
-Engine3D::Engine3D(const Window& window, std::string_view app_name)
+Renderer::Renderer(const Window& window, std::string_view app_name)
     : m_render_batches(10000)
     , m_render_batches_ui(10000)
     , m_dir_shadow_map_buffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT)
@@ -819,12 +819,12 @@ Engine3D::Engine3D(const Window& window, std::string_view app_name)
     }
 }
 
-Engine3D::~Engine3D()
+Renderer::~Renderer()
 {
     destroy();
 }
 
-void Engine3D::destroy() noexcept
+void Renderer::destroy() noexcept
 {
     if(m_device)
     {
@@ -878,7 +878,7 @@ void Engine3D::destroy() noexcept
     destroyInstance();
 }
 
-void Engine3D::resizeBuffers()
+void Renderer::resizeBuffers()
 {
     for(auto& req : m_buffer_update_reqs)
     {
@@ -916,7 +916,7 @@ void Engine3D::resizeBuffers()
     }
 }
 
-void Engine3D::updateBuffers()
+void Renderer::updateBuffers()
 {
     for(auto& mapping : m_buffer_update_reqs)
     {
@@ -974,7 +974,7 @@ void Engine3D::updateBuffers()
     }
 }
 
-void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
+void Renderer::updateAndRender(const RenderData& render_data, Camera& camera)
 {
     m_frame_id = (m_frame_id + 1) % FRAMES_IN_FLIGHT;
     auto& per_frame_data = m_per_frame_data[m_frame_id];
@@ -1018,7 +1018,7 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
     std::vector<bool> cull(m_render_batch_count);
 
     /*--- frustum culling ---*/
-    //TODO: move frustum culling out of Engine3D and do it in Scene and Terrain etc.
+    //TODO: move frustum culling out of Renderer and do it in Scene and Terrain etc.
     const auto view_frustum_planes = camera.viewFrustumPlanesW();
 
     for(uint32_t i = 0; i < m_render_batch_count; i++)
@@ -1419,12 +1419,12 @@ void Engine3D::updateAndRender(const RenderData& render_data, Camera& camera)
     }
 }
 
-void Engine3D::onWindowResize(uint32_t width, uint32_t height)
+void Renderer::onWindowResize(uint32_t width, uint32_t height)
 {
     createSwapchain(width, height);
 }
 
-void Engine3D::onSceneLoad(const SceneInitData& scene_init_data)
+void Renderer::onSceneLoad(const SceneInitData& scene_init_data)
 {
     //TODO: do this wait better (wait on fence or sth?)
     deviceWaitIdle();
@@ -1437,7 +1437,7 @@ void Engine3D::onSceneLoad(const SceneInitData& scene_init_data)
     updateDescriptorSets();
 }
 
-void Engine3D::loadFonts(const std::vector<const Font*>& fonts)
+void Renderer::loadFonts(const std::vector<const Font*>& fonts)
 {
     m_font_count = static_cast<uint32_t>(fonts.size());
     m_font_textures.resize(fonts.size());
@@ -1571,7 +1571,7 @@ void Engine3D::loadFonts(const std::vector<const Font*>& fonts)
     }
 }
 
-void Engine3D::destroyTextures() noexcept
+void Renderer::destroyTextures() noexcept
 {
     for(auto& texture : m_textures.textures)
     {
@@ -1595,7 +1595,7 @@ void Engine3D::destroyTextures() noexcept
     m_terrain_heightmaps.clear();
 }
 
-void Engine3D::destroyFontTextures() noexcept
+void Renderer::destroyFontTextures() noexcept
 {
     for(auto& font_texture : m_font_textures)
     {
@@ -1603,7 +1603,7 @@ void Engine3D::destroyFontTextures() noexcept
     }
 }
 
-void Engine3D::setSampleCount(VkSampleCountFlagBits sample_count)
+void Renderer::setSampleCount(VkSampleCountFlagBits sample_count)
 {
     if(sample_count == m_sample_count)
     {
@@ -1629,7 +1629,7 @@ void Engine3D::setSampleCount(VkSampleCountFlagBits sample_count)
     }
 }
 
-bool Engine3D::enableVsync(bool vsync)
+bool Renderer::enableVsync(bool vsync)
 {
     if(!m_vsync_disable_support)
     {
@@ -1646,71 +1646,71 @@ bool Engine3D::enableVsync(bool vsync)
     return true;
 }
 
-uint32_t Engine3D::requestInstanceVertexBufferAllocation(uint32_t instance_count)
+uint32_t Renderer::requestInstanceVertexBufferAllocation(uint32_t instance_count)
 {
     const uint64_t offset = m_instance_vertex_buffer.allocate(instance_count * sizeof(InstanceVertexData));
     const uint32_t instance_id = offset / sizeof(InstanceVertexData);
     return instance_id;
 }
 
-uint32_t Engine3D::requestBoneTransformBufferAllocation(uint32_t bone_count)
+uint32_t Renderer::requestBoneTransformBufferAllocation(uint32_t bone_count)
 {
     const uint64_t offset = m_bone_transform_buffer.allocate(bone_count * sizeof(mat4x4));
     const uint32_t bone_transform_id = offset / sizeof(mat4x4);
     return bone_transform_id;
 }
 
-void Engine3D::requestTerrainBufferAllocation(uint64_t size)
+void Renderer::requestTerrainBufferAllocation(uint64_t size)
 {
     m_terrain_buffer.allocate(size);
 }
 
-void Engine3D::freeVertexBufferAllocation(VertexBuffer* vb, uint64_t offset, uint64_t size)
+void Renderer::freeVertexBufferAllocation(VertexBuffer* vb, uint64_t offset, uint64_t size)
 {
     vb->free(offset, size);
 }
 
-void Engine3D::freeInstanceVertexBufferAllocation(uint32_t instance_id, uint32_t instance_count)
+void Renderer::freeInstanceVertexBufferAllocation(uint32_t instance_id, uint32_t instance_count)
 {
     m_instance_vertex_buffer.free(instance_id * sizeof(InstanceVertexData), instance_count * sizeof(instance_count));
 }
 
-void Engine3D::freeBoneTransformBufferAllocation(uint32_t bone_id, uint32_t bone_count)
+void Renderer::freeBoneTransformBufferAllocation(uint32_t bone_id, uint32_t bone_count)
 {
     m_bone_transform_buffer.free(bone_id * sizeof(mat4x4), bone_count * sizeof(mat4x4));
 }
 
-void Engine3D::freeTerrainBufferAllocation()
+void Renderer::freeTerrainBufferAllocation()
 {
     m_terrain_buffer.free(0, m_terrain_buffer.size);
 }
 
-void Engine3D::requestBufferUpdate(VkBufferWrapper* buf, uint64_t data_offset, uint64_t data_size, const void* data)
+void Renderer::requestBufferUpdate(VkBufferWrapper* buf, uint64_t data_offset, uint64_t data_size, const void* data)
 {
     m_buffer_update_reqs[buf].emplace_back(data_offset, data_size, data);
 }
 
-void Engine3D::updateVertexData(VertexBuffer* vb, uint64_t data_offset, uint64_t data_size, const void* data)
+void Renderer::updateVertexData(VertexBuffer* vb, uint64_t data_offset, uint64_t data_size, const void* data)
 {
     requestBufferUpdate(vb, data_offset, data_size, data);
 }
 
-void Engine3D::updateInstanceVertexData(uint32_t instance_id, uint32_t instance_count, const void* data)
+void Renderer::updateInstanceVertexData(uint32_t instance_id, uint32_t instance_count, const void* data)
 {
     requestBufferUpdate(&m_instance_vertex_buffer, instance_id * sizeof(InstanceVertexData), instance_count * sizeof(InstanceVertexData), data);
 }
 
-void Engine3D::updateBoneTransformData(uint32_t bone_offset, uint32_t bone_count, const mat4x4* data)
+void Renderer::updateBoneTransformData(uint32_t bone_offset, uint32_t bone_count, const mat4x4* data)
 {
     requestBufferUpdate(&m_bone_transform_buffer, bone_offset * sizeof(mat4x4), bone_count * sizeof(mat4x4), data);
 }
 
-void Engine3D::updateTerrainData(void* data, uint64_t offset, uint64_t size)
+void Renderer::updateTerrainData(void* data, uint64_t offset, uint64_t size)
 {
     requestBufferUpdate(&m_terrain_buffer, offset, size, data);
 }
 
-std::vector<uint32_t> Engine3D::requestTerrainHeightmaps(std::span<std::pair<float*, uint32_t>> heightmap_data)
+std::vector<uint32_t> Renderer::requestTerrainHeightmaps(std::span<std::pair<float*, uint32_t>> heightmap_data)
 {
     m_terrain_heightmaps.resize(heightmap_data.size());
     std::vector<uint32_t> heightmap_ids(heightmap_data.size());
@@ -1819,19 +1819,19 @@ std::vector<uint32_t> Engine3D::requestTerrainHeightmaps(std::span<std::pair<flo
     return heightmap_ids;
 }
 
-void Engine3D::draw(RenderMode render_mode, VertexBuffer* vb, uint32_t vertex_offset, uint32_t vertex_count, uint32_t instance_id, std::optional<Sphere> bounding_sphere)
+void Renderer::draw(RenderMode render_mode, VertexBuffer* vb, uint32_t vertex_offset, uint32_t vertex_count, uint32_t instance_id, std::optional<Sphere> bounding_sphere)
 {
     m_render_batches[m_render_batch_count] = RenderBatch(render_mode, vb, vertex_offset, vertex_count, instance_id, bounding_sphere);
     m_render_batch_count++;
 }
 
-void Engine3D::drawUi(RenderModeUi render_mode, VertexBuffer* vb, uint32_t vertex_offset, uint32_t vertex_count, const Quad& scissor)
+void Renderer::drawUi(RenderModeUi render_mode, VertexBuffer* vb, uint32_t vertex_offset, uint32_t vertex_count, const Quad& scissor)
 {
     m_render_batches_ui[m_render_batch_ui_count] = RenderBatchUi(render_mode, vb, vertex_offset, vertex_count, scissor);
     m_render_batch_ui_count++;
 }
 
-DirLightId Engine3D::addDirLight(const DirLight& dir_light)
+DirLightId Renderer::addDirLight(const DirLight& dir_light)
 {
     DirLightId id;
 
@@ -1862,7 +1862,7 @@ DirLightId Engine3D::addDirLight(const DirLight& dir_light)
     return id;
 }
 
-void Engine3D::updateDirLight(DirLightId id, const DirLight& dir_light)
+void Renderer::updateDirLight(DirLightId id, const DirLight& dir_light)
 {
     if((dir_light.shadow_map_count != m_dir_lights[id].shadow_map_count) ||
        (dir_light.shadow_map_res_x != m_dir_lights[id].shadow_map_res_x) ||
@@ -1887,7 +1887,7 @@ void Engine3D::updateDirLight(DirLightId id, const DirLight& dir_light)
     }
 }
 
-void Engine3D::removeDirLight(DirLightId id)
+void Renderer::removeDirLight(DirLightId id)
 {
     m_dir_lights_valid[id] = 0;
 
@@ -1906,7 +1906,7 @@ void Engine3D::removeDirLight(DirLightId id)
     }
 }
 
-PointLightId Engine3D::addPointLight(const PointLight& point_light)
+PointLightId Renderer::addPointLight(const PointLight& point_light)
 {
     PointLightId id;
 
@@ -1938,7 +1938,7 @@ PointLightId Engine3D::addPointLight(const PointLight& point_light)
     return id;
 }
 
-void Engine3D::updatePointLight(PointLightId id, const PointLight& point_light)
+void Renderer::updatePointLight(PointLightId id, const PointLight& point_light)
 {
     if(point_light.shadow_map_res != m_point_lights[id].shadow_map_res)
     {
@@ -1971,7 +1971,7 @@ void Engine3D::updatePointLight(PointLightId id, const PointLight& point_light)
     }
 }
 
-void Engine3D::removePointLight(PointLightId id)
+void Renderer::removePointLight(PointLightId id)
 {
     m_point_lights_valid[id] = 0;
 
@@ -1990,7 +1990,7 @@ void Engine3D::removePointLight(PointLightId id)
     }
 }
 
-void Engine3D::updateDescriptorSets() noexcept
+void Renderer::updateDescriptorSets() noexcept
 {
     std::vector<VkDescriptorBufferInfo> common_buf_infos(FRAMES_IN_FLIGHT);
     for(uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++)
@@ -2111,7 +2111,7 @@ void Engine3D::updateDescriptorSets() noexcept
 
 /*---------------- create methods ----------------*/
 
-void Engine3D::createInstance(std::string_view app_name)
+void Renderer::createInstance(std::string_view app_name)
 {
     const std::vector<const char*> req_layer_names =
     {
@@ -2184,7 +2184,7 @@ void Engine3D::createInstance(std::string_view app_name)
 #endif
 }
 
-void Engine3D::createDevice()
+void Renderer::createDevice()
 {
     VkResult res;
 
@@ -2282,7 +2282,7 @@ void Engine3D::createDevice()
     vkGetDeviceQueue(m_device, m_queue_family_index, 0, &m_queue);
 }
 
-void Engine3D::pickPhysicalDevice()
+void Renderer::pickPhysicalDevice()
 {
     /*first enumerate physical devices*/
     uint32_t count;
@@ -2341,7 +2341,7 @@ void Engine3D::pickPhysicalDevice()
     m_physical_device = physical_devices[0];
 }
 
-void Engine3D::createSurface(const Window& window)
+void Renderer::createSurface(const Window& window)
 {
 #ifdef VK_USE_PLATFORM_WIN32_KHR
     VkWin32SurfaceCreateInfoKHR create_info{};
@@ -2375,7 +2375,7 @@ void Engine3D::createSurface(const Window& window)
     }
 }
 
-void Engine3D::createSwapchain(uint32_t width, uint32_t height)
+void Renderer::createSwapchain(uint32_t width, uint32_t height)
 {
     VkSurfaceCapabilitiesKHR surface_capabilities;
     VkResult res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_physical_device, m_surface, &surface_capabilities);
@@ -2487,7 +2487,7 @@ void Engine3D::createSwapchain(uint32_t width, uint32_t height)
     }
 }
 
-void Engine3D::createCommandPool()
+void Renderer::createCommandPool()
 {
     VkCommandPoolCreateInfo pool_create_info{};
     pool_create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -2499,7 +2499,7 @@ void Engine3D::createCommandPool()
     assertVkSuccess(res, "Failed to create a command pool.");
 }
 
-void Engine3D::createMainRenderPass()
+void Renderer::createMainRenderPass()
 {
     std::vector<VkAttachmentDescription> att_desc;
 
@@ -2587,7 +2587,7 @@ void Engine3D::createMainRenderPass()
 #endif
 }
 
-void Engine3D::createShadowMapRenderPass()
+void Renderer::createShadowMapRenderPass()
 {
     VkAttachmentDescription depth_att_desc{};
     depth_att_desc.flags = 0;
@@ -2634,7 +2634,7 @@ void Engine3D::createShadowMapRenderPass()
 #endif
 }
 
-void Engine3D::createDescriptorSets()
+void Renderer::createDescriptorSets()
 {
     VkResult res;
 
@@ -2760,7 +2760,7 @@ void Engine3D::createDescriptorSets()
     }
 }
 
-void Engine3D::createPipelineLayout()
+void Renderer::createPipelineLayout()
 {
     VkPipelineLayoutCreateInfo pipeline_layout_create_info{};
     pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -2775,7 +2775,7 @@ void Engine3D::createPipelineLayout()
     assertVkSuccess(res, "Failed to create pipeline layout.");
 }
 
-void Engine3D::createPipelines()
+void Renderer::createPipelines()
 {
     m_pipelines.resize(static_cast<size_t>(RENDER_MODE_COUNT));
     m_pipelines_ui.resize(static_cast<size_t>(RENDER_MODE_UI_COUNT));
@@ -4798,7 +4798,7 @@ void Engine3D::createPipelines()
     }
 }
 
-void Engine3D::createCommandBuffers()
+void Renderer::createCommandBuffers()
 {
     VkCommandBufferAllocateInfo cmd_buf_alloc_info{};
     cmd_buf_alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -4826,7 +4826,7 @@ void Engine3D::createCommandBuffers()
 #endif
 }
 
-void Engine3D::createSynchronizationPrimitives()
+void Renderer::createSynchronizationPrimitives()
 {
     VkResult res;
 
@@ -4866,7 +4866,7 @@ void Engine3D::createSynchronizationPrimitives()
 #endif
 }
 
-void Engine3D::createRenderTargets()
+void Renderer::createRenderTargets()
 {
     VkResult res;
 
@@ -4997,7 +4997,7 @@ void Engine3D::createRenderTargets()
     }
 }
 
-void Engine3D::createSamplers()
+void Renderer::createSamplers()
 {
     VkSamplerCreateInfo sampler_create_info{};
     sampler_create_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -5076,7 +5076,7 @@ void Engine3D::createSamplers()
 #endif
 }
 
-void Engine3D::createBuffers()
+void Renderer::createBuffers()
 {
     //create buffers
     for(size_t i = 0; i < FRAMES_IN_FLIGHT; i++)
@@ -5172,7 +5172,7 @@ void Engine3D::createBuffers()
     assertVkSuccess(res, "An error occured while waiting for a transfer cmd buf fence.");
 }
 
-uint32_t Engine3D::createDirShadowMap(const DirLight& light)
+uint32_t Renderer::createDirShadowMap(const DirLight& light)
 {
     //TODO: only do this check in debug build?
     if(light.shadow_map_count > MAX_DIR_SHADOW_MAP_PARTITIONS)
@@ -5271,7 +5271,7 @@ uint32_t Engine3D::createDirShadowMap(const DirLight& light)
     return shadow_map_id;
 }
 
-void Engine3D::updateDirShadowMap(Camera& camera, const DirLightShaderData& light)
+void Renderer::updateDirShadowMap(Camera& camera, const DirLightShaderData& light)
 {
     auto& shadow_map_data = m_dir_shadow_map_data[light.shadow_map_id];
 
@@ -5368,7 +5368,7 @@ void Engine3D::updateDirShadowMap(Camera& camera, const DirLightShaderData& ligh
     requestBufferUpdate(&m_dir_shadow_map_buffer, light.shadow_map_id * sizeof(shadow_map_data), shadow_map_count * sizeof(DirShadowMapData), shadow_map_data.data());
 }
 
-uint32_t Engine3D::createPointShadowMap(const PointLight& light)
+uint32_t Renderer::createPointShadowMap(const PointLight& light)
 {
     VkFramebufferCreateInfo framebuffer_create_info{};
     framebuffer_create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -5459,7 +5459,7 @@ uint32_t Engine3D::createPointShadowMap(const PointLight& light)
     return shadow_map_id;
 }
 
-void Engine3D::markDirShadowMapForDestroy(uint32_t id)
+void Renderer::markDirShadowMapForDestroy(uint32_t id)
 {
     for(auto& per_frame_data : m_per_frame_data)
     {
@@ -5469,7 +5469,7 @@ void Engine3D::markDirShadowMapForDestroy(uint32_t id)
     }
 }
 
-void Engine3D::markPointShadowMapForDestroy(uint32_t id)
+void Renderer::markPointShadowMapForDestroy(uint32_t id)
 {
     for(auto& per_frame_data : m_per_frame_data)
     {
@@ -5479,7 +5479,7 @@ void Engine3D::markPointShadowMapForDestroy(uint32_t id)
     }
 }
 
-void Engine3D::destroyDirShadowMap(DirShadowMap& shadow_map)
+void Renderer::destroyDirShadowMap(DirShadowMap& shadow_map)
 {
     destroyImage(shadow_map.depth_img);
     vkDestroyFramebuffer(m_device, shadow_map.framebuffer, NULL);
@@ -5487,7 +5487,7 @@ void Engine3D::destroyDirShadowMap(DirShadowMap& shadow_map)
     shadow_map.framebuffer = VK_NULL_HANDLE;
 }
 
-void Engine3D::destroyPointShadowMap(PointShadowMap& shadow_map)
+void Renderer::destroyPointShadowMap(PointShadowMap& shadow_map)
 {
     destroyImage(shadow_map.depth_img);
     vkDestroyFramebuffer(m_device, shadow_map.framebuffer, NULL);
@@ -5495,7 +5495,7 @@ void Engine3D::destroyPointShadowMap(PointShadowMap& shadow_map)
     shadow_map.framebuffer = VK_NULL_HANDLE;
 }
 
-void Engine3D::updatePointShadowMap(const PointLightShaderData& light)
+void Renderer::updatePointShadowMap(const PointLightShaderData& light)
 {
     PointShadowMapData& shadow_map_data = m_point_shadow_map_data[light.shadow_map_id];
 
@@ -5516,7 +5516,7 @@ void Engine3D::updatePointShadowMap(const PointLightShaderData& light)
 
 /*---------------- destroy methods ----------------*/
 
-void Engine3D::destroyInstance() noexcept
+void Renderer::destroyInstance() noexcept
 {
 #if VULKAN_VALIDATION_ENABLE
     destroyDebugCallback();
@@ -5526,19 +5526,19 @@ void Engine3D::destroyInstance() noexcept
     m_instance = VK_NULL_HANDLE;
 }
 
-void Engine3D::destroyDevice() noexcept
+void Renderer::destroyDevice() noexcept
 {
     vkDestroyDevice(m_device, NULL);
     m_device = VK_NULL_HANDLE;
 }
 
-void Engine3D::destroySurface() noexcept
+void Renderer::destroySurface() noexcept
 {
     vkDestroySurfaceKHR(m_instance, m_surface, NULL);
     m_surface = VK_NULL_HANDLE;
 }
 
-void Engine3D::destroySwapchain() noexcept
+void Renderer::destroySwapchain() noexcept
 {
     for(auto& siv : m_swapchain_image_views)
     {
@@ -5552,13 +5552,13 @@ void Engine3D::destroySwapchain() noexcept
     m_swapchain = VK_NULL_HANDLE;
 }
 
-void Engine3D::destroyCommandPool() noexcept
+void Renderer::destroyCommandPool() noexcept
 {
     vkDestroyCommandPool(m_device, m_command_pool, NULL);
     m_command_pool = VK_NULL_HANDLE;
 }
 
-void Engine3D::destroyRenderPasses() noexcept
+void Renderer::destroyRenderPasses() noexcept
 {
     vkDestroyRenderPass(m_device, m_main_render_pass, NULL);
     m_main_render_pass = VK_NULL_HANDLE;
@@ -5567,7 +5567,7 @@ void Engine3D::destroyRenderPasses() noexcept
     m_shadow_map_render_pass = VK_NULL_HANDLE;
 }
 
-void Engine3D::destroyDescriptorSets() noexcept
+void Renderer::destroyDescriptorSets() noexcept
 {
     vkDestroyDescriptorSetLayout(m_device, m_descriptor_set_layout, NULL);
     m_descriptor_set_layout = VK_NULL_HANDLE;
@@ -5576,13 +5576,13 @@ void Engine3D::destroyDescriptorSets() noexcept
     m_descriptor_pool = VK_NULL_HANDLE;
 }
 
-void Engine3D::destroyPipelineLayout() noexcept
+void Renderer::destroyPipelineLayout() noexcept
 {
     vkDestroyPipelineLayout(m_device, m_pipeline_layout, NULL);
     m_pipeline_layout = VK_NULL_HANDLE;
 }
 
-void Engine3D::destroyPipelines() noexcept
+void Renderer::destroyPipelines() noexcept
 {
     for(auto& p : m_pipelines)
     {
@@ -5597,7 +5597,7 @@ void Engine3D::destroyPipelines() noexcept
     m_pipelines_ui.clear();
 }
 
-void Engine3D::destroySynchronizationPrimitives() noexcept
+void Renderer::destroySynchronizationPrimitives() noexcept
 {
     for(auto& per_frame_data : m_per_frame_data)
     {
@@ -5609,7 +5609,7 @@ void Engine3D::destroySynchronizationPrimitives() noexcept
     vkDestroyFence(m_device, m_transfer_cmd_buf_fence, NULL);
 }
 
-void Engine3D::destroyRenderTargets() noexcept
+void Renderer::destroyRenderTargets() noexcept
 {
     for(auto& rt : m_render_targets)
     {
@@ -5621,7 +5621,7 @@ void Engine3D::destroyRenderTargets() noexcept
     m_render_targets.clear();
 }
 
-void Engine3D::destroySamplers() noexcept
+void Renderer::destroySamplers() noexcept
 {
     vkDestroySampler(m_device, m_sampler, NULL);
     m_sampler = VK_NULL_HANDLE;
@@ -5633,7 +5633,7 @@ void Engine3D::destroySamplers() noexcept
     m_terrain_heightmap_sampler = VK_NULL_HANDLE;
 }
 
-void Engine3D::destroyShadowMaps()
+void Renderer::destroyShadowMaps()
 {
     for(auto& per_frame_data : m_per_frame_data)
     {
@@ -5676,7 +5676,7 @@ VkBool32 debugReportCallback(
     return VK_FALSE;
 }
 
-void Engine3D::createDebugCallback(const VkDebugUtilsMessengerCreateInfoEXT& create_info)
+void Renderer::createDebugCallback(const VkDebugUtilsMessengerCreateInfoEXT& create_info)
 {
     PFN_vkCreateDebugUtilsMessengerEXT pfnCreateDebugUtilsMessenger = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(m_instance, "vkCreateDebugUtilsMessengerEXT"));
     if(!pfnCreateDebugUtilsMessenger)
@@ -5700,7 +5700,7 @@ void Engine3D::createDebugCallback(const VkDebugUtilsMessengerCreateInfoEXT& cre
     }
 }
 
-void Engine3D::destroyDebugCallback()
+void Renderer::destroyDebugCallback()
 {
     if(m_debug_report_callback)
     {
@@ -5717,7 +5717,7 @@ void Engine3D::destroyDebugCallback()
 }
 #endif
 
-void Engine3D::setDebugObjectName(VkObjectType object_type, uint64_t object_handle, std::string_view object_name)
+void Renderer::setDebugObjectName(VkObjectType object_type, uint64_t object_handle, std::string_view object_name)
 {
 #if VULKAN_VALIDATION_ENABLE
     VkDebugUtilsObjectNameInfoEXT name_info{};
@@ -5732,102 +5732,102 @@ void Engine3D::setDebugObjectName(VkObjectType object_type, uint64_t object_hand
 #endif
 }
 
-void Engine3D::setDebugObjectName(VkSemaphore semaphore, std::string_view name)
+void Renderer::setDebugObjectName(VkSemaphore semaphore, std::string_view name)
 {
     setDebugObjectName(VK_OBJECT_TYPE_SEMAPHORE, reinterpret_cast<uint64_t>(semaphore), name);
 }
 
-void Engine3D::setDebugObjectName(VkCommandBuffer command_buffer, std::string_view name)
+void Renderer::setDebugObjectName(VkCommandBuffer command_buffer, std::string_view name)
 {
     setDebugObjectName(VK_OBJECT_TYPE_COMMAND_BUFFER, reinterpret_cast<uint64_t>(command_buffer), name);
 }
 
-void Engine3D::setDebugObjectName(VkFence fence, std::string_view name)
+void Renderer::setDebugObjectName(VkFence fence, std::string_view name)
 {
     setDebugObjectName(VK_OBJECT_TYPE_FENCE, reinterpret_cast<uint64_t>(fence), name);
 }
 
-void Engine3D::setDebugObjectName(VkDeviceMemory device_memory, std::string_view name)
+void Renderer::setDebugObjectName(VkDeviceMemory device_memory, std::string_view name)
 {
     setDebugObjectName(VK_OBJECT_TYPE_DEVICE_MEMORY, reinterpret_cast<uint64_t>(device_memory), name);
 }
 
-void Engine3D::setDebugObjectName(VkBuffer buffer, std::string_view name)
+void Renderer::setDebugObjectName(VkBuffer buffer, std::string_view name)
 {
     setDebugObjectName(VK_OBJECT_TYPE_BUFFER, reinterpret_cast<uint64_t>(buffer), name);
 }
 
-void Engine3D::setDebugObjectName(VkImage image, std::string_view name)
+void Renderer::setDebugObjectName(VkImage image, std::string_view name)
 {
     setDebugObjectName(VK_OBJECT_TYPE_IMAGE, reinterpret_cast<uint64_t>(image), name);
 }
 
-void Engine3D::setDebugObjectName(VkBufferView buffer_view, std::string_view name)
+void Renderer::setDebugObjectName(VkBufferView buffer_view, std::string_view name)
 {
     setDebugObjectName(VK_OBJECT_TYPE_BUFFER_VIEW, reinterpret_cast<uint64_t>(buffer_view), name);
 }
 
-void Engine3D::setDebugObjectName(VkImageView image_view, std::string_view name)
+void Renderer::setDebugObjectName(VkImageView image_view, std::string_view name)
 {
     setDebugObjectName(VK_OBJECT_TYPE_IMAGE_VIEW, reinterpret_cast<uint64_t>(image_view), name);
 }
 
-void Engine3D::setDebugObjectName(VkShaderModule shader_module, std::string_view name)
+void Renderer::setDebugObjectName(VkShaderModule shader_module, std::string_view name)
 {
     setDebugObjectName(VK_OBJECT_TYPE_SHADER_MODULE, reinterpret_cast<uint64_t>(shader_module), name);
 }
 
-void Engine3D::setDebugObjectName(VkPipelineLayout pipeline_layout, std::string_view name)
+void Renderer::setDebugObjectName(VkPipelineLayout pipeline_layout, std::string_view name)
 {
     setDebugObjectName(VK_OBJECT_TYPE_PIPELINE_LAYOUT, reinterpret_cast<uint64_t>(pipeline_layout), name);
 }
 
-void Engine3D::setDebugObjectName(VkRenderPass render_pass, std::string_view name)
+void Renderer::setDebugObjectName(VkRenderPass render_pass, std::string_view name)
 {
     setDebugObjectName(VK_OBJECT_TYPE_RENDER_PASS, reinterpret_cast<uint64_t>(render_pass), name);
 }
 
-void Engine3D::setDebugObjectName(VkPipeline pipeline, std::string_view name)
+void Renderer::setDebugObjectName(VkPipeline pipeline, std::string_view name)
 {
     setDebugObjectName(VK_OBJECT_TYPE_PIPELINE, reinterpret_cast<uint64_t>(pipeline), name);
 }
 
-void Engine3D::setDebugObjectName(VkDescriptorSetLayout descriptor_set_layout, std::string_view name)
+void Renderer::setDebugObjectName(VkDescriptorSetLayout descriptor_set_layout, std::string_view name)
 {
     setDebugObjectName(VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, reinterpret_cast<uint64_t>(descriptor_set_layout), name);
 }
 
-void Engine3D::setDebugObjectName(VkSampler sampler, std::string_view name)
+void Renderer::setDebugObjectName(VkSampler sampler, std::string_view name)
 {
     setDebugObjectName(VK_OBJECT_TYPE_SAMPLER, reinterpret_cast<uint64_t>(sampler), name);
 }
 
-void Engine3D::setDebugObjectName(VkDescriptorPool descriptor_pool, std::string_view name)
+void Renderer::setDebugObjectName(VkDescriptorPool descriptor_pool, std::string_view name)
 {
     setDebugObjectName(VK_OBJECT_TYPE_DESCRIPTOR_POOL, reinterpret_cast<uint64_t>(descriptor_pool), name);
 }
 
-void Engine3D::setDebugObjectName(VkDescriptorSet descriptor_set, std::string_view name)
+void Renderer::setDebugObjectName(VkDescriptorSet descriptor_set, std::string_view name)
 {
     setDebugObjectName(VK_OBJECT_TYPE_DESCRIPTOR_SET, reinterpret_cast<uint64_t>(descriptor_set), name);
 }
 
-void Engine3D::setDebugObjectName(VkFramebuffer framebuffer, std::string_view name)
+void Renderer::setDebugObjectName(VkFramebuffer framebuffer, std::string_view name)
 {
     setDebugObjectName(VK_OBJECT_TYPE_FRAMEBUFFER, reinterpret_cast<uint64_t>(framebuffer), name);
 }
 
-void Engine3D::setDebugObjectName(VkCommandPool command_pool, std::string_view name)
+void Renderer::setDebugObjectName(VkCommandPool command_pool, std::string_view name)
 {
     setDebugObjectName(VK_OBJECT_TYPE_COMMAND_POOL, reinterpret_cast<uint64_t>(command_pool), name);
 }
 
-void Engine3D::setDebugObjectName(VkSurfaceKHR surface, std::string_view name)
+void Renderer::setDebugObjectName(VkSurfaceKHR surface, std::string_view name)
 {
     setDebugObjectName(VK_OBJECT_TYPE_SURFACE_KHR, reinterpret_cast<uint64_t>(surface), name);
 }
 
-void Engine3D::setDebugObjectName(VkSwapchainKHR swapchain, std::string_view name)
+void Renderer::setDebugObjectName(VkSwapchainKHR swapchain, std::string_view name)
 {
     setDebugObjectName(VK_OBJECT_TYPE_SWAPCHAIN_KHR, reinterpret_cast<uint64_t>(swapchain), name);
 }

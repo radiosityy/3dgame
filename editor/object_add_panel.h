@@ -8,7 +8,7 @@
 class ObjectAddPanel : public GuiParentObject
 {
 public:
-    ObjectAddPanel(Engine3D& engine3d, float x, float y, Scene& scene, const Font& font);
+    ObjectAddPanel(Renderer& renderer, float x, float y, Scene& scene, const Font& font);
 
     virtual bool onKeyPressedIntercept(Key, const InputState&) override;
     virtual void setScissor(Quad scissor) override;
@@ -19,7 +19,7 @@ private:
     void addObject(std::string_view mesh_filename);
     void updateList();
 
-    Engine3D& m_engine3d;
+    Renderer& m_renderer;
     Scene& m_scene;
     const Font* m_font = nullptr;
 

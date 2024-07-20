@@ -10,13 +10,13 @@
 class Object
 {
 public:
-    Object(Engine3D& engine3d, std::ifstream& scene_file);
-    Object(Engine3D& engine3d, std::string_view model_filename, RenderMode render_mode, vec3 pos = vec3(0.0f, 0.0f, 0.0f), vec3 scale = vec3(1.0f, 1.0f, 1.0f), quat rot = quat(1.0f, 0.0f, 0.0f, 0.0f));
+    Object(Renderer& renderer, std::ifstream& scene_file);
+    Object(Renderer& renderer, std::string_view model_filename, RenderMode render_mode, vec3 pos = vec3(0.0f, 0.0f, 0.0f), vec3 scale = vec3(1.0f, 1.0f, 1.0f), quat rot = quat(1.0f, 0.0f, 0.0f, 0.0f));
 
     bool cull(const std::array<vec4, 6>& frustum_planes_W);
 
-    void update(Engine3D& engine3d, float dt);
-    void draw(Engine3D& engine3d);
+    void update(Renderer& renderer, float dt);
+    void draw(Renderer& renderer);
 
     const std::vector<AABB>& aabbs() const;
     const std::vector<BoundingBox>& bbs() const;
@@ -56,7 +56,7 @@ public:
     void setSerializable(bool);
     void serialize(std::ofstream& outfile) const;
 
-    void drawHighlight(Engine3D& engine3d);
+    void drawHighlight(Renderer& renderer);
 
     bool rayIntersetion(const Ray& rayW, float min_d, float& d) const;
 #endif

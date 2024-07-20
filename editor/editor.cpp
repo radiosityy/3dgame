@@ -2,13 +2,13 @@
 #include "editor.h"
 #include "game_utils.h"
 
-Editor::Editor(Window& window, Scene& scene, Engine3D& engine3d, const Font& font)
+Editor::Editor(Window& window, Scene& scene, Renderer& renderer, const Font& font)
     : m_scene(scene)
     , m_window(window)
-    , m_engine3d(engine3d)
+    , m_renderer(renderer)
     , m_font(font)
 {
-    m_billboard_vb_alloc = m_engine3d.requestVertexBufferAllocation<VertexBillboard>(MAX_POINT_LIGHT_COUNT);
+    m_billboard_vb_alloc = m_renderer.requestVertexBufferAllocation<VertexBillboard>(MAX_POINT_LIGHT_COUNT);
     updatePointLightBillboards();
 }
 
@@ -31,11 +31,11 @@ void Editor::update(const InputState& input_state, float dt)
         {
             if(input_state.mouse & LMB)
             {
-                m_scene.terrain().toolEdit(m_engine3d, m_cur_terrain_pos, m_terrain_tool_radius, 1.0f * dt);
+                m_scene.terrain().toolEdit(m_renderer, m_cur_terrain_pos, m_terrain_tool_radius, 1.0f * dt);
             }
             else if(input_state.mouse & RMB)
             {
-                m_scene.terrain().toolEdit(m_engine3d, m_cur_terrain_pos, m_terrain_tool_radius, -1.0f * dt);
+                m_scene.terrain().toolEdit(m_renderer, m_cur_terrain_pos, m_terrain_tool_radius, -1.0f * dt);
             }
         }
     }
@@ -95,7 +95,7 @@ void Editor::update(const InputState& input_state, float dt)
         }
     }
 
-    updateChildren(m_engine3d);
+    updateChildren(m_renderer);
 }
 
 void Editor::draw(RenderData& render_data)
@@ -109,13 +109,13 @@ void Editor::draw(RenderData& render_data)
     /*selected object highlight*/
     if(m_selected_object)
     {
-        m_selected_object->drawHighlight(m_engine3d);
+        m_selected_object->drawHighlight(m_renderer);
     }
 
     /*point light billboards*/
-    m_engine3d.draw(RenderMode::Billboard, m_billboard_vb_alloc.vb, m_billboard_vb_alloc.vertex_offset, m_vertex_billboard_data.size(), 0, {});
+    m_renderer.draw(RenderMode::Billboard, m_billboard_vb_alloc.vb, m_billboard_vb_alloc.vertex_offset, m_vertex_billboard_data.size(), 0, {});
 
-    drawChildren(m_engine3d);
+    drawChildren(m_renderer);
 }
 
 void Editor::onWindowResize(uint32_t width, uint32_t height, float scale_x, float scale_y)
@@ -204,7 +204,7 @@ PointLight& Editor::selectedPointLight()
 
 void Editor::openObjectAddPanel()
 {
-    m_object_add_panel = addChild(std::make_unique<ObjectAddPanel>(m_engine3d, 400.0f, 400.0f, m_scene, m_font));
+    m_object_add_panel = addChild(std::make_unique<ObjectAddPanel>(m_renderer, 400.0f, 400.0f, m_scene, m_font));
     setKeyboardFocus(m_object_add_panel);
 }
 
@@ -216,7 +216,7 @@ void Editor::closeObjectAddPanel()
 
 void Editor::openPointLightEditPanel(PointLightId point_light_id)
 {
-    m_point_light_edit_panel = addChild(std::make_unique<PointLightEditPanel>(m_engine3d, 100.0f, 100.0f, m_scene, point_light_id, m_font));
+    m_point_light_edit_panel = addChild(std::make_unique<PointLightEditPanel>(m_renderer, 100.0f, 100.0f, m_scene, point_light_id, m_font));
     setKeyboardFocus(m_point_light_edit_panel);
 }
 
@@ -233,7 +233,7 @@ void Editor::updateSelectedPointLight()
     auto& v = m_vertex_billboard_data[*m_selected_point_light_id];
 
     v.center_pos = selectedPointLight().pos;
-    m_engine3d.updateVertexData(m_billboard_vb_alloc.vb, m_billboard_vb_alloc.data_offset + sizeof(VertexBillboard) * *m_selected_point_light_id, sizeof(VertexBillboard), &m_vertex_billboard_data[*m_selected_point_light_id]);
+    m_renderer.updateVertexData(m_billboard_vb_alloc.vb, m_billboard_vb_alloc.data_offset + sizeof(VertexBillboard) * *m_selected_point_light_id, sizeof(VertexBillboard), &m_vertex_billboard_data[*m_selected_point_light_id]);
 }
 
 void Editor::updatePointLightBillboards()
@@ -247,13 +247,13 @@ void Editor::updatePointLightBillboards()
         {
             auto& v = m_vertex_billboard_data[i];
             v.color = m_selected_point_light_id && i == *m_selected_point_light_id ? ColorRGBA(1.0f, 1.0f, 1.0f, 1.0f) : ColorRGBA(0.5f, 0.5f, 0.5f, 1.0f);
-            v.tex_id = m_engine3d.loadTexture("point_light.png");
+            v.tex_id = m_renderer.loadTexture("point_light.png");
             v.layer_id = 0;
             v.center_pos = m_scene.staticPointLights()[i].pos;
             v.size = vec2(m_billboard_size_x, m_billboard_size_y);
         }
 
-        m_engine3d.updateVertexData(m_billboard_vb_alloc.vb, m_billboard_vb_alloc.data_offset, sizeof(VertexBillboard) * m_vertex_billboard_data.size(), m_vertex_billboard_data.data());
+        m_renderer.updateVertexData(m_billboard_vb_alloc.vb, m_billboard_vb_alloc.data_offset, sizeof(VertexBillboard) * m_vertex_billboard_data.size(), m_vertex_billboard_data.data());
     }
 }
 
