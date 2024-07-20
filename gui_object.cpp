@@ -303,30 +303,6 @@ void GuiParent::resetMouseFocus()
     }
 }
 
-void GuiParent::determineKeyboardFocus(GuiObject* object, const InputState& input_state)
-{
-    if(object->isVisible() && object->isFocusable() && object->isPointInside(input_state.cursor_pos))
-    {
-        setKeyboardFocus(object);
-    }
-    else
-    {
-        setKeyboardFocus(nullptr);
-    }
-}
-
-void GuiParent::determineMouseFocus(GuiObject* object, const InputState& input_state)
-{
-    if(object->isVisible() && object->isFocusable() && object->isPointInside(input_state.cursor_pos))
-    {
-        setMouseFocus(object);
-    }
-    else
-    {
-        setMouseFocus(nullptr);
-    }
-}
-
 void GuiParent::updateKeyboardFocus(const InputState& input_state)
 {
     setKeyboardFocus(determineKeyboardFocus(input_state));

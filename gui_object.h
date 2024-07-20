@@ -108,8 +108,6 @@ protected:
     void setMouseFocus(GuiObject*);
     void resetKeyboardFocus();
     void resetMouseFocus();
-    void determineKeyboardFocus(GuiObject*, const InputState&);
-    void determineMouseFocus(GuiObject*, const InputState&);
 
     GuiObject* m_keyboard_focus = nullptr;
     GuiObject* m_mouse_focus = nullptr;
