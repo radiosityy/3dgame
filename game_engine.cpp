@@ -447,7 +447,7 @@ void GameEngine::onMouseReleased(MouseButton mb, const InputState& input_state)
 #if EDITOR_ENABLE
     if(m_edit_mode)
     {
-        m_editor->onMouseReleased(mb, input_state);
+        m_editor->onMouseReleased(mb, input_state, true);
     }
     else
 #endif

@@ -29,7 +29,7 @@ public:
     virtual void onKeyPressed(Key, const InputState&);
     virtual void onKeyReleased(Key, const InputState&);
     virtual void onMousePressed(MouseButton, const InputState&);
-    virtual void onMouseReleased(MouseButton, const InputState&);
+    virtual void onMouseReleased(MouseButton, const InputState&, bool released_inside);
     virtual void onMouseMoved(vec2, const InputState&);
     virtual void onMouseScrolledUp(const InputState&);
     virtual void onMouseScrolledDown(const InputState&);
@@ -71,7 +71,7 @@ public:
     virtual void onKeyPressed(Key, const InputState&) final;
     virtual void onKeyReleased(Key, const InputState&) final;
     virtual void onMousePressed(MouseButton, const InputState&) final;
-    virtual void onMouseReleased(MouseButton, const InputState&) final;
+    virtual void onMouseReleased(MouseButton, const InputState&, bool released_inside) final;
     virtual void onMouseMoved(vec2, const InputState&) final;
     virtual void onMouseScrolledUp(const InputState&) final;
     virtual void onMouseScrolledDown(const InputState&) final;
@@ -80,7 +80,7 @@ protected:
     virtual bool onKeyPressedIntercept(Key, const InputState&);
     virtual bool onKeyReleasedIntercept(Key, const InputState&);
     virtual bool onMousePressedIntercept(MouseButton, const InputState&);
-    virtual bool onMouseReleasedIntercept(MouseButton, const InputState&);
+    virtual bool onMouseReleasedIntercept(MouseButton, const InputState&, bool released_inside);
     virtual bool onMouseMovedIntercept(vec2, const InputState&);
     virtual bool onMouseScrolledUpIntercept(const InputState&);
     virtual bool onMouseScrolledDownIntercept(const InputState&);
@@ -88,7 +88,7 @@ protected:
     virtual void onKeyPressedImpl(Key, const InputState&);
     virtual void onKeyReleasedImpl(Key, const InputState&);
     virtual void onMousePressedImpl(MouseButton, const InputState&);
-    virtual void onMouseReleasedImpl(MouseButton, const InputState&);
+    virtual void onMouseReleasedImpl(MouseButton, const InputState&, bool released_inside);
     virtual void onMouseMovedImpl(vec2, const InputState&);
     virtual void onMouseScrolledUpImpl(const InputState&);
     virtual void onMouseScrolledDownImpl(const InputState&);
@@ -117,7 +117,7 @@ protected:
 private:
     std::vector<std::unique_ptr<GuiObject>> m_children;
 
-    void determineKeyboardFocus(const InputState& input_state)
+    GuiObject* determineKeyboardFocus(const InputState& input_state)
     {
         GuiObject* object_under_cursor = nullptr;
 
@@ -140,10 +140,10 @@ private:
             }
         }
 
-        setKeyboardFocus(object_under_cursor);
+        return object_under_cursor;
     }
 
-    void determineMouseFocus(const InputState& input_state)
+    GuiObject* determineMouseFocus(const InputState& input_state)
     {
         GuiObject* object_under_cursor = nullptr;
 
@@ -158,8 +158,11 @@ private:
             }
         }
 
-        setMouseFocus(object_under_cursor);
+        return object_under_cursor;
     }
+
+    void updateKeyboardFocus(const InputState&);
+    void updateMouseFocus(const InputState&);
 };
 
 class GuiParentObject : public GuiObject, public GuiParent

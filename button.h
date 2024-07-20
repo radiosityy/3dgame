@@ -15,7 +15,7 @@ public:
     virtual void draw(Engine3D& engine3d) override;
 
     virtual void onMousePressed(MouseButton, const InputState&) override;
-    virtual void onMouseReleased(MouseButton, const InputState&) override;
+    virtual void onMouseReleased(MouseButton, const InputState&, bool) override;
     virtual void onKeyPressed(Key, const InputState&) override;
     virtual void onCursorEnter() override;
     virtual void onCursorExit() override;

@@ -16,11 +16,14 @@ Checkbox::Checkbox(Engine3D& engine3d, float x, float y, float w, float h, bool 
     }
 }
 
-void Checkbox::onMouseReleased(MouseButton mb, const InputState& input_state)
+void Checkbox::onMouseReleased(MouseButton mb, const InputState& input_state, bool released_inside)
 {
     if(LMB == mb)
     {
-        toggle();
+        if(released_inside)
+        {
+            toggle();
+        }
     }
 }
 

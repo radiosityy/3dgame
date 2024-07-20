@@ -40,12 +40,15 @@ void Button::onMousePressed(MouseButton mb, const InputState&)
     }
 }
 
-void Button::onMouseReleased(MouseButton mb, const InputState&)
+void Button::onMouseReleased(MouseButton mb, const InputState&, bool released_inside)
 {
     if(LMB == mb)
     {
         m_label.setBackgroundColor(m_highlighted_color);
-        m_mouse_pressed_callback();
+        if(released_inside)
+        {
+            m_mouse_pressed_callback();
+        }
     }
 }
 

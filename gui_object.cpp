@@ -6,7 +6,7 @@
 void InputHandler::onKeyPressed(Key, const InputState&) {}
 void InputHandler::onKeyReleased(Key, const InputState&) {}
 void InputHandler::onMousePressed(MouseButton, const InputState&) {}
-void InputHandler::onMouseReleased(MouseButton, const InputState&) {}
+void InputHandler::onMouseReleased(MouseButton, const InputState&, bool) {}
 void InputHandler::onMouseMoved(vec2, const InputState&) {}
 void InputHandler::onMouseScrolledUp(const InputState&) {}
 void InputHandler::onMouseScrolledDown(const InputState&) {}
@@ -81,7 +81,7 @@ void GuiParent::onMousePressed(MouseButton mb, const InputState& input_state)
     {
         if(LMB == mb)
         {
-            determineKeyboardFocus(input_state);
+            updateKeyboardFocus(input_state);
         }
 
         if(m_mouse_focus)
@@ -95,18 +95,41 @@ void GuiParent::onMousePressed(MouseButton mb, const InputState& input_state)
     }
 }
 
-void GuiParent::onMouseReleased(MouseButton mb, const InputState& input_state)
+void GuiParent::onMouseReleased(MouseButton mb, const InputState& input_state, bool released_inside)
 {
-    if(!onMouseReleasedIntercept(mb, input_state))
+    if(!onMouseReleasedIntercept(mb, input_state, released_inside))
     {
         if(m_mouse_focus)
         {
-            m_mouse_focus->onMouseReleased(mb, input_state);
+            if(!released_inside)
+            {
+                m_mouse_focus->onMouseReleased(mb, input_state, false);
+                resetMouseFocus();
+            }
+            else
+            {
+                auto curr_mouse_focus = determineMouseFocus(input_state);
+
+                if(m_mouse_focus == curr_mouse_focus)
+                {
+                    m_mouse_focus->onMouseReleased(mb, input_state, true);
+                }
+                else
+                {
+                    m_mouse_focus->onMouseReleased(mb, input_state, false);
+                    setMouseFocus(curr_mouse_focus);
+                }
+            }
         }
         else
         {
-            onMouseReleasedImpl(mb, input_state);
+            onMouseReleasedImpl(mb, input_state, released_inside);
         }
+    }
+
+    if(released_inside)
+    {
+        updateMouseFocus(input_state);
     }
 }
 
@@ -114,7 +137,10 @@ void GuiParent::onMouseMoved(vec2 cursor_delta, const InputState& input_state)
 {
     if(!onMouseMovedIntercept(cursor_delta, input_state))
     {
-        determineMouseFocus(input_state);
+        if(!input_state.mouse)
+        {
+            updateMouseFocus(input_state);
+        }
 
         if(m_mouse_focus)
         {
@@ -160,7 +186,7 @@ void GuiParent::onMouseScrolledDown(const InputState& input_state)
 bool GuiParent::onKeyPressedIntercept(Key, const InputState&) {return false;}
 bool GuiParent::onKeyReleasedIntercept(Key, const InputState&) {return false;}
 bool GuiParent::onMousePressedIntercept(MouseButton, const InputState&) {return false;}
-bool GuiParent::onMouseReleasedIntercept(MouseButton, const InputState&) {return false;}
+bool GuiParent::onMouseReleasedIntercept(MouseButton, const InputState&, bool) {return false;}
 bool GuiParent::onMouseMovedIntercept(vec2, const InputState&) {return false;}
 bool GuiParent::onMouseScrolledUpIntercept(const InputState&) {return false;}
 bool GuiParent::onMouseScrolledDownIntercept(const InputState&) {return false;}
@@ -168,7 +194,7 @@ bool GuiParent::onMouseScrolledDownIntercept(const InputState&) {return false;}
 void GuiParent::onKeyPressedImpl(Key, const InputState&) {}
 void GuiParent::onKeyReleasedImpl(Key, const InputState&) {}
 void GuiParent::onMousePressedImpl(MouseButton, const InputState&) {}
-void GuiParent::onMouseReleasedImpl(MouseButton, const InputState&) {}
+void GuiParent::onMouseReleasedImpl(MouseButton, const InputState&, bool) {}
 void GuiParent::onMouseMovedImpl(vec2, const InputState&) {}
 void GuiParent::onMouseScrolledUpImpl(const InputState&) {}
 void GuiParent::onMouseScrolledDownImpl(const InputState&) {}
@@ -228,10 +254,9 @@ void GuiParent::setKeyboardFocus(GuiObject* object)
             m_keyboard_focus->onGotFocus();
         }
     }
-    else if(m_keyboard_focus)
+    else
     {
-        m_keyboard_focus->onLostFocus();
-        m_keyboard_focus = nullptr;
+        resetKeyboardFocus();
     }
 }
 
@@ -254,21 +279,28 @@ void GuiParent::setMouseFocus(GuiObject* object)
             m_mouse_focus->onCursorEnter();
         }
     }
-    else if(m_mouse_focus)
+    else
     {
-        m_mouse_focus->onCursorExit();
-        m_mouse_focus = nullptr;
+        resetMouseFocus();
     }
 }
 
 void GuiParent::resetKeyboardFocus()
 {
-    setKeyboardFocus(nullptr);
+    if(m_keyboard_focus)
+    {
+        m_keyboard_focus->onLostFocus();
+        m_keyboard_focus = nullptr;
+    }
 }
 
 void GuiParent::resetMouseFocus()
 {
-    setMouseFocus(nullptr);
+    if(m_mouse_focus)
+    {
+        m_mouse_focus->onCursorExit();
+        m_mouse_focus = nullptr;
+    }
 }
 
 void GuiParent::determineKeyboardFocus(GuiObject* object, const InputState& input_state)
@@ -295,6 +327,16 @@ void GuiParent::determineMouseFocus(GuiObject* object, const InputState& input_s
     }
 }
 
+void GuiParent::updateKeyboardFocus(const InputState& input_state)
+{
+    setKeyboardFocus(determineKeyboardFocus(input_state));
+}
+
+void GuiParent::updateMouseFocus(const InputState& input_state)
+{
+    setMouseFocus(determineMouseFocus(input_state));
+}
+
 void GuiParentObject::update(Engine3D& engine3d)
 {
     updateChildren(engine3d);
@@ -307,18 +349,10 @@ void GuiParentObject::draw(Engine3D& engine3d)
 
 void GuiParentObject::onLostFocus()
 {
-    if(m_keyboard_focus)
-    {
-        m_keyboard_focus->onLostFocus();
-        m_keyboard_focus = nullptr;
-    }
+    resetKeyboardFocus();
 }
 
 void GuiParentObject::onCursorExit()
 {
-    if(m_mouse_focus)
-    {
-        m_mouse_focus->onCursorExit();
-        m_mouse_focus = nullptr;
-    }
+    resetMouseFocus();
 }

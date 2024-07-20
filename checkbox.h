@@ -9,7 +9,7 @@ class Checkbox : public Rect
 public:
     Checkbox(Engine3D& engine3d, float x, float y, float w, float h, bool init_checked = false);
 
-    virtual void onMouseReleased(MouseButton, const InputState&) override;
+    virtual void onMouseReleased(MouseButton, const InputState&, bool) override;
 
     bool state() const;
     void setChecked(bool);
