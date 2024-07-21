@@ -6,7 +6,7 @@
 class Button : public GuiObject
 {
 public:
-    Button(Renderer& renderer, float x, float y, float w, float h, const Font& font, const std::string& text, std::move_only_function<void()>&& mouse_pressed_callback, HorizontalAlignment = HorizontalAlignment::Center, VerticalAlignment = VerticalAlignment::Center);
+    Button(Renderer& renderer, float x, float y, float w, float h, const Font& font, const std::string& text, std::move_only_function<void()>&& pressed_callback, HorizontalAlignment = HorizontalAlignment::Center, VerticalAlignment = VerticalAlignment::Center);
 
 public:
     virtual void update(Renderer& renderer) override;
@@ -38,7 +38,7 @@ protected:
 
     Label m_label;
 
-    std::move_only_function<void()> m_mouse_pressed_callback;
+    std::move_only_function<void()> m_pressed_callback;
 
     std::optional<Quad> m_scissor;
 };

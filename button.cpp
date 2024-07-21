@@ -1,12 +1,12 @@
 #include "button.h"
 
-Button::Button(Renderer& renderer, float x, float y, float w, float h, const Font& font, const std::string& text, std::move_only_function<void()>&& mouse_pressed_callback, HorizontalAlignment hor_align, VerticalAlignment ver_align)
+Button::Button(Renderer& renderer, float x, float y, float w, float h, const Font& font, const std::string& text, std::move_only_function<void()>&& pressed_callback, HorizontalAlignment hor_align, VerticalAlignment ver_align)
     : m_x(x)
     , m_y(y)
     , m_width(w)
     , m_height(h)
     , m_label(renderer, m_x, m_y, m_width, m_height, font, text, false, hor_align, ver_align)
-    , m_mouse_pressed_callback(std::move(mouse_pressed_callback))
+    , m_pressed_callback(std::move(pressed_callback))
 {
     m_label.setScissor({m_x, m_y, m_width, m_height});
     m_label.setBackgroundColor(m_color);
@@ -37,7 +37,7 @@ void Button::onMouseReleased(MouseButton mb, const InputState&, bool released_in
         m_label.setBackgroundColor(m_highlighted_color);
         if(released_inside)
         {
-            m_mouse_pressed_callback();
+            m_pressed_callback();
         }
     }
 }
@@ -46,7 +46,7 @@ void Button::onKeyPressed(Key key, const InputState&)
 {
     if(key == VKeyEnter)
     {
-        m_mouse_pressed_callback();
+        m_pressed_callback();
     }
 }
 
