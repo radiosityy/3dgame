@@ -16,15 +16,6 @@ Scene::Scene(Renderer& renderer, float aspect_ratio, const Font& font)
 {
     renderer.loadTexture("Ground003_4K_Color.png");
     renderer.loadNormalMap("Ground003_4K_Normal.png");
-    m_time_label = std::make_unique<Label>(m_renderer, 0, 20.0f, font, "", false, HorizontalAlignment::Left, VerticalAlignment::Top);
-    m_time_label->setUpdateCallback([&](Label& label)
-    {
-        const uint32_t h = static_cast<uint32_t>(m_time_of_day) / 3600;
-        const uint32_t m = (static_cast<uint32_t>(m_time_of_day) - h * 3600) / 60;
-        const uint32_t s = static_cast<uint32_t>(m_time_of_day) - h*3600 - m*60;
-
-        label.setText(std::format("Time: {}:{}:{}", h, m, s));
-    });
 
     /*add sun*/
     m_sun.shadow_map_count = 4;
@@ -110,8 +101,6 @@ void Scene::update(float dt, const InputState& input_state) noexcept
 
     updateSun();
 
-    m_time_label->update(m_renderer);
-
     if(m_player_movement)
     {
         playerControls(input_state);
@@ -193,8 +182,6 @@ void Scene::draw(RenderData& render_data) noexcept
     }
 
     m_terrain->draw(m_renderer);
-
-    m_time_label->draw(m_renderer);
 }
 
 void Scene::tryPlayerRotation(float dt)

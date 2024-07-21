@@ -16,7 +16,6 @@ public:
     virtual void onKeyPressed(Key, const InputState&) override;
     virtual void onMousePressed(MouseButton, const InputState&) override;
 
-    virtual void setUpdateCallback(std::move_only_function<void(Label&)>&&);
     virtual void setTextChangedCallback(std::move_only_function<void(std::string_view)>&&);
     virtual void update(Renderer& renderer) override;
     virtual void draw(Renderer& renderer) override;
@@ -72,8 +71,6 @@ private:
 
     bool m_fixed_rect = false;
     Rect m_background_rect;
-
-    std::move_only_function<void(Label&)> m_update_callback;
 
     std::optional<Quad> m_parent_scissor;
     Quad m_scissor;

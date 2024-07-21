@@ -49,18 +49,8 @@ public:
         }
     }
 
-    void setUpdateCallback(std::move_only_function<void(Slider<T>&)>&& callback)
-    {
-        m_update_callback = std::move(callback);
-    }
-
     virtual void update(Renderer& renderer) override
     {
-        if(m_update_callback)
-        {
-            m_update_callback(*this);
-        }
-
         m_bar.update(renderer);
         m_handle.update(renderer);
     }
@@ -120,7 +110,6 @@ private:
 
     static inline const float m_bar_height = 0.25f;
 
-    std::move_only_function<void(Slider<T>&)> m_update_callback;
     std::move_only_function<void(T)> m_value_changed_callback;
 
     T m_value;

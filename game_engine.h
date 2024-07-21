@@ -40,7 +40,7 @@ private:
     void setDefaultIni();
     void writeIni();
     void parseIni();
-    void setupGui();
+    void updateFpsLabel();
 
     void stop() noexcept;
 

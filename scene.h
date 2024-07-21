@@ -75,7 +75,6 @@ private:
 
     Camera m_camera;
 
-    std::unique_ptr<Label> m_time_label;
     static constexpr float m_time_scale = 60.0f * 60.0f; //one minute in game is one sec in real life
     static constexpr float m_day_length = 24.0f * 60.0f * 60.0f;
     static constexpr float m_sun_radius = 0.1f;

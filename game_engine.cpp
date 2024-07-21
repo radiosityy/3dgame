@@ -104,7 +104,11 @@ GameEngine::GameEngine()
 
     m_fonts.emplace_back(font_directory + "font.ttf", 18);
 
-    setupGui();
+    m_fps_label = std::make_unique<Label>(*m_renderer, 0, 0, m_fonts[0], "", false, HorizontalAlignment::Left, VerticalAlignment::Top);
+    m_console = std::make_unique<Console>(*m_renderer, 0, 0, static_cast<float>(m_window->width()), 0.4f * static_cast<float>(m_window->height()), m_fonts[0], [&](const std::string& text)
+    {
+        processConsoleCmd(text);
+    });
 
     m_scene = std::make_unique<Scene>(*m_renderer, static_cast<float>(m_window->width()) / static_cast<float>(m_window->height()), m_fonts[0]);
 
@@ -122,28 +126,19 @@ GameEngine::GameEngine()
 #endif
 }
 
-void GameEngine::setupGui()
+void GameEngine::updateFpsLabel()
 {
-    m_fps_label = std::make_unique<Label>(*m_renderer, 0, 0, m_fonts[0], "", false, HorizontalAlignment::Left, VerticalAlignment::Top);
-    m_fps_label->setUpdateCallback([this](Label& label)
+    static auto interval_start = std::chrono::steady_clock::now();
+    static double dt = 0.0;
+
+    auto curr_time = std::chrono::steady_clock::now();
+    if(const auto t = (std::chrono::duration<double>(curr_time - interval_start)).count(); t >= 1.0)
     {
-        static auto interval_start = std::chrono::steady_clock::now();
-        static double dt = 0.0;
+        interval_start = curr_time;
+        dt = 1.0 / static_cast<double>(m_timer.getFps());
+    }
 
-        auto curr_time = std::chrono::steady_clock::now();
-        if(const auto t = (std::chrono::duration<double>(curr_time - interval_start)).count(); t >= 1.0)
-        {
-            interval_start = curr_time;
-            dt = 1.0 / static_cast<double>(m_timer.getFps());
-        }
-
-        label.setText(std::format("Fps: {} | {:.2f}ms", m_timer.getFps(), dt * 1000.0));
-    });
-
-    m_console = std::make_unique<Console>(*m_renderer, 0, 0, static_cast<float>(m_window->width()), 0.4f * static_cast<float>(m_window->height()), m_fonts[0], [&](const std::string& text)
-    {
-        processConsoleCmd(text);
-    });
+    m_fps_label->setText(std::format("Fps: {} | {:.2f}ms", m_timer.getFps(), dt * 1000.0));
 }
 
 void GameEngine::processConsoleCmd(const std::string& text)
@@ -297,6 +292,7 @@ void GameEngine::run()
         }
 #endif
 
+        updateFpsLabel();
         m_fps_label->update(*m_renderer);
         m_fps_label->draw(*m_renderer);
 

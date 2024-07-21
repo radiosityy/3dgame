@@ -338,11 +338,6 @@ void Label::onMousePressed(MouseButton mb, const InputState& input_state)
     }
 }
 
-void Label::setUpdateCallback(std::move_only_function<void (Label&)>&& callback)
-{
-    m_update_callback = std::move(callback);
-}
-
 void Label::setTextChangedCallback(std::move_only_function<void (std::string_view)>&& callback)
 {
     m_text_changed_callback = std::move(callback);
@@ -350,11 +345,6 @@ void Label::setTextChangedCallback(std::move_only_function<void (std::string_vie
 
 void Label::update(Renderer& renderer)
 {
-    if((!m_editable || !m_focused) && m_update_callback)
-    {
-        m_update_callback(*this);
-    }
-
     if(m_vertices.size() > m_vb_alloc_vertex_count)
     {
         m_vb_alloc_vertex_count = m_vertices.size();
@@ -456,14 +446,14 @@ void Label::setConfirmCallback(std::move_only_function<void (Label&)>&& callback
     m_multiline = false;
 }
 
-void Label::setCancalable(bool value)
+void Label::setCancalable(bool cancelable)
 {
-    m_cancelable = value;
+    m_cancelable = cancelable;
 }
 
-void Label::setMultiline(bool value)
+void Label::setMultiline(bool multiline)
 {
-    m_multiline = value;
+    m_multiline = multiline;
 }
 
 void Label::setActionOnFocusLost(Label::Action action)

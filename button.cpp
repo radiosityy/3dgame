@@ -12,18 +12,8 @@ Button::Button(Renderer& renderer, float x, float y, float w, float h, const Fon
     m_label.setBackgroundColor(m_color);
 }
 
-void Button::setUpdateCallback(std::move_only_function<void (Button&)>&& callback)
-{
-    m_update_callback = std::move(callback);
-}
-
 void Button::update(Renderer& renderer)
 {
-    if(m_update_callback)
-    {
-        m_update_callback(*this);
-    }
-
     m_label.update(renderer);
 }
 
