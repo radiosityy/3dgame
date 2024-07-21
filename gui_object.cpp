@@ -260,6 +260,11 @@ void GuiParent::setKeyboardFocus(GuiObject* object)
     }
 }
 
+void GuiParent::setKeyboardFocusRedirect(GuiObject* object)
+{
+    m_keyboard_focus_redirect = object;
+}
+
 void GuiParent::setMouseFocus(GuiObject* object)
 {
     if(object)

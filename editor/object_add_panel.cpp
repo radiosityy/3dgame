@@ -24,6 +24,7 @@ ObjectAddPanel::ObjectAddPanel(Renderer& renderer, float x, float y, Scene& scen
     m_text_input->setBackgroundColor(ColorRGBA(0.1f, 0.1f, 0.1f, 1.0f));
     m_text_input->setConfirmCallback([&](Label& l){addObject(l.text());});
     m_text_input->setTextChangedCallback([this](std::string_view){updateList();});
+    setKeyboardFocusRedirect(m_text_input);
 
     addChild(std::make_unique<Button>(m_renderer, m_x + 0.7f * m_width, m_y + bar_height, 0.3f * m_width, font.height(), font, "Select", [&](){addObject(m_text_input->text());}));
 

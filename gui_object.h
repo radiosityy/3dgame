@@ -105,15 +105,16 @@ protected:
     void drawChildren(Renderer&);
 
     void setKeyboardFocus(GuiObject*);
+    void setKeyboardFocusRedirect(GuiObject*);
     void setMouseFocus(GuiObject*);
     void resetKeyboardFocus();
     void resetMouseFocus();
-
     GuiObject* m_keyboard_focus = nullptr;
     GuiObject* m_mouse_focus = nullptr;
 
 private:
     std::vector<std::unique_ptr<GuiObject>> m_children;
+    GuiObject* m_keyboard_focus_redirect = nullptr;
 
     GuiObject* determineKeyboardFocus(const InputState& input_state)
     {
@@ -138,7 +139,14 @@ private:
             }
         }
 
-        return object_under_cursor;
+        if(!object_under_cursor && m_keyboard_focus_redirect)
+        {
+            return m_keyboard_focus_redirect;
+        }
+        else
+        {
+            return object_under_cursor;
+        }
     }
 
     GuiObject* determineMouseFocus(const InputState& input_state)
