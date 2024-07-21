@@ -32,6 +32,11 @@ ObjectAddPanel::ObjectAddPanel(Renderer& renderer, float x, float y, Scene& scen
     updateList();
 }
 
+bool ObjectAddPanel::requestedClose() const noexcept
+{
+    return m_request_close;
+}
+
 bool ObjectAddPanel::onKeyPressedIntercept(Key key, const InputState&)
 {
     switch(key)
@@ -104,11 +109,10 @@ void ObjectAddPanel::addObject(std::string_view mesh_filename)
     const std::string mesh_file_path = std::string("assets/meshes/") + mesh_filename.data();
     const vec3 object_pos = m_scene.camera().pos() + 10.0f * m_scene.camera().forward();
 
-    m_text_input->setText("");
-
     try
     {
         m_scene.addObject(m_renderer, mesh_file_path, RenderMode::Default, object_pos);
+        m_request_close = true;
     }
     catch(std::exception& e)
     {
@@ -140,18 +144,9 @@ void ObjectAddPanel::updateList()
         }
 
         m_mesh_filenames.push_back(filename);
-
         const auto id = m_mesh_filenames.size() - 1;
 
-        auto button = addChild(std::make_unique<Button>(m_renderer, m_x, y, m_width, item_height, *m_font, filename, [id, this]()
-        {
-            m_selected_item_id = -1;
-            setKeyboardFocus(m_text_input);
-            resetMouseFocus();
-
-            m_text_input->setText(m_mesh_filenames[id]);
-        },
-            HorizontalAlignment::Left, VerticalAlignment::Center));
+        auto button = addChild(std::make_unique<Button>(m_renderer, m_x, y, m_width, item_height, *m_font, filename, [id, this](){addObject(m_mesh_filenames[id]);}, HorizontalAlignment::Left, VerticalAlignment::Center));
 
         button->setColor(ColorRGBA(0.2f, 0.2f, 0.2f, 1.0f));
         button->setHighlightColor(ColorRGBA(0.5f, 0.5f, 0.5f, 1.0f));

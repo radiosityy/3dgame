@@ -47,9 +47,10 @@ public:
     void onLostFocus() override;
 
 private:
+    void updateText(std::string_view text);
+    void updateTextImpl(std::string_view text);
     void updateVertexData();
     void updateScissors();
-    void setTextNoCursorUpdate(std::string_view text);
 
     const Font* m_font = nullptr;
     std::string m_text;
@@ -95,7 +96,7 @@ private:
 
     VertexBufferAllocation m_vb_alloc;
     uint32_t m_vb_alloc_vertex_count = 0;
-    bool m_vertex_data_updated = false;
+    bool m_vertex_data_changed = false;
 };
 
 #endif // LABEL_H

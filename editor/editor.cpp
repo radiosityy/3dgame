@@ -96,6 +96,11 @@ void Editor::update(const InputState& input_state, float dt)
     }
 
     updateChildren(m_renderer);
+
+    if(m_object_add_panel && m_object_add_panel->requestedClose())
+    {
+        closeObjectAddPanel();
+    }
 }
 
 void Editor::draw(RenderData& render_data)

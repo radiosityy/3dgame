@@ -15,6 +15,8 @@ public:
     virtual bool isPointInside(vec2) override;
     virtual void onGotFocus() override;
 
+    bool requestedClose() const noexcept;
+
 private:
     void addObject(std::string_view mesh_filename);
     void updateList();
@@ -35,6 +37,8 @@ private:
 
     std::vector<std::string> m_mesh_filenames;
     int m_selected_item_id = -1;
+
+    bool m_request_close = false;
 };
 
 #endif // OBJECT_ADD_PANEL_H

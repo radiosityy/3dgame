@@ -18,10 +18,7 @@ Label::Label(Renderer& renderer, float x, float y, const Font& font, const std::
     }
 
     setFocusable(m_editable);
-
-    m_text = text;
-    updateVertexData();
-    updateCursor(m_text.size());
+    updateTextImpl(text);
 }
 
 Label::Label(Renderer& renderer, float x, float y, float width, float height, const Font& font, const std::string& text, bool editable, HorizontalAlignment hor_align, VerticalAlignment ver_align)
@@ -74,9 +71,7 @@ Label::Label(Renderer& renderer, float x, float y, float width, float height, co
         error("Incorrect vertical alignment!");
     }
 
-    m_text = text;
-    updateVertexData();
-    updateCursor(m_text.size());
+    updateTextImpl(text);
 }
 
 void Label::onKeyPressed(Key key, const InputState& input_state)
@@ -256,7 +251,7 @@ void Label::onKeyPressed(Key key, const InputState& input_state)
 
             auto text = m_text;
             text.erase(m_cursor_position - 1, 1);
-            setTextNoCursorUpdate(text);
+            updateText(text);
             updateCursor(m_text.size() - pos_from_back);
         }
         break;
@@ -265,7 +260,7 @@ void Label::onKeyPressed(Key key, const InputState& input_state)
         {
             auto text = m_text;
             text.erase(m_cursor_position, 1);
-            setTextNoCursorUpdate(text);
+            updateText(text);
             updateCursor(m_cursor_position);
         }
         break;
@@ -280,7 +275,7 @@ void Label::onKeyPressed(Key key, const InputState& input_state)
         }
         else if(m_multiline)
         {
-            setText(m_text + '\n');
+            updateText(m_text + '\n');
         }
         break;
     case VKeyEsc:
@@ -345,17 +340,23 @@ void Label::setTextChangedCallback(std::move_only_function<void (std::string_vie
 
 void Label::update(Renderer& renderer)
 {
-    if(m_vertices.size() > m_vb_alloc_vertex_count)
+    if(m_vertex_data_changed)
     {
-        m_vb_alloc_vertex_count = m_vertices.size();
-        //TODO: free up current allocation or find some other way to not waste current allocation
-        m_vb_alloc = renderer.requestVertexBufferAllocation<VertexUi>(m_vb_alloc_vertex_count);
-    }
-    //TODO: for some reason we call updateVertexData() with empty string and without checking for empty m_vertices here we crash
-    //I have no idea why we do that, should check
-    if(m_vertex_data_updated && !m_vertices.empty())
-    {
-        renderer.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexUi) * m_vertices.size(), m_vertices.data());
+        m_vertex_data_changed = false;
+
+        updateVertexData();
+
+        if(m_vertices.size() > m_vb_alloc_vertex_count)
+        {
+            m_vb_alloc_vertex_count = m_vertices.size();
+            //TODO: free up current allocation or find some other way to not waste current allocation
+            m_vb_alloc = renderer.requestVertexBufferAllocation<VertexUi>(m_vb_alloc_vertex_count);
+        }
+
+        if(!m_vertices.empty())
+        {
+            renderer.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexUi) * m_vertices.size(), m_vertices.data());
+        }
     }
 
     m_background_rect.update(renderer);
@@ -363,8 +364,6 @@ void Label::update(Renderer& renderer)
     {
         m_cursor_rect.update(renderer);
     }
-
-    m_vertex_data_updated = false;
 }
 
 void Label::draw(Renderer& renderer)
@@ -403,8 +402,10 @@ float Label::width() const
 
 void Label::setText(std::string_view text)
 {
-    setTextNoCursorUpdate(text);
-    updateCursor(m_text.size());
+    if(!m_focused)
+    {
+        updateText(text);
+    }
 }
 
 void Label::appendText(std::string_view text)
@@ -464,8 +465,8 @@ void Label::setActionOnFocusLost(Label::Action action)
 void Label::onGotFocus()
 {
     m_focused = true;
-
     m_prev_text = text();
+    updateCursor(m_text.size());
 }
 
 void Label::onLostFocus()
@@ -488,15 +489,32 @@ void Label::onLostFocus()
     }
 }
 
+void Label::updateText(std::string_view text)
+{
+    if(m_text != text)
+    {
+        updateTextImpl(text);
+    }
+}
+
+void Label::updateTextImpl(std::string_view text)
+{
+    m_text = text;
+    updateVertexData();
+
+    if(m_text_changed_callback)
+    {
+        m_text_changed_callback(text);
+    }
+}
+
 void Label::updateVertexData()
 {
+    //TODO: don't do all this if text is empty, but some stuff still needs to be done
     m_vertices.clear();
     m_vertices.reserve(m_text.size());
 
     const auto line_measurements = m_font->getMeasurments(m_text);
-
-    const float w = m_font->texWidth();
-    const float h = m_font->texHeight();
 
     const auto baseX = [&](size_t line_id)
     {
@@ -548,8 +566,10 @@ void Label::updateVertexData()
         m_height = height;
     }
 
-    auto x = baseX(0);
 
+    const float w = m_font->texWidth();
+    const float h = m_font->texHeight();
+    auto x = baseX(0);
     size_t line_id = 0;
 
     for(size_t i = 0; i < m_text.size(); i++)
@@ -594,7 +614,7 @@ void Label::updateVertexData()
     }
 
     updateScissors();
-    m_vertex_data_updated = true;
+    m_vertex_data_changed = true;
 }
 
 void Label::updateScissors()
@@ -612,36 +632,17 @@ void Label::updateScissors()
     m_cursor_rect.setScissor(m_scissor);
 }
 
-void Label::setTextNoCursorUpdate(std::string_view text)
-{
-    //TODO: is this check optimal?
-    if(m_text == text)
-    {
-        return;
-    }
-
-    m_text = text;
-
-    //TODO: is it better to set m_text_changed_callback to empty function and always call it everywhere instead of checking if it's not null?
-    if(m_text_changed_callback)
-    {
-        m_text_changed_callback(text);
-    }
-
-    updateVertexData();
-}
-
 void Label::typeCharacter(const char* c)
 {
     auto text = m_text;
     text.insert(m_cursor_position, c);
-    setTextNoCursorUpdate(text);
+    updateText(text);
     updateCursor(m_cursor_position + 1);
 }
 
 void Label::updateCursor(size_t new_pos)
 {
-    if(!m_editable)
+    if(!m_focused)
     {
         return;
     }
@@ -669,7 +670,7 @@ void Label::cancel()
 {
     if(m_cancelable)
     {
-        setText(m_prev_text);
+        updateText(m_prev_text);
         updateCursor(this->text().size());
     }
 }
