@@ -11,6 +11,7 @@ Console::Console(Renderer& renderer, float x, float y, float w, float h, const F
     , m_text_label(renderer, m_x, m_y + 0.9f * m_height, font, "", false, HorizontalAlignment::Left, VerticalAlignment::Bottom)
     , m_text_input(renderer, m_x, m_y + 0.9f * m_height, m_width, 0.1f * m_height, font, "", true, HorizontalAlignment::Left, VerticalAlignment::Center)
 {
+    m_text_input.enableSetTextWhenFocued(true);
     m_text_input.setConfirmCallback([&](Label& text_input)
     {
         if(m_command_history_size == m_max_command_history_size)
@@ -22,14 +23,11 @@ Console::Console(Renderer& renderer, float x, float y, float w, float h, const F
             m_command_history_size++;
         }
 
-        m_command_process_callback(text_input.text());
-
         m_command_history.front() = text_input.text();
-        text_input.setText("");
-
+        m_command_process_callback(text_input.text());
         m_command_history.push_front("");
         m_command_history_itr = m_command_history.begin();
-    });
+    }, true);
 
     m_command_history.push_front("");
     m_command_history_itr = m_command_history.begin();

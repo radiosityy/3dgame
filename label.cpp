@@ -267,11 +267,7 @@ void Label::onKeyPressed(Key key, const InputState& input_state)
     case VKeyEnter:
         if(m_confirm_callback)
         {
-            m_confirm_callback(*this);
-            if(m_cancelable)
-            {
-                m_prev_text = text();
-            }
+            confirm();
         }
         else if(m_multiline)
         {
@@ -406,9 +402,10 @@ float Label::width() const
 
 void Label::setText(std::string_view text)
 {
-    if(!m_focused)
+    if(!m_focused || m_enable_set_text_when_focused)
     {
         updateText(text);
+        updateCursor(m_text.size());
     }
 }
 
@@ -445,9 +442,10 @@ void Label::move(vec2 xy)
     setText(m_text);
 }
 
-void Label::setConfirmCallback(std::move_only_function<void (Label&)>&& callback)
+void Label::setConfirmCallback(std::move_only_function<void (Label&)>&& confirm_callback, bool clear_on_confirm)
 {
-    m_confirm_callback = std::move(callback);
+    m_confirm_callback = std::move(confirm_callback);
+    m_clear_on_confirm = clear_on_confirm;
     m_multiline = false;
 }
 
@@ -461,9 +459,14 @@ void Label::setMultiline(bool multiline)
     m_multiline = multiline;
 }
 
-void Label::setActionOnFocusLost(Label::Action action)
+void Label::setConfirmOnFocusLost(bool confirm_on_focus_lost) noexcept
 {
-    m_action_on_focus_lost = action;
+    m_confirm_on_focus_lost = confirm_on_focus_lost;
+}
+
+void Label::enableSetTextWhenFocued(bool enable_text_update_when_focused) noexcept
+{
+    m_enable_set_text_when_focused = enable_text_update_when_focused;
 }
 
 void Label::onGotFocus()
@@ -477,19 +480,13 @@ void Label::onLostFocus()
 {
     m_focused = false;
 
-    switch(m_action_on_focus_lost)
+    if(m_confirm_on_focus_lost)
     {
-    case Action::Cancel:
+        confirm();
+    }
+    else
+    {
         cancel();
-        break;
-    case Action::Confirm:
-        if(m_confirm_callback)
-        {
-            m_confirm_callback(*this);
-        }
-        break;
-    default:
-        break;
     }
 }
 
@@ -676,5 +673,19 @@ void Label::cancel()
     {
         updateText(m_prev_text);
         updateCursor(this->text().size());
+    }
+}
+
+void Label::confirm()
+{
+    m_confirm_callback(*this);
+    if(m_clear_on_confirm)
+    {
+        updateText("");
+        updateCursor(0);
+    }
+    if(m_cancelable)
+    {
+        m_prev_text = text();
     }
 }

@@ -8,8 +8,6 @@
 class Label : public GuiObject
 {
 public:
-    enum class Action {None, Confirm, Cancel};
-
     Label(Renderer& renderer, float x, float y, const Font& font, const std::string& text, bool editable = false, HorizontalAlignment = HorizontalAlignment::Left, VerticalAlignment = VerticalAlignment::Top);
     Label(Renderer& renderer, float x, float y, float width, float height, const Font& font, const std::string& text, bool editable = false, HorizontalAlignment = HorizontalAlignment::Center, VerticalAlignment = VerticalAlignment::Center);
 
@@ -37,11 +35,12 @@ public:
 
     virtual void move(vec2) override;
 
-    void setConfirmCallback(std::move_only_function<void(Label&)>&&);
+    void setConfirmCallback(std::move_only_function<void(Label&)>&& confirm_callback, bool clear_on_confirm = false);
     void setCancalable(bool);
     void setMultiline(bool);
 
-    void setActionOnFocusLost(Action);
+    void setConfirmOnFocusLost(bool) noexcept;
+    void enableSetTextWhenFocued(bool) noexcept;
 
     void onGotFocus() override;
     void onLostFocus() override;
@@ -80,6 +79,7 @@ private:
     void typeCharacter(const char*);
     void updateCursor(size_t new_pos);
     void cancel();
+    void confirm();
 
     Rect m_cursor_rect;
 
@@ -87,7 +87,9 @@ private:
     std::move_only_function<void(std::string_view)> m_text_changed_callback;
     bool m_cancelable = false;
     bool m_multiline = false;
-    Action m_action_on_focus_lost = Action::Cancel;
+    bool m_clear_on_confirm = false;
+    bool m_confirm_on_focus_lost = false;
+    bool m_enable_set_text_when_focused = false;
 
     size_t m_cursor_position = 0;
     std::string m_prev_text;
