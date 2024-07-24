@@ -87,6 +87,8 @@ uint64_t VkBufferWrapper::allocate(uint64_t alloc_size)
 
 void VkBufferWrapper::free(uint64_t offset, uint64_t alloc_size)
 {
+    //TODO: this doesn't work correctly, as we only actually free the memory when it's no longer in use
+    //and at the time of calling this function it may still be in use for a frame or two
     if((offset + alloc_size) == req_size)
     {
         req_size -= alloc_size;

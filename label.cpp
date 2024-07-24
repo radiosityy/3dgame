@@ -346,11 +346,15 @@ void Label::update(Renderer& renderer)
 
         updateVertexData();
 
-        if(m_vertices.size() > m_vb_alloc_vertex_count)
+        //TODO: maybe alloc vertex count should be in the VertexBufferAllocation structure?
+        if(m_vertices.size() * sizeof(VertexUi) > m_vb_alloc.size)
         {
-            m_vb_alloc_vertex_count = m_vertices.size();
-            //TODO: free up current allocation or find some other way to not waste current allocation
-            m_vb_alloc = renderer.requestVertexBufferAllocation<VertexUi>(m_vb_alloc_vertex_count);
+            if(m_vb_alloc.size > 0)
+            {
+                renderer.freeVertexBufferAllocation(m_vb_alloc);
+            }
+
+            m_vb_alloc = renderer.requestVertexBufferAllocation<VertexUi>(m_vertices.size());
         }
 
         if(!m_vertices.empty())

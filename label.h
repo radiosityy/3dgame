@@ -95,7 +95,6 @@ private:
     bool m_focused = false;
 
     VertexBufferAllocation m_vb_alloc;
-    uint32_t m_vb_alloc_vertex_count = 0;
     bool m_vertex_data_changed = false;
 };
 

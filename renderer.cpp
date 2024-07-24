@@ -880,10 +880,8 @@ void Renderer::destroy() noexcept
 
 void Renderer::resizeBuffers()
 {
-    for(auto& req : m_buffer_update_reqs)
+    for(auto& [buf, reqs] : m_buffer_update_reqs)
     {
-        auto buf = req.first;
-
         if(buf->req_size > buf->size)
         {
             //TODO: this is a hack - currently only vertex buffers don't use descriptors so this works,
@@ -907,7 +905,7 @@ void Renderer::resizeBuffers()
                 void* old_data = nullptr;
                 VkResult res = vkMapMemory(m_device, old_buf->transfer_buffer->mem, 0, old_buf->size, 0, &old_data);
                 assertVkSuccess(res, "Failed to map buffer memory");
-                req.second.insert(req.second.begin(), {0, old_buf->size, old_data});
+                reqs.emplace_back(0, old_buf->size, old_data);
 
                 const uint8_t prev_frame_id = (m_frame_id == 0) ? (FRAMES_IN_FLIGHT - 1) : (m_frame_id - 1);
                 m_per_frame_data[prev_frame_id].bufs_to_destroy.push_back(old_buf);
@@ -918,10 +916,8 @@ void Renderer::resizeBuffers()
 
 void Renderer::updateBuffers()
 {
-    for(auto& mapping : m_buffer_update_reqs)
+    for(auto& [buf, reqs] : m_buffer_update_reqs)
     {
-        VkBufferWrapper* buf = mapping.first;
-
         void* dst = nullptr;
         VkResult res = vkMapMemory(m_device, buf->transfer_buffer->mem, 0, buf->size, 0, &dst);
         assertVkSuccess(res, "Failed to map buffer memory");
@@ -938,7 +934,7 @@ void Renderer::updateBuffers()
         res = vkBeginCommandBuffer(buf->cmd_buf, &begin_info);
         assertVkSuccess(res, "An error occurred while begining a buffer transfer command buffer.");
 
-        for(auto& req : mapping.second)
+        for(auto& req : reqs)
         {
             void* const offset_dst = reinterpret_cast<void*>(reinterpret_cast<std::uintptr_t>(dst) + req.data_offset);
             std::memcpy(offset_dst, req.data, req.data_size);
@@ -972,6 +968,8 @@ void Renderer::updateBuffers()
         m_wait_semaphores.push_back(buf->semaphore);
         m_submit_wait_flags.push_back(buf->wait_stage);
     }
+
+    m_buffer_update_reqs.clear();
 }
 
 void Renderer::updateAndRender(const RenderData& render_data, Camera& camera)
@@ -1073,7 +1071,6 @@ void Renderer::updateAndRender(const RenderData& render_data, Camera& camera)
 
     resizeBuffers();
     updateBuffers();
-    m_buffer_update_reqs.clear();
 
     if(m_update_descriptors)
     {
@@ -1665,9 +1662,9 @@ void Renderer::requestTerrainBufferAllocation(uint64_t size)
     m_terrain_buffer.allocate(size);
 }
 
-void Renderer::freeVertexBufferAllocation(VertexBuffer* vb, uint64_t offset, uint64_t size)
+void Renderer::freeVertexBufferAllocation(const VertexBufferAllocation& vb_alloc)
 {
-    vb->free(offset, size);
+    vb_alloc.vb->free(vb_alloc.data_offset, vb_alloc.size);
 }
 
 void Renderer::freeInstanceVertexBufferAllocation(uint32_t instance_id, uint32_t instance_count)

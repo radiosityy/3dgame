@@ -12,7 +12,7 @@ Rect::Rect(Renderer& renderer, float x, float y, float w, float h, ColorRGBA col
     m_vertex.use_texture = 0;
     setFocusable(false);
     setColor(color);
-    updateVertex();
+    updateVertexSizeAndPos();
 }
 
 Rect::Rect(Renderer& renderer, float x, float y, float w, float h, TexId tex_id, ColorRGBA color, Quad scissor)
@@ -27,13 +27,16 @@ Rect::Rect(Renderer& renderer, float x, float y, float w, float h, TexId tex_id,
     setFocusable(false);
     setColor(color);
     setTexture(tex_id);
-    updateVertex();
+    updateVertexSizeAndPos();
 }
 
 void Rect::update(Renderer& renderer)
 {
-    //TODO: only update vertex data when it changes
-    renderer.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexUi), &m_vertex);
+    if(m_vertex_data_updated)
+    {
+        m_vertex_data_updated = false;
+        renderer.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexUi), &m_vertex);
+    }
 }
 
 void Rect::draw(Renderer& renderer)
@@ -50,6 +53,7 @@ bool Rect::isPointInside(vec2 p)
 void Rect::setColor(ColorRGBA color)
 {
     m_vertex.color = color;
+    m_vertex_data_updated = true;
 }
 
 void Rect::setTexture(TexId tex)
@@ -57,6 +61,7 @@ void Rect::setTexture(TexId tex)
     m_vertex.tex_id = tex.tex_id;
     m_vertex.layer_id = tex.layer_id;
     m_vertex.use_texture = 1;
+    m_vertex_data_updated = true;
 }
 
 void Rect::move(vec2 xy)
@@ -64,7 +69,7 @@ void Rect::move(vec2 xy)
     m_x += xy.x;
     m_y += xy.y;
 
-    updateVertex();
+    updateVertexSizeAndPos();
 }
 
 void Rect::setPosAndSize(float x, float y, float width, float height)
@@ -74,7 +79,7 @@ void Rect::setPosAndSize(float x, float y, float width, float height)
     m_width = width;
     m_height = height;
 
-    updateVertex();
+    updateVertexSizeAndPos();
 }
 
 void Rect::setScissor(Quad scissor)
@@ -82,8 +87,9 @@ void Rect::setScissor(Quad scissor)
     m_scissor = scissor;
 }
 
-void Rect::updateVertex()
+void Rect::updateVertexSizeAndPos()
 {
     m_vertex.size = vec2(m_width, m_height);
     m_vertex.top_left_pos = vec2(m_x, m_y);
+    m_vertex_data_updated = true;
 }

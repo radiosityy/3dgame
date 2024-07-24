@@ -28,11 +28,12 @@ public:
     virtual void setScissor(Quad scissor) override;
 
 private:
-    void updateVertex();
+    void updateVertexSizeAndPos();
 
     float m_x, m_y, m_width, m_height;
     VertexUi m_vertex;
     VertexBufferAllocation m_vb_alloc;
+    bool m_vertex_data_updated = false;
 
     Quad m_scissor;
 };

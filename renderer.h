@@ -40,6 +40,7 @@ struct VertexBufferAllocation
     VertexBuffer* vb = nullptr;
     uint64_t data_offset = 0;
     uint32_t vertex_offset = 0;
+    uint32_t size = 0;
 };
 
 class Renderer
@@ -58,7 +59,7 @@ class Renderer
         {}
 
         RenderMode render_mode;
-        VertexBuffer* vb;
+        VertexBuffer* vb = nullptr;
         uint32_t vertex_offset;
         uint32_t vertex_count;
         uint32_t instance_id;
@@ -78,7 +79,7 @@ class Renderer
         {}
 
         RenderModeUi render_mode;
-        VertexBuffer* vb;
+        VertexBuffer* vb = nullptr;
         uint32_t vertex_offset;
         uint32_t vertex_count;
         Quad scissor;
@@ -230,17 +231,16 @@ public:
     {
         VertexBufferAllocation alloc;
         alloc.vb = &m_vertex_buffers[sizeof(VertexType)];
-
-        alloc.data_offset = alloc.vb->allocate(vertex_count * sizeof(VertexType));
+        alloc.size = vertex_count * sizeof(VertexType);
+        alloc.data_offset = alloc.vb->allocate(alloc.size);
         alloc.vertex_offset = alloc.data_offset / sizeof(VertexType);
-
         return alloc;
     }
     uint32_t requestInstanceVertexBufferAllocation(uint32_t instance_count);
     uint32_t requestBoneTransformBufferAllocation(uint32_t bone_count);
     void requestTerrainBufferAllocation(uint64_t size);
 
-    void freeVertexBufferAllocation(VertexBuffer* vb, uint64_t offset, uint64_t size);
+    void freeVertexBufferAllocation(const VertexBufferAllocation&);
     void freeInstanceVertexBufferAllocation(uint32_t instance_id, uint32_t instance_count);
     void freeBoneTransformBufferAllocation(uint32_t bone_id, uint32_t bone_count);
     void freeTerrainBufferAllocation();
