@@ -905,7 +905,7 @@ void Renderer::resizeBuffers()
                 void* old_data = nullptr;
                 VkResult res = vkMapMemory(m_device, old_buf->transfer_buffer->mem, 0, old_buf->size, 0, &old_data);
                 assertVkSuccess(res, "Failed to map buffer memory");
-                reqs.emplace_back(0, old_buf->size, old_data);
+                reqs.insert(reqs.begin(), {0, old_buf->size, old_data});
 
                 const uint8_t prev_frame_id = (m_frame_id == 0) ? (FRAMES_IN_FLIGHT - 1) : (m_frame_id - 1);
                 m_per_frame_data[prev_frame_id].bufs_to_destroy.push_back(old_buf);
