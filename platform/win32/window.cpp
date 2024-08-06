@@ -631,10 +631,7 @@ LRESULT Window::EventHandler(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         if((m_width != old_width) || (m_height != old_height))
         {
-            const float scale_x = static_cast<float>(m_width) / static_cast<float>(old_width);
-            const float scale_y = static_cast<float>(m_height) / static_cast<float>(old_height);
-
-            m_game_engine.onWindowResize(m_width, m_height, scale_x, scale_y);
+            m_game_engine.onWindowResize(m_width, m_height);
         }
 
         return 0;

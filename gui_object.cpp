@@ -37,13 +37,9 @@ void GuiObject::setFocusable(bool focusable) noexcept
     m_focusable = focusable;
 }
 
-void GuiObject::move(vec2)
-{
-}
+void GuiObject::move(vec2) {}
 
-void GuiObject::scale(vec2)
-{
-}
+void GuiObject::scale(vec2) {}
 
 void GuiParent::onKeyPressed(Key key, const InputState& input_state)
 {

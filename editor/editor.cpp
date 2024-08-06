@@ -123,7 +123,7 @@ void Editor::draw(RenderData& render_data)
     drawChildren(m_renderer);
 }
 
-void Editor::onWindowResize(uint32_t width, uint32_t height, float scale_x, float scale_y)
+void Editor::onWindowResize(uint32_t width, uint32_t height)
 {
 
 }

@@ -316,7 +316,7 @@ void GameEngine::onWindowDestroy() noexcept
     stop();
 }
 
-void GameEngine::onWindowResize(uint32_t width, uint32_t height, float scale_x, float scale_y) noexcept
+void GameEngine::onWindowResize(uint32_t width, uint32_t height) noexcept
 {
     if((0 == width) || (0 == height))
     {
@@ -326,14 +326,10 @@ void GameEngine::onWindowResize(uint32_t width, uint32_t height, float scale_x, 
     {
         m_invalid_window = false;
 
-        //TODO: gui scale is not used and neither are the scale_x, scale_y parameters
-        m_gui_scale.x = static_cast<float>(width) / reference_resolution.x;
-        m_gui_scale.y = static_cast<float>(height) / reference_resolution.y;
-
         m_scene->onWindowResize(static_cast<float>(width) / static_cast<float>(height));
         m_renderer->onWindowResize(width, height);
 #if EDITOR_ENABLE
-        m_editor->onWindowResize(width, height, scale_x, scale_y);
+        m_editor->onWindowResize(width, height);
 #endif
     }
 }

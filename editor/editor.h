@@ -32,7 +32,7 @@ public:
 
     void update(const InputState& input_state, float dt);
     void draw(RenderData&);
-    void onWindowResize(uint32_t width, uint32_t height, float scale_x, float scale_y);
+    void onWindowResize(uint32_t width, uint32_t height);
 
     virtual bool onKeyPressedIntercept(Key, const InputState&) override;
 

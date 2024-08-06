@@ -33,7 +33,7 @@ public:
 #if 0
     void onControllerEvent(const ControllerEvent& event, const ControllerState& state);
 #endif
-    void onWindowResize(uint32_t width, uint32_t height, float scale_x, float scale_y) noexcept;
+    void onWindowResize(uint32_t width, uint32_t height) noexcept;
     void onWindowDestroy() noexcept;
 
 private:
