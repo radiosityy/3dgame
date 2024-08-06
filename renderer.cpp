@@ -847,11 +847,6 @@ void Renderer::destroy() noexcept
             destroyBuffer(*per_frame_data.point_light_valid_buffer);
         }
 
-        for(auto& vb : m_vertex_buffers)
-        {
-            destroyBuffer(vb.second);
-        }
-
         destroyBuffer(m_instance_vertex_buffer);
         destroyBuffer(m_dir_shadow_map_buffer);
         destroyBuffer(m_point_shadow_map_buffer);
@@ -1650,6 +1645,16 @@ uint32_t Renderer::requestInstanceVertexBufferAllocation(uint32_t instance_count
     return instance_id;
 }
 
+VertexBufferAllocation Renderer::requestVertexBufferAllocation(uint64_t size)
+{
+    VertexBufferAllocation alloc;
+    alloc.vb = &m_vertex_buffers[sizeof(VertexType)];
+    alloc.size = vertex_count * sizeof(VertexType);
+    alloc.data_offset = alloc.vb->allocate(alloc.size);
+    alloc.vertex_offset = alloc.data_offset / sizeof(VertexType);
+    return alloc;
+}
+
 uint32_t Renderer::requestBoneTransformBufferAllocation(uint32_t bone_count)
 {
     const uint64_t offset = m_bone_transform_buffer.allocate(bone_count * sizeof(mat4x4));
@@ -1816,9 +1821,9 @@ std::vector<uint32_t> Renderer::requestTerrainHeightmaps(std::span<std::pair<flo
     return heightmap_ids;
 }
 
-void Renderer::draw(RenderMode render_mode, VertexBuffer* vb, uint32_t vertex_offset, uint32_t vertex_count, uint32_t instance_id, std::optional<Sphere> bounding_sphere)
+void Renderer::draw(RenderMode render_mode, VertexBuffer* vb, uint32_t vertex_offset, uint32_t vertex_count, VertexBuffer* instance_vb, uint32_t instance_id)
 {
-    m_render_batches[m_render_batch_count] = RenderBatch(render_mode, vb, vertex_offset, vertex_count, instance_id, bounding_sphere);
+    m_render_batches[m_render_batch_count] = RenderBatch(render_mode, vb, vertex_offset, vertex_count, instance_vb, instance_id);
     m_render_batch_count++;
 }
 
@@ -1962,6 +1967,7 @@ void Renderer::updatePointLight(PointLightId id, const PointLight& point_light)
     //other changes don't require the shadow map update
     //maybe it would be worth checking if those specific values have changed and only then update the shadow map
     //this should be profiled in the future once we have specific use cases to check what's optimal
+    //TODO2: we already update the shadow map in updateAndRender() so one of these updates is redundant
     if(m_point_lights[id].shadow_map_res != 0)
     {
         updatePointShadowMap(m_point_lights[id]);
@@ -5488,7 +5494,6 @@ void Renderer::destroyPointShadowMap(PointShadowMap& shadow_map)
 {
     destroyImage(shadow_map.depth_img);
     vkDestroyFramebuffer(m_device, shadow_map.framebuffer, NULL);
-
     shadow_map.framebuffer = VK_NULL_HANDLE;
 }
 

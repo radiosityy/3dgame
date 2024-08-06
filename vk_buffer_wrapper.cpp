@@ -44,6 +44,7 @@ VkBufferWrapper::VkBufferWrapper(VkBufferWrapper&& other)
     , buf_view_format(other.buf_view_format)
     , wait_stage(other.wait_stage)
     , use_transfer_buffer(other.use_transfer_buffer)
+    , transfer_buffer(std::move(other.transfer_buffer))
     , cmd_buf(other.cmd_buf)
     , fence(other.fence)
     , semaphore(other.semaphore)
@@ -56,45 +57,4 @@ VkBufferWrapper::VkBufferWrapper(VkBufferWrapper&& other)
     other.cmd_buf = VK_NULL_HANDLE;
     other.fence = VK_NULL_HANDLE;
     other.semaphore = VK_NULL_HANDLE;
-    transfer_buffer = std::move(other.transfer_buffer);
-}
-
-uint64_t VkBufferWrapper::allocate(uint64_t alloc_size)
-{
-    auto itr = m_free_spaces.lower_bound(FreeSpace(0, alloc_size));
-
-    if(itr == m_free_spaces.end())
-    {
-        const uint64_t offset = req_size;
-        req_size += alloc_size;
-        return offset;
-    }
-    else
-    {
-        const uint64_t offset = itr->offset;
-        const uint64_t remaining_size = itr->size - alloc_size;
-
-        m_free_spaces.erase(itr);
-
-        if(remaining_size > 0)
-        {
-            m_free_spaces.emplace(offset + alloc_size, remaining_size);
-        }
-
-        return offset;
-    }
-}
-
-void VkBufferWrapper::free(uint64_t offset, uint64_t alloc_size)
-{
-    //TODO: this doesn't work correctly, as we only actually free the memory when it's no longer in use
-    //and at the time of calling this function it may still be in use for a frame or two
-    if((offset + alloc_size) == req_size)
-    {
-        req_size -= alloc_size;
-    }
-    else
-    {
-        m_free_spaces.emplace(offset, alloc_size);
-    }
 }

@@ -3,19 +3,14 @@
 
 #include <vulkan/vulkan.h>
 #include <memory>
-#include <set>
 
-class VkBufferWrapper
+struct VkBufferWrapper
 {
-public:
     VkBufferWrapper(VkBufferUsageFlags usage_flags_, bool host_visible_required_);
     VkBufferWrapper(VkBufferUsageFlags usage_flags_, bool host_visible_required_, VkPipelineStageFlags wait_stage_);
     VkBufferWrapper(VkBufferUsageFlags usage_flags_, bool host_visible_required_, VkFormat buf_view_format_);
     VkBufferWrapper(VkBufferUsageFlags usage_flags_, bool host_visible_required_, VkFormat buf_view_format_, VkPipelineStageFlags wait_stage_);
     VkBufferWrapper(VkBufferWrapper&& other);
-
-    uint64_t allocate(uint64_t size);
-    void free(uint64_t offset, uint64_t size);
 
     VkBuffer buf = VK_NULL_HANDLE;
     VkBufferView buf_view = VK_NULL_HANDLE;
@@ -36,25 +31,6 @@ public:
     VkCommandBuffer cmd_buf = VK_NULL_HANDLE;
     VkFence fence = VK_NULL_HANDLE;
     VkSemaphore semaphore = VK_NULL_HANDLE;
-
-private:
-    struct FreeSpace
-    {
-        FreeSpace(uint64_t offset_, uint64_t size_)
-            : offset(offset_)
-            , size(size_)
-        {}
-
-        friend bool operator<(const FreeSpace& lhs, const FreeSpace& rhs)
-        {
-            return lhs.size < rhs.size;
-        }
-
-        uint64_t offset = 0;
-        uint64_t size = 0;
-    };
-
-    std::set<FreeSpace> m_free_spaces;
 };
 
 #endif //VK_BUFFER_WRAPPER_H
