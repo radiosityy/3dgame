@@ -350,7 +350,7 @@ void Label::update(Renderer& renderer)
                 renderer.freeVertexBufferAllocation(m_vb_alloc);
             }
 
-            m_vb_alloc = renderer.requestVertexBufferAllocation<VertexUi>(m_vertices.size());
+            m_vb_alloc = renderer.reqVBAlloc<VertexUi>(m_vertices.size());
         }
 
         if(!m_vertices.empty())

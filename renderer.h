@@ -49,21 +49,19 @@ class Renderer
     {
         RenderBatch() = default;
 
-        RenderBatch(RenderMode render_mode_, VertexBuffer* vb_, uint32_t vertex_offset_, uint32_t vertex_count_, uint32_t instance_id_, std::optional<Sphere> bounding_sphere_)
+        RenderBatch(RenderMode render_mode_, VertexBuffer* vb_, uint32_t vertex_offset_, uint32_t vertex_count_, uint32_t instance_id_)
             : render_mode(render_mode_)
             , vb(vb_)
             , vertex_offset(vertex_offset_)
             , vertex_count(vertex_count_)
             , instance_id(instance_id_)
-            , bounding_sphere(bounding_sphere_)
         {}
 
         RenderMode render_mode;
         VertexBuffer* vb = nullptr;
-        uint32_t vertex_offset;
-        uint32_t vertex_count;
-        uint32_t instance_id;
-        std::optional<Sphere> bounding_sphere;
+        uint32_t vertex_offset = 0;
+        uint32_t vertex_count = 0;
+        uint32_t instance_id = 0;
     };
 
     struct RenderBatchUi
@@ -227,16 +225,16 @@ public:
     bool enableVsync(bool vsync);
 
     template<class VertexType>
-    VertexBufferAllocation requestVertexBufferAllocation(uint32_t vertex_count)
+    VertexBufferAllocation reqVBAlloc(uint32_t vertex_count)
     {
         VertexBufferAllocation alloc;
         alloc.vb = &m_vertex_buffers[sizeof(VertexType)];
         alloc.size = vertex_count * sizeof(VertexType);
-        alloc.data_offset = alloc.vb->allocate(alloc.size);
+        alloc.data_offset = alloc.vb->alloc(alloc.size);
         alloc.vertex_offset = alloc.data_offset / sizeof(VertexType);
         return alloc;
     }
-    uint32_t requestInstanceVertexBufferAllocation(uint32_t instance_count);
+    uint32_t reqInstanceVBAlloc(uint32_t instance_count);
     uint32_t requestBoneTransformBufferAllocation(uint32_t bone_count);
     void requestTerrainBufferAllocation(uint64_t size);
 
@@ -253,7 +251,7 @@ public:
     void updateTerrainData(void* data, uint64_t offset, uint64_t size);
     std::vector<uint32_t> requestTerrainHeightmaps(std::span<std::pair<float*, uint32_t>> heightmap_data);
 
-    void draw(RenderMode render_mode, VertexBuffer* vb, uint32_t vertex_offset, uint32_t vertex_count, uint32_t instance_id, std::optional<Sphere> bounding_sphere);
+    void draw(RenderMode render_mode, VertexBuffer* vb, uint32_t vertex_offset, uint32_t vertex_count, uint32_t instance_id);
     void drawUi(RenderModeUi render_mode, VertexBuffer* vb, uint32_t vertex_offset, uint32_t vertex_count, const Quad& scissor);
 
     DirLightId addDirLight(const DirLight& dir_light);

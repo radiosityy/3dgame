@@ -980,8 +980,6 @@ void Renderer::updateAndRender(const RenderData& render_data, Camera& camera)
 
     m_common_buffer_data.VP = camera.VP();
     m_common_buffer_data.V = camera.V();
-    //TODO: the ui_scale field can only be calculated once I guess, for a given surface size, no need to recalculate it every frame
-    m_common_buffer_data.ui_scale = vec2(1.0f / static_cast<float>(m_surface_width), 1.0f / static_cast<float>(m_surface_height));
     m_common_buffer_data.camera_pos = camera.pos();
     m_common_buffer_data.camera_up = camera.up();
     m_common_buffer_data.visual_sun_pos = render_data.visual_sun_pos;
@@ -1007,68 +1005,19 @@ void Renderer::updateAndRender(const RenderData& render_data, Camera& camera)
     //only update point shadow maps for the point lights that have changed this frame
     for(PointLightId id : per_frame_data.point_lights_to_update)
     {
+        //TODO: updating point shadow maps is pretty expensive
+        //and it only has to be done if either the position or max_d of the light has changed
+        //other changes don't require the shadow map update
+        //maybe it would be worth checking if those specific values have changed and only then update the shadow map
+        //this should be profiled in the future once we have specific use cases to check what's optimal
         if(m_point_lights_valid[id] && m_point_lights[id].shadow_map_res)
         {
             updatePointShadowMap(m_point_lights[id]);
         }
     }
 
-    std::vector<bool> cull(m_render_batch_count);
-
-    /*--- frustum culling ---*/
-    //TODO: move frustum culling out of Renderer and do it in Scene and Terrain etc.
-    const auto view_frustum_planes = camera.viewFrustumPlanesW();
-
-    for(uint32_t i = 0; i < m_render_batch_count; i++)
-    {
-        const RenderBatch& render_batch = m_render_batches[i];
-
-        if(RenderMode::Default == render_batch.render_mode)
-        {
-            cull[i] = !render_batch.bounding_sphere->intersect(view_frustum_planes);
-        }
-        else
-        {
-            cull[i] = false;
-        }
-    }
-
-    for(auto id : per_frame_data.dir_shadow_maps_to_destroy)
-    {
-        destroyDirShadowMap(per_frame_data.dir_shadow_maps[id]);
-
-        if(m_frame_id == m_dir_shadow_map_free_id_frame_ids[id])
-        {
-            if(id == m_dir_shadow_map_count - 1)
-            {
-                m_dir_shadow_map_count--;
-            }
-            else
-            {
-                m_dir_shadow_maps_free_ids.push(id);
-            }
-        }
-    }
-    per_frame_data.dir_shadow_maps_to_destroy.clear();
-
-    for(auto id : per_frame_data.point_shadow_maps_to_destroy)
-    {
-        destroyPointShadowMap(per_frame_data.point_shadow_maps[id]);
-
-        if(m_frame_id == m_point_shadow_map_free_id_frame_ids[id])
-        {
-            if(id == m_point_shadow_map_count - 1)
-            {
-                m_point_shadow_map_count--;
-            }
-            else
-            {
-                m_point_shadow_maps_free_ids.push(id);
-            }
-        }
-    }
-    per_frame_data.point_shadow_maps_to_destroy.clear();
-
+    //TODO: buffer resizing/updating doesn't seem to be synchronized - should be done after cmd buf fence wait,
+    //and/or synchronized with dedicated fences/semaphores/barriers
     resizeBuffers();
     updateBuffers();
 
@@ -1114,6 +1063,42 @@ void Renderer::updateAndRender(const RenderData& render_data, Camera& camera)
         destroyBuffer(*buf_to_destroy);
     }
     per_frame_data.bufs_to_destroy.clear();
+
+    for(auto id : per_frame_data.dir_shadow_maps_to_destroy)
+    {
+        destroyDirShadowMap(per_frame_data.dir_shadow_maps[id]);
+
+        if(m_frame_id == m_dir_shadow_map_free_id_frame_ids[id])
+        {
+            if(id == m_dir_shadow_map_count - 1)
+            {
+                m_dir_shadow_map_count--;
+            }
+            else
+            {
+                m_dir_shadow_maps_free_ids.push(id);
+            }
+        }
+    }
+    per_frame_data.dir_shadow_maps_to_destroy.clear();
+
+    for(auto id : per_frame_data.point_shadow_maps_to_destroy)
+    {
+        destroyPointShadowMap(per_frame_data.point_shadow_maps[id]);
+
+        if(m_frame_id == m_point_shadow_map_free_id_frame_ids[id])
+        {
+            if(id == m_point_shadow_map_count - 1)
+            {
+                m_point_shadow_map_count--;
+            }
+            else
+            {
+                m_point_shadow_maps_free_ids.push(id);
+            }
+        }
+    }
+    per_frame_data.point_shadow_maps_to_destroy.clear();
 
     /*--------------------- command recording begin ---------------------*/
     VkCommandBufferBeginInfo begin_info{};
@@ -1327,14 +1312,11 @@ void Renderer::updateAndRender(const RenderData& render_data, Camera& camera)
         {
             const auto& rb = m_render_batches[i];
 
-            if(!cull[i])
-            {
-                vkCmdPushConstants(cmd_buf, m_pipeline_layout, push_const_ranges[0].stageFlags, 0, sizeof(push_const), &push_const);
-                vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, getPipeline(rb.render_mode));
-                vkCmdBindVertexBuffers(cmd_buf, 0, 1, &rb.vb->buf, &vb_offset);
+            vkCmdPushConstants(cmd_buf, m_pipeline_layout, push_const_ranges[0].stageFlags, 0, sizeof(push_const), &push_const);
+            vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, getPipeline(rb.render_mode));
+            vkCmdBindVertexBuffers(cmd_buf, 0, 1, &rb.vb->buf, &vb_offset);
 
-                vkCmdDraw(cmd_buf, rb.vertex_count, 1, rb.vertex_offset, rb.instance_id);
-            }
+            vkCmdDraw(cmd_buf, rb.vertex_count, 1, rb.vertex_offset, rb.instance_id);
         }
 
         m_render_batch_count = 0;
@@ -1643,23 +1625,23 @@ bool Renderer::enableVsync(bool vsync)
     return true;
 }
 
-uint32_t Renderer::requestInstanceVertexBufferAllocation(uint32_t instance_count)
+uint32_t Renderer::reqInstanceVBAlloc(uint32_t instance_count)
 {
-    const uint64_t offset = m_instance_vertex_buffer.allocate(instance_count * sizeof(InstanceVertexData));
+    const uint64_t offset = m_instance_vertex_buffer.alloc(instance_count * sizeof(InstanceVertexData));
     const uint32_t instance_id = offset / sizeof(InstanceVertexData);
     return instance_id;
 }
 
 uint32_t Renderer::requestBoneTransformBufferAllocation(uint32_t bone_count)
 {
-    const uint64_t offset = m_bone_transform_buffer.allocate(bone_count * sizeof(mat4x4));
+    const uint64_t offset = m_bone_transform_buffer.alloc(bone_count * sizeof(mat4x4));
     const uint32_t bone_transform_id = offset / sizeof(mat4x4);
     return bone_transform_id;
 }
 
 void Renderer::requestTerrainBufferAllocation(uint64_t size)
 {
-    m_terrain_buffer.allocate(size);
+    m_terrain_buffer.alloc(size);
 }
 
 void Renderer::freeVertexBufferAllocation(const VertexBufferAllocation& vb_alloc)
@@ -1816,9 +1798,9 @@ std::vector<uint32_t> Renderer::requestTerrainHeightmaps(std::span<std::pair<flo
     return heightmap_ids;
 }
 
-void Renderer::draw(RenderMode render_mode, VertexBuffer* vb, uint32_t vertex_offset, uint32_t vertex_count, uint32_t instance_id, std::optional<Sphere> bounding_sphere)
+void Renderer::draw(RenderMode render_mode, VertexBuffer* vb, uint32_t vertex_offset, uint32_t vertex_count, uint32_t instance_id)
 {
-    m_render_batches[m_render_batch_count] = RenderBatch(render_mode, vb, vertex_offset, vertex_count, instance_id, bounding_sphere);
+    m_render_batches[m_render_batch_count] = RenderBatch(render_mode, vb, vertex_offset, vertex_count, instance_id);
     m_render_batch_count++;
 }
 
@@ -1955,16 +1937,6 @@ void Renderer::updatePointLight(PointLightId id, const PointLight& point_light)
     for(auto& per_frame_data : m_per_frame_data)
     {
         per_frame_data.point_lights_to_update.push_back(id);
-    }
-
-    //TODO: updating point shadow maps is pretty expensive
-    //and it only has to be done if either the position or max_d of the light has changed
-    //other changes don't require the shadow map update
-    //maybe it would be worth checking if those specific values have changed and only then update the shadow map
-    //this should be profiled in the future once we have specific use cases to check what's optimal
-    if(m_point_lights[id].shadow_map_res != 0)
-    {
-        updatePointShadowMap(m_point_lights[id]);
     }
 }
 
@@ -2441,9 +2413,10 @@ void Renderer::createSwapchain(uint32_t width, uint32_t height)
 
     m_swapchain = new_swapchain;
 
+    m_swapchain_format = create_info.imageFormat;
     m_surface_width = create_info.imageExtent.width;
     m_surface_height = create_info.imageExtent.height;
-    m_swapchain_format = create_info.imageFormat;
+    m_common_buffer_data.ui_scale = vec2(1.0f / static_cast<float>(m_surface_width), 1.0f / static_cast<float>(m_surface_height));
 
     /*get new swapchain images*/
     res = vkGetSwapchainImagesKHR(m_device, m_swapchain, &count, NULL);
@@ -5480,7 +5453,6 @@ void Renderer::destroyDirShadowMap(DirShadowMap& shadow_map)
 {
     destroyImage(shadow_map.depth_img);
     vkDestroyFramebuffer(m_device, shadow_map.framebuffer, NULL);
-
     shadow_map.framebuffer = VK_NULL_HANDLE;
 }
 
@@ -5488,7 +5460,6 @@ void Renderer::destroyPointShadowMap(PointShadowMap& shadow_map)
 {
     destroyImage(shadow_map.depth_img);
     vkDestroyFramebuffer(m_device, shadow_map.framebuffer, NULL);
-
     shadow_map.framebuffer = VK_NULL_HANDLE;
 }
 

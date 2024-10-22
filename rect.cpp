@@ -7,7 +7,7 @@ Rect::Rect(Renderer& renderer, float x, float y, float w, float h, ColorRGBA col
     , m_height(h)
     , m_scissor(scissor)
 {
-    m_vb_alloc = renderer.requestVertexBufferAllocation<VertexUi>(1);
+    m_vb_alloc = renderer.reqVBAlloc<VertexUi>(1);
 
     m_vertex.use_texture = 0;
     setFocusable(false);
@@ -22,7 +22,7 @@ Rect::Rect(Renderer& renderer, float x, float y, float w, float h, TexId tex_id,
     , m_height(h)
     , m_scissor(scissor)
 {
-    m_vb_alloc = renderer.requestVertexBufferAllocation<VertexUi>(1);
+    m_vb_alloc = renderer.reqVBAlloc<VertexUi>(1);
 
     setFocusable(false);
     setColor(color);

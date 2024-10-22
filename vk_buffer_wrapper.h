@@ -3,7 +3,7 @@
 
 #include <vulkan/vulkan.h>
 #include <memory>
-#include <set>
+#include <vector>
 
 class VkBufferWrapper
 {
@@ -14,7 +14,7 @@ public:
     VkBufferWrapper(VkBufferUsageFlags usage_flags_, bool host_visible_required_, VkFormat buf_view_format_, VkPipelineStageFlags wait_stage_);
     VkBufferWrapper(VkBufferWrapper&& other);
 
-    uint64_t allocate(uint64_t size);
+    uint64_t alloc(uint64_t size);
     void free(uint64_t offset, uint64_t size);
 
     VkBuffer buf = VK_NULL_HANDLE;
@@ -45,16 +45,11 @@ private:
             , size(size_)
         {}
 
-        friend bool operator<(const FreeSpace& lhs, const FreeSpace& rhs)
-        {
-            return lhs.size < rhs.size;
-        }
-
         uint64_t offset = 0;
         uint64_t size = 0;
     };
 
-    std::set<FreeSpace> m_free_spaces;
+    std::vector<FreeSpace> m_free_spaces;
 };
 
 #endif //VK_BUFFER_WRAPPER_H

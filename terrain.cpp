@@ -89,7 +89,7 @@ void Terrain::loadFromFile(Renderer& renderer)
     m_heightmaps.resize(m_patch_vertices.size());
     in.read(reinterpret_cast<char*>(m_heightmaps.data()), m_heightmaps.size() * sizeof(m_heightmaps[0]));
 
-    m_vb_alloc = renderer.requestVertexBufferAllocation<VertexTerrain>(m_patch_vertices.size());
+    m_vb_alloc = renderer.reqVBAlloc<VertexTerrain>(m_patch_vertices.size());
     renderer.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexTerrain) * m_patch_vertices.size(), m_patch_vertices.data());
 
     renderer.requestTerrainBufferAllocation(m_vertex_data.size() * sizeof(VertexData));
@@ -112,7 +112,7 @@ void Terrain::draw(Renderer& renderer)
     //2. Always have all patch vertex data on the GPU and use an index buffer and update it with indices of vertices that passed frustum culling and are to be drawn this frame and draw in a single draw call
     //3. Always have all patch vertex data on the GPU and issue multiple draw calls to pick the vertices to be drawn this frame that passed frustum culling
     renderer.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexTerrain) * m_patch_vertices.size(), m_patch_vertices.data());
-    renderer.draw(m_render_mode, m_vb_alloc.vb, m_vb_alloc.vertex_offset, m_patch_vertices.size(), 0, {});
+    renderer.draw(m_render_mode, m_vb_alloc.vb, m_vb_alloc.vertex_offset, m_patch_vertices.size(), 0);
 }
 
 float Terrain::patchSize() const

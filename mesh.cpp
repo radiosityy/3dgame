@@ -31,7 +31,7 @@ Mesh::Mesh(Renderer& renderer, std::ifstream& model_file)
     m_vertex_data.resize(vertex_count);
     model_file.read(reinterpret_cast<char*>(m_vertex_data.data()), vertex_count * sizeof(VertexDefault));
 
-    m_vb_alloc = renderer.requestVertexBufferAllocation<VertexDefault>(vertex_count);
+    m_vb_alloc = renderer.reqVBAlloc<VertexDefault>(vertex_count);
     renderer.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexDefault) * vertex_count, m_vertex_data.data());
 }
 

@@ -14,7 +14,7 @@ Object::Object(Renderer& renderer, std::ifstream& scene_file)
 
     m_model = std::make_unique<Model>(renderer, model_filename);
     m_instance_data.resize(m_model->mehes().size());
-    m_instance_id = renderer.requestInstanceVertexBufferAllocation(m_instance_data.size());
+    m_instance_id = renderer.reqInstanceVBAlloc(m_instance_data.size());
 
     for(auto& instance_data : m_instance_data)
     {
@@ -38,7 +38,7 @@ Object::Object(Renderer& renderer, std::string_view model_filename, RenderMode r
 {
     m_model = std::make_unique<Model>(renderer, model_filename);
     m_instance_data.resize(m_model->mehes().size());
-    m_instance_id = renderer.requestInstanceVertexBufferAllocation(m_instance_data.size());
+    m_instance_id = renderer.reqInstanceVBAlloc(m_instance_data.size());
 
     for(auto& instance_data : m_instance_data)
     {
@@ -48,6 +48,8 @@ Object::Object(Renderer& renderer, std::string_view model_filename, RenderMode r
 
 bool Object::cull(const std::array<vec4, 6>& frustum_planes_W)
 {
+    // Sphere s = m_model->boundingSphere();
+    // s.transform(m_pos, m_scale);
     return true;
 }
 
@@ -58,9 +60,6 @@ void Object::update(Renderer& renderer, float dt)
 
 void Object::draw(Renderer& renderer)
 {
-    Sphere s = m_model->boundingSphere();
-    s.transform(m_pos, m_scale);
-
     for(uint32_t i = 0; i < m_model->mehes().size(); i++)
     {
        const auto& mesh = m_model->mehes()[i];
@@ -70,7 +69,7 @@ void Object::draw(Renderer& renderer)
        m_instance_data[i].tex_id = mesh.textureId();
        m_instance_data[i].normal_map_id = mesh.normalMapId();
 
-        renderer.draw(m_render_mode, mesh.vertexBuffer(), mesh.vertexBufferOffset(), mesh.vertexCount(), m_instance_id + i, s);
+        renderer.draw(m_render_mode, mesh.vertexBuffer(), mesh.vertexBufferOffset(), mesh.vertexCount(), m_instance_id + i);
     }
 
     renderer.updateInstanceVertexData(m_instance_id, m_instance_data.size(), m_instance_data.data());
@@ -234,12 +233,9 @@ void Object::serialize(std::ofstream& outfile) const
 
 void Object::drawHighlight(Renderer& renderer)
 {
-    Sphere s = m_model->boundingSphere();
-    s.transform(m_pos, m_scale);
-
     for(const auto& mesh : m_model->mehes())
     {
-        renderer.draw(RenderMode::Highlight, mesh.vertexBuffer(), mesh.vertexBufferOffset(), mesh.vertexCount(), m_instance_id, s);
+        renderer.draw(RenderMode::Highlight, mesh.vertexBuffer(), mesh.vertexBufferOffset(), mesh.vertexCount(), m_instance_id);
     }
 }
 

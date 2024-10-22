@@ -8,7 +8,7 @@ Editor::Editor(Window& window, Scene& scene, Renderer& renderer, const Font& fon
     , m_renderer(renderer)
     , m_font(font)
 {
-    m_billboard_vb_alloc = m_renderer.requestVertexBufferAllocation<VertexBillboard>(MAX_POINT_LIGHT_COUNT);
+    m_billboard_vb_alloc = m_renderer.reqVBAlloc<VertexBillboard>(MAX_POINT_LIGHT_COUNT);
     updatePointLightBillboards();
 }
 
@@ -118,7 +118,7 @@ void Editor::draw(RenderData& render_data)
     }
 
     /*point light billboards*/
-    m_renderer.draw(RenderMode::Billboard, m_billboard_vb_alloc.vb, m_billboard_vb_alloc.vertex_offset, m_vertex_billboard_data.size(), 0, {});
+    m_renderer.draw(RenderMode::Billboard, m_billboard_vb_alloc.vb, m_billboard_vb_alloc.vertex_offset, m_vertex_billboard_data.size(), 0);
 
     drawChildren(m_renderer);
 }
