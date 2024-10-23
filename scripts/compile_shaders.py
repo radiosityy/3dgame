@@ -4,6 +4,7 @@
 # Arg1 - compiler path
 # Arg2 - source directory containing shader files in GLSL
 # Arg3 - target directory to put compiled shaders into
+# Arg4 - compiler params: "-g" for debug info, "-O" for performance optimization
 
 import sys
 import os
@@ -36,6 +37,13 @@ def main():
 
     if arg_count < 3:
         sys.exit("Error: 3 arguments required. (" + str(arg_count) + " provided)")
+
+    if arg_count > 4:
+        sys.exit("Error: At most 4 arguments expected. (" + str(arg_count) + " provided)")
+
+    if arg_count == 4:
+        if sys.argv[4] not in ("-g", "-O"):
+            sys.exit("Unsupported compiler option: " + sys.argv[4])
 
     compiler = sys.argv[1]
     indir = inDir()
@@ -89,7 +97,10 @@ def main():
                     continue
             
             print("Compiling " + file, flush = True)
-            success = subprocess.call([compiler, file, "-o", outfile])
+            if arg_count == 4:
+                success = subprocess.call([compiler, sys.argv[4], file, "-o", outfile])
+            else:
+                success = subprocess.call([compiler, file, "-o", outfile])
 
             if success != 0:
                 ret = -1

@@ -15,8 +15,10 @@ endif()
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
     add_compile_definitions(DEBUG=1)
+    set(GLSLC_OPTION "-g")
 else()
     add_compile_definitions(NDEBUG=1)
+    set(GLSLC_OPTION "-O")
 endif()
 
 option(EDITOR_ENABLE "Enable editor" OFF)
@@ -46,7 +48,7 @@ target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -pedantic)
 
 add_custom_target(
     compile_shaders ALL
-    COMMAND python ${CMAKE_SOURCE_DIR}/scripts/compile_shaders.py ${GLSLC_PATH} ${CMAKE_SOURCE_DIR}/shaders ${CMAKE_BINARY_DIR}/shaders
+    COMMAND python ${CMAKE_SOURCE_DIR}/scripts/compile_shaders.py ${GLSLC_PATH} ${CMAKE_SOURCE_DIR}/shaders ${CMAKE_BINARY_DIR}/shaders ${GLSLC_OPTION}
     COMMENT "Compiling shaders..."
     )
 
