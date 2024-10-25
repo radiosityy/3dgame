@@ -110,7 +110,7 @@ void Camera::pitch(float angle) noexcept
     m_dirty_view = true;
 }
 
-mat4x4 Camera::VP() noexcept
+mat4x4 Camera::VP() const noexcept
 {
     updateView();
     updateProj();
@@ -148,7 +148,7 @@ float Camera::imagePlaneDistance() const noexcept
     return 1.0f / std::tan(m_vfov / 2.0f);
 }
 
-std::array<vec3, 8> Camera::viewFrustumPointsW() noexcept
+std::array<vec3, 8> Camera::viewFrustumPointsW() const noexcept
 {
     const float vtan = std::tan(m_vfov / 2.0f);
 
@@ -173,7 +173,7 @@ std::array<vec3, 8> Camera::viewFrustumPointsW() noexcept
     return points;
 }
 
-std::array<vec4, 6> Camera::viewFrustumPlanesW() noexcept
+std::array<vec4, 6> Camera::viewFrustumPlanesW() const noexcept
 {
     std::array<vec4, 6> planes;
     const auto points = viewFrustumPointsW();
@@ -205,7 +205,7 @@ std::array<vec4, 6> Camera::viewFrustumPlanesW() noexcept
     return planes;
 }
 
-void Camera::updateView() noexcept
+void Camera::updateView() const noexcept
 {
     if(m_dirty_view)
     {
@@ -215,18 +215,18 @@ void Camera::updateView() noexcept
     }
 }
 
-void Camera::updateProj() noexcept
+void Camera::updateProj() const noexcept
 {
     m_proj = glm::perspectiveLH_ZO(m_vfov, m_aspect_ratio, m_near, m_far);
 }
 
-const mat4x4& Camera::V() noexcept
+const mat4x4& Camera::V() const noexcept
 {
     updateView();
     return m_view;
 }
 
-const mat4x4& Camera::invV() noexcept
+const mat4x4& Camera::invV() const noexcept
 {
     updateView();
     return m_inv_view;

@@ -217,7 +217,7 @@ public:
     Renderer& operator=(const Renderer&) = delete;
     Renderer& operator=(const Renderer&&) = delete;
 
-    void updateAndRender(const RenderData&, Camera& camera);
+    void updateAndRender(const RenderData&, const Camera& camera);
 
     void onWindowResize(uint32_t width, uint32_t height);
     void onSceneLoad(const SceneInitData&);
@@ -327,7 +327,7 @@ private:
     void destroyDirShadowMap(DirShadowMap& shadow_map);
     void destroyPointShadowMap(PointShadowMap& shadow_map);
 
-    void updateDirShadowMap(Camera& camera, const DirLightShaderData& dir_light);
+    void updateDirShadowMap(const Camera& camera, const DirLightShaderData& dir_light);
     void updatePointShadowMap(const PointLightShaderData& point_light);
 
     /*----------------- destroy methods ------------------*/

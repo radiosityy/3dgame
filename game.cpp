@@ -302,7 +302,7 @@ void Game::run()
             m_console->draw(*m_renderer);
         }
 
-        m_renderer->updateAndRender(render_data, m_scene->camera());
+        m_renderer->updateAndRender(render_data, m_editor->camera());
     }
 }
 

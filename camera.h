@@ -2,7 +2,6 @@
 #define CAMERA_H
 
 #include "geometry.h"
-#include <utility>
 
 #undef far
 #undef near
@@ -11,7 +10,6 @@ class Camera
 {
 public:
     Camera(float ratio, float n, float f, float hfov);
-    ~Camera() = default;
 
     /*explicitly disable copy and move operations*/
     Camera (const Camera&) = delete;
@@ -51,14 +49,14 @@ public:
     float far() const noexcept;
     float near() const noexcept;
     float imagePlaneDistance() const noexcept;
-    std::array<vec3, 8> viewFrustumPointsW() noexcept;
-    std::array<vec4, 6> viewFrustumPlanesW() noexcept;
+    std::array<vec3, 8> viewFrustumPointsW() const noexcept;
+    std::array<vec4, 6> viewFrustumPlanesW() const noexcept;
 
     /*updates and returns ViewProjection matrix*/
-    mat4x4 VP() noexcept;
+    mat4x4 VP() const noexcept;
     /*updates and returns View matrix*/
-    const mat4x4& V() noexcept;
-    const mat4x4& invV() noexcept;
+    const mat4x4& V() const noexcept;
+    const mat4x4& invV() const noexcept;
     /*updates and returns Projection matrix*/
     const mat4x4& P() noexcept;
 
@@ -70,16 +68,16 @@ public:
     vec3 cursorProjW(const vec2& cur_pos_ndc) noexcept;
 
 private:
-    void updateView() noexcept;
-    void updateProj() noexcept;
+    void updateView() const noexcept;
+    void updateProj() const noexcept;
 
     /*flag whether proj matrix needs to be updated*/
-    bool m_dirty_view;
+    mutable bool m_dirty_view;
 
     /*view and projection matrices*/
-    mat4x4 m_view;
-    mat4x4 m_inv_view;
-    mat4x4 m_proj;
+    mutable mat4x4 m_view;
+    mutable mat4x4 m_inv_view;
+    mutable mat4x4 m_proj;
 
     /*camera position*/
     vec3 m_pos;

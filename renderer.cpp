@@ -972,7 +972,7 @@ void Renderer::updateBuffers()
     m_buffer_update_reqs.clear();
 }
 
-void Renderer::updateAndRender(const RenderData& render_data, Camera& camera)
+void Renderer::updateAndRender(const RenderData& render_data, const Camera& camera)
 {
     m_frame_id = (m_frame_id + 1) % FRAMES_IN_FLIGHT;
     auto& per_frame_data = m_per_frame_data[m_frame_id];
@@ -5266,7 +5266,7 @@ uint32_t Renderer::createDirShadowMap(const DirLight& light)
     return shadow_map_id;
 }
 
-void Renderer::updateDirShadowMap(Camera& camera, const DirLightShaderData& light)
+void Renderer::updateDirShadowMap(const Camera& camera, const DirLightShaderData& light)
 {
     auto& shadow_map_data = m_dir_shadow_map_data[light.shadow_map_id];
 

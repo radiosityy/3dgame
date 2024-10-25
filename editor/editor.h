@@ -31,6 +31,8 @@ public:
     //TODO: this destructor declaration is not needed?
     virtual ~Editor() = default;
 
+    const Camera& camera() noexcept;
+
     void update(const InputState& input_state, float dt, bool process_input);
     void draw(RenderData&);
     void onWindowResize(uint32_t width, uint32_t height);
@@ -58,6 +60,7 @@ private:
     void confirmTransform();
     void cancelTransform();
 
+    Camera m_camera;
     Scene& m_scene;
     uint32_t m_window_width = 0;
     uint32_t m_window_height = 0;

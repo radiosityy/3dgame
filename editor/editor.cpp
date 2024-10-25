@@ -3,7 +3,8 @@
 #include "game_utils.h"
 
 Editor::Editor(uint32_t window_width, uint32_t window_height, Scene& scene, Renderer& renderer, const Font& font)
-    : m_scene(scene)
+    : m_camera(static_cast<float>(window_width) / static_cast<float>(window_height), 1.0f, 2000.0f, degToRad(90.0f))
+    , m_scene(scene)
     , m_window_width(window_width)
     , m_window_height(window_height)
     , m_renderer(renderer)
@@ -13,6 +14,11 @@ Editor::Editor(uint32_t window_width, uint32_t window_height, Scene& scene, Rend
     updatePointLightBillboards();
 }
 
+const Camera& Editor::camera() noexcept
+{
+    return m_camera;
+}
+
 void Editor::update(const InputState& input_state, float dt, bool process_input)
 {
     if(Mode::Terrain == m_mode)
@@ -20,7 +26,7 @@ void Editor::update(const InputState& input_state, float dt, bool process_input)
         if(process_input)
         {
             const vec2 cur_pos_ndc(2.0f * (input_state.cursor_pos.x / m_window_width) - 1.0f, -2.0f * (input_state.cursor_pos.y / m_window_height) + 1.0f);
-            Ray ray(m_scene.camera().pos(), m_scene.camera().cursorProjW(cur_pos_ndc));
+            Ray ray(m_camera.pos(), m_camera.cursorProjW(cur_pos_ndc));
             float d;
 
             m_cur_terrain_intersection = m_scene.terrain().rayIntersection(ray, d);
@@ -65,37 +71,36 @@ void Editor::update(const InputState& input_state, float dt, bool process_input)
     if(process_input && !m_keyboard_focus)
     {
         /*camera movement*/
-        Camera& camera = m_scene.camera();
         const float cam_speed = input_state.shift() ? 42.0f : 14.0f;
 
         if(input_state.keyboard[VKeyW] && !input_state.ctrl())
         {
-            camera.walk(dt*cam_speed);
+            m_camera.walk(dt*cam_speed);
         }
 
         if(input_state.keyboard[VKeyS] && !input_state.ctrl())
         {
-            camera.walk(-dt*cam_speed);
+            m_camera.walk(-dt*cam_speed);
         }
 
         if(input_state.keyboard[VKeyA] && !input_state.ctrl())
         {
-            camera.strafe(-dt*cam_speed);
+            m_camera.strafe(-dt*cam_speed);
         }
 
         if(input_state.keyboard[VKeyD] && !input_state.ctrl())
         {
-            camera.strafe(dt*cam_speed);
+            m_camera.strafe(dt*cam_speed);
         }
 
         if(input_state.keyboard[VKeyC] && !input_state.ctrl())
         {
-            camera.tilt(-dt*cam_speed);
+            m_camera.tilt(-dt*cam_speed);
         }
 
         if(input_state.keyboard[VKeySpace] && !input_state.ctrl())
         {
-            camera.tilt(dt*cam_speed);
+            m_camera.tilt(dt*cam_speed);
         }
     }
 
@@ -352,7 +357,7 @@ void Editor::onKeyPressedImpl(Key key, const InputState& input_state)
             case VKeyP:
             {
                 PointLight pl;
-                pl.pos = m_scene.camera().pos() + 10.0f * m_scene.camera().forward();
+                pl.pos = m_camera.pos() + 10.0f * m_camera.forward();
                 pl.color = ColorRGBA::White;
                 pl.a0 = 1.0f;
                 pl.a1 = 1.0f;
@@ -450,28 +455,28 @@ void Editor::onMousePressedImpl(MouseButton mb, const InputState& input_state)
         {
             deselectAll();
 
-            const float aspect_ratio = m_scene.camera().aspectRatio();
+            const float aspect_ratio = m_camera.aspectRatio();
             const float dx = 2.0f * aspect_ratio / m_window_width;
             const float dy = 2.0f / m_window_height;
 
             const vec3 ray_dirV = vec3(-aspect_ratio + dx * (0.5f + input_state.cursor_pos.x),
                                        1.0f - dy * (0.5f + input_state.cursor_pos.y),
-                                       m_scene.camera().imagePlaneDistance());
+                                       m_camera.imagePlaneDistance());
 
-            Ray ray(m_scene.camera().pos(), m_scene.camera().invV() * vec4(ray_dirV, 0.0f));
+            Ray ray(m_camera.pos(), m_camera.invV() * vec4(ray_dirV, 0.0f));
             float min_d = std::numeric_limits<float>::max();
 
             if(m_render_point_light_billboards)
             {
                 /*for every point light we test ray intersection with the 2 triangles
                 that compose the point light billboard in editor*/
-                const vec3 up = m_scene.camera().up() * m_billboard_size_y;
+                const vec3 up = m_camera.up() * m_billboard_size_y;
 
                 for(uint32_t i = 0; i < m_scene.staticPointLights().size(); i++)
                 {
                     const auto& point_light = m_scene.staticPointLights()[i];
 
-                    const vec3 right = normalize(cross(up, m_scene.camera().pos() - point_light.pos)) * m_billboard_size_x;
+                    const vec3 right = normalize(cross(up, m_camera.pos() - point_light.pos)) * m_billboard_size_x;
 
                     float d;
 
@@ -555,8 +560,7 @@ void Editor::onMouseMovedImpl(vec2 cursor_delta, const InputState& input_state)
         {
         case Mode::Move:
         {
-            Camera& camera = m_scene.camera();
-            vec3 v = 0.01f * (camera.right() * cursor_delta.x + camera.up() * -cursor_delta.y);
+            vec3 v = 0.01f * (m_camera.right() * cursor_delta.x + m_camera.up() * -cursor_delta.y);
 
             switch(m_axis_lock)
             {
@@ -587,8 +591,7 @@ void Editor::onMouseMovedImpl(vec2 cursor_delta, const InputState& input_state)
         }
         case Mode::Scale:
         {
-            Camera& camera = m_scene.camera();
-            vec3 v = 0.01f * (camera.right() * cursor_delta.x + camera.up() * -cursor_delta.y);
+            vec3 v = 0.01f * (m_camera.right() * cursor_delta.x + m_camera.up() * -cursor_delta.y);
 
             switch(m_axis_lock)
             {
@@ -616,7 +619,6 @@ void Editor::onMouseMovedImpl(vec2 cursor_delta, const InputState& input_state)
         }
         case Mode::Rotate:
         {
-            Camera& camera = m_scene.camera();
             const vec2 curr_cursor_pos = input_state.cursor_pos - vec2(m_window_width / 2.0f, m_window_height / 2.0f);
 
             const auto dot_product = dot(m_rot_cursor_pos, curr_cursor_pos) / (m_rot_cursor_pos.length() * curr_cursor_pos.length());
@@ -633,7 +635,7 @@ void Editor::onMouseMovedImpl(vec2 cursor_delta, const InputState& input_state)
             switch(m_axis_lock)
             {
             case Axis::None:
-                m_selected_object->rotate(camera.forward(), a);
+                m_selected_object->rotate(m_camera.forward(), a);
                 break;
             case Axis::X:
                 m_selected_object->rotateX(a);
@@ -653,8 +655,8 @@ void Editor::onMouseMovedImpl(vec2 cursor_delta, const InputState& input_state)
     }
     else if(input_state.mouse & MMB)
     {
-        m_scene.camera().rotate(cursor_delta.x * 0.005f);
-        m_scene.camera().pitch(cursor_delta.y * 0.005f);
+        m_camera.rotate(cursor_delta.x * 0.005f);
+        m_camera.pitch(cursor_delta.y * 0.005f);
     }
 }
 
