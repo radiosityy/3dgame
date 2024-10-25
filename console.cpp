@@ -7,10 +7,11 @@ Console::Console(Renderer& renderer, float x, float y, float w, float h, const F
     , m_width(w)
     , m_height(h)
     , m_command_process_callback(std::move(command_process_callback))
-    , m_rect(renderer, m_x, m_y, m_width, 0.9f * m_height, ColorRGBA(0.2f, 0.2f, 0.2f, 1.0f))
-    , m_text_label(renderer, m_x, m_y + 0.9f * m_height, font, "", false, HorizontalAlignment::Left, VerticalAlignment::Bottom)
-    , m_text_input(renderer, m_x, m_y + 0.9f * m_height, m_width, 0.1f * m_height, font, "", true, HorizontalAlignment::Left, VerticalAlignment::Center)
+    , m_text_label(renderer, m_x, m_y, m_width, m_height - m_text_input_height, font, "", false, HorizontalAlignment::Left, VerticalAlignment::Bottom)
+    , m_text_input(renderer, m_x, m_y + m_height - m_text_input_height, m_width, m_text_input_height, font, "", true, HorizontalAlignment::Left, VerticalAlignment::Center)
 {
+    m_text_label.setBackgroundColor(ColorRGBA(0.2f, 0.2f, 0.2f, 1.0f));
+
     m_text_input.enableSetTextWhenFocued(true);
     m_text_input.setConfirmCallback([&](Label& text_input)
     {
@@ -39,14 +40,12 @@ Console::Console(Renderer& renderer, float x, float y, float w, float h, const F
 
 void Console::update(Renderer& renderer)
 {
-    m_rect.update(renderer);
     m_text_label.update(renderer);
     m_text_input.update(renderer);
 }
 
 void Console::draw(Renderer& renderer)
 {
-    m_rect.draw(renderer);
     m_text_label.draw(renderer);
     m_text_input.draw(renderer);
 }
@@ -87,6 +86,17 @@ void Console::setScissor(Quad scissor)
 
     m_text_label.setScissor(min_scissor);
     m_text_input.setScissor(min_scissor);
+}
+
+void Console::setSize(float width, float height)
+{
+    m_height = height;
+    m_width = width;
+
+    m_text_label.setRect(m_x, m_y, m_width, m_height - m_text_input_height);
+    m_text_input.setRect(m_x, m_y + m_height - m_text_input_height, m_width, m_text_input_height);
+    m_text_label.setScissor({m_x, m_y, m_width, m_height});
+    m_text_input.setScissor({m_x, m_y, m_width, m_height});
 }
 
 void Console::onKeyPressed(Key key, const InputState& input_state)

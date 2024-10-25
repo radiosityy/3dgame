@@ -40,37 +40,7 @@ Label::Label(Renderer& renderer, float x, float y, float width, float height, co
     }
 
     setFocusable(m_editable);
-
-    switch(m_horizontal_alignment)
-    {
-    case HorizontalAlignment::Left:
-        m_reference_x = m_x;
-        break;
-    case HorizontalAlignment::Center:
-        m_reference_x = m_x + m_width * 0.5f;
-        break;
-    case HorizontalAlignment::Right:
-        m_reference_x = m_x + m_width;
-        break;
-    default:
-        error("Incorrect horizontal alignment!");
-    }
-
-    switch(m_vertical_alignment)
-    {
-    case VerticalAlignment::Top:
-        m_reference_y = m_y;
-        break;
-    case VerticalAlignment::Center:
-        m_reference_y = m_y + 0.5f * m_height;
-        break;
-    case VerticalAlignment::Bottom:
-        m_reference_y = m_y + m_height;
-        break;
-    default:
-        error("Incorrect vertical alignment!");
-    }
-
+    updateReferenceXY();
     updateTextImpl(text);
 }
 
@@ -430,6 +400,23 @@ const std::string& Label::text()
     return m_text;
 }
 
+void Label::setRect(float x, float y, float width, float height)
+{
+    if(m_fixed_rect)
+    {
+        m_x = x;
+        m_y = y;
+        m_width = width;
+        m_height = height;
+        updateReferenceXY();
+
+        m_background_rect.setPosAndSize(x, y, width, height);
+
+        updateVertexData();
+        updateCursor(m_cursor_position);
+    }
+}
+
 void Label::move(vec2 xy)
 {
     m_x += xy.x;
@@ -439,7 +426,8 @@ void Label::move(vec2 xy)
     m_y += xy.y;
     m_reference_y += xy.y;
 
-    setText(m_text);
+    updateVertexData();
+    updateCursor(m_cursor_position);
 }
 
 void Label::setConfirmCallback(std::move_only_function<void (Label&)>&& confirm_callback, bool clear_on_confirm)
@@ -631,6 +619,39 @@ void Label::updateScissors()
 
     m_background_rect.setScissor(m_scissor);
     m_cursor_rect.setScissor(m_scissor);
+}
+
+void Label::updateReferenceXY()
+{
+    switch(m_horizontal_alignment)
+    {
+    case HorizontalAlignment::Left:
+        m_reference_x = m_x;
+        break;
+    case HorizontalAlignment::Center:
+        m_reference_x = m_x + m_width * 0.5f;
+        break;
+    case HorizontalAlignment::Right:
+        m_reference_x = m_x + m_width;
+        break;
+    default:
+        error("Incorrect horizontal alignment!");
+    }
+
+    switch(m_vertical_alignment)
+    {
+    case VerticalAlignment::Top:
+        m_reference_y = m_y;
+        break;
+    case VerticalAlignment::Center:
+        m_reference_y = m_y + 0.5f * m_height;
+        break;
+    case VerticalAlignment::Bottom:
+        m_reference_y = m_y + m_height;
+        break;
+    default:
+        error("Incorrect vertical alignment!");
+    }
 }
 
 void Label::typeCharacter(const char* c)

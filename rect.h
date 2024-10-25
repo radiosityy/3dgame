@@ -30,6 +30,7 @@ public:
 private:
     void updateVertexSizeAndPos();
 
+    //TODO: x,y,width,height members are duplicates of data we already have in m_vertex
     float m_x, m_y, m_width, m_height;
     VertexUi m_vertex;
     VertexBufferAllocation m_vb_alloc;

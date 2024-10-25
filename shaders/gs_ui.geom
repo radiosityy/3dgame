@@ -15,6 +15,11 @@ layout(location = 2) flat out vec4 color_out;
 
 void main()
 {
+    const float x0 = top_left_pos_in[0].x;
+    const float x1 = top_left_pos_in[0].x + size_in[0].x;
+    const float y0 = top_left_pos_in[0].y;
+    const float y1 = top_left_pos_in[0].y + size_in[0].y;
+
     /*--- top left vertex ---*/
     gl_Position = vec4(common_buf.ui_scale * top_left_pos_in[0], 0.0f, 1.0f);
     gl_Position.xy = vec2(2.0f * gl_Position.x - 1.0f, 2.0f * gl_Position.y - 1.0f);
@@ -25,7 +30,7 @@ void main()
 
 
     /*--- top right vertex ---*/
-    gl_Position = vec4(common_buf.ui_scale * vec2(top_left_pos_in[0].x + size_in[0].x, top_left_pos_in[0].y), 0.0f, 1.0f);
+    gl_Position = vec4(common_buf.ui_scale * vec2(x1, y0), 0.0f, 1.0f);
     gl_Position.xy = vec2(2.0f * gl_Position.x - 1.0f, 2.0f * gl_Position.y - 1.0f);
     tex_coord_out = vec2(1.0f, 0.0f);
     tex_id_out = tex_id_in[0];
@@ -34,7 +39,7 @@ void main()
 
 
     /*--- bottom left vertex ---*/
-    gl_Position = vec4(common_buf.ui_scale * vec2(top_left_pos_in[0].x, top_left_pos_in[0].y + size_in[0].y), 0.0f, 1.0f);
+    gl_Position = vec4(common_buf.ui_scale * vec2(x0, y1), 0.0f, 1.0f);
     gl_Position.xy = vec2(2.0f * gl_Position.x - 1.0f, 2.0f * gl_Position.y - 1.0f);
     tex_coord_out = vec2(0.0f, 1.0f);
     tex_id_out = tex_id_in[0];
@@ -43,7 +48,7 @@ void main()
 
 
     /*--- bottom right vertex ---*/
-    gl_Position = vec4(common_buf.ui_scale * vec2(top_left_pos_in[0].x + size_in[0].x, top_left_pos_in[0].y + size_in[0].y), 0.0f, 1.0f);
+    gl_Position = vec4(common_buf.ui_scale * vec2(x1, y1), 0.0f, 1.0f);
     gl_Position.xy = vec2(2.0f * gl_Position.x - 1.0f, 2.0f * gl_Position.y - 1.0f);
     tex_coord_out = vec2(1.0f, 1.0f);
     tex_id_out = tex_id_in[0];

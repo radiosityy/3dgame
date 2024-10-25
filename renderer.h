@@ -360,6 +360,7 @@ private:
     VkFence m_transfer_cmd_buf_fence = VK_NULL_HANDLE;
 
     VkSampler m_sampler = VK_NULL_HANDLE;
+    VkSampler m_font_sampler = VK_NULL_HANDLE;
     VkSampler m_shadow_map_sampler = VK_NULL_HANDLE;
     VkSampler m_terrain_heightmap_sampler = VK_NULL_HANDLE;
 

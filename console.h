@@ -22,12 +22,13 @@ public:
     bool isPointInside(vec2) override;
 
     void setScissor(Quad) override;
+    void setSize(float width, float height);
 
 private:
+    const float m_text_input_height = 42.0f;
     float m_x, m_y, m_width, m_height;
     std::move_only_function<void(const std::string&)> m_command_process_callback;
 
-    Rect m_rect;
     Label m_text_label;
     Label m_text_input;
 

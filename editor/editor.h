@@ -27,10 +27,11 @@ class Editor : public GuiParent
     };
 
 public:
-    Editor(Window& window, Scene& scene, Renderer& renderer, const Font& font);
+    Editor(uint32_t window_width, uint32_t window_height, Scene& scene, Renderer& renderer, const Font& font);
+    //TODO: this destructor declaration is not needed?
     virtual ~Editor() = default;
 
-    void update(const InputState& input_state, float dt);
+    void update(const InputState& input_state, float dt, bool process_input);
     void draw(RenderData&);
     void onWindowResize(uint32_t width, uint32_t height);
 
@@ -58,7 +59,8 @@ private:
     void cancelTransform();
 
     Scene& m_scene;
-    Window& m_window;
+    uint32_t m_window_width = 0;
+    uint32_t m_window_height = 0;
     Renderer& m_renderer;
     const Font& m_font;
 

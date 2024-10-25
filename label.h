@@ -33,6 +33,7 @@ public:
 
     const std::string& text();
 
+    void setRect(float x, float y, float width, float height);
     virtual void move(vec2) override;
 
     void setConfirmCallback(std::move_only_function<void(Label&)>&& confirm_callback, bool clear_on_confirm = false);
@@ -50,6 +51,7 @@ private:
     void updateTextImpl(std::string_view text);
     void updateVertexData();
     void updateScissors();
+    void updateReferenceXY();
 
     const Font* m_font = nullptr;
     std::string m_text;

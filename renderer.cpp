@@ -1333,10 +1333,10 @@ void Renderer::updateAndRender(const RenderData& render_data, Camera& camera)
 
             //TODO: don't clamp?
             VkRect2D scissor;
-            scissor.offset.x = static_cast<int>(std::clamp<float>(rb.scissor.x, 0, static_cast<float>(m_surface_width)));
-            scissor.offset.y = static_cast<int>(std::clamp<float>(rb.scissor.y, 0, static_cast<float>(m_surface_height)));
-            scissor.extent.width = static_cast<uint32_t>(std::clamp<float>(rb.scissor.width, 0, static_cast<float>(m_surface_width)));
-            scissor.extent.height = static_cast<uint32_t>(std::clamp<float>(rb.scissor.height, 0, static_cast<float>(m_surface_height)));
+            scissor.offset.x = static_cast<int>(std::clamp<float>(rb.scissor.x + 0.5f, 0, static_cast<float>(m_surface_width)));
+            scissor.offset.y = static_cast<int>(std::clamp<float>(rb.scissor.y + 0.5f, 0, static_cast<float>(m_surface_height)));
+            scissor.extent.width = static_cast<uint32_t>(std::clamp<float>(rb.scissor.width + 0.5f, 0, static_cast<float>(m_surface_width)));
+            scissor.extent.height = static_cast<uint32_t>(std::clamp<float>(rb.scissor.height + 0.5f, 0, static_cast<float>(m_surface_height)));
 
             vkCmdSetScissor(cmd_buf, 0, 1, &scissor);
 
@@ -2627,7 +2627,7 @@ void Renderer::createDescriptorSets()
     m_bone_transform_buf_desc_count = 1;
 
     std::vector<VkSampler> tex_samplers(m_tex_desc_count, m_sampler);
-    std::vector<VkSampler> font_samplers(m_font_desc_count, m_sampler);
+    std::vector<VkSampler> font_samplers(m_font_desc_count, m_font_sampler);
     std::vector<VkSampler> dir_shadow_map_samplers(m_dir_sm_desc_count, m_shadow_map_sampler);
     //TODO: which sampler should be used for point shadow maps?
     std::vector<VkSampler> point_shadow_map_samplers(m_point_sm_desc_count, m_shadow_map_sampler);
@@ -2820,7 +2820,7 @@ void Renderer::createPipelines()
         multisample_state_create_info.flags = 0;
         multisample_state_create_info.rasterizationSamples = m_sample_count;
         multisample_state_create_info.sampleShadingEnable = VK_TRUE;
-        multisample_state_create_info.minSampleShading = 0.0;
+        multisample_state_create_info.minSampleShading = 0.0f;
         multisample_state_create_info.pSampleMask = NULL;
         multisample_state_create_info.alphaToCoverageEnable = VK_FALSE;
         multisample_state_create_info.alphaToOneEnable = VK_FALSE;
@@ -5000,6 +5000,31 @@ void Renderer::createSamplers()
     sampler_create_info.flags = 0;
     sampler_create_info.magFilter = VK_FILTER_LINEAR;
     sampler_create_info.minFilter = VK_FILTER_LINEAR;
+    sampler_create_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    sampler_create_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+    sampler_create_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+    sampler_create_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+    sampler_create_info.mipLodBias = 0.0f;
+    sampler_create_info.anisotropyEnable = VK_FALSE;
+    sampler_create_info.maxAnisotropy = 1.0f;
+    sampler_create_info.compareEnable = VK_FALSE;
+    sampler_create_info.compareOp = VK_COMPARE_OP_ALWAYS;
+    sampler_create_info.minLod = 0.0f;
+    sampler_create_info.maxLod = VK_LOD_CLAMP_NONE;
+    sampler_create_info.borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
+    sampler_create_info.unnormalizedCoordinates = VK_FALSE;
+
+    res = vkCreateSampler(m_device, &sampler_create_info, NULL, &m_font_sampler);
+    assertVkSuccess(res, "Failed to create sampler.");
+#if VULKAN_VALIDATION_ENABLE
+    setDebugObjectName(m_font_sampler, "FontSampler");
+#endif
+
+    sampler_create_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    sampler_create_info.pNext = NULL;
+    sampler_create_info.flags = 0;
+    sampler_create_info.magFilter = VK_FILTER_LINEAR;
+    sampler_create_info.minFilter = VK_FILTER_LINEAR;
     sampler_create_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
     sampler_create_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
     sampler_create_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
@@ -5593,6 +5618,9 @@ void Renderer::destroySamplers() noexcept
 {
     vkDestroySampler(m_device, m_sampler, NULL);
     m_sampler = VK_NULL_HANDLE;
+
+    vkDestroySampler(m_device, m_font_sampler, NULL);
+    m_font_sampler = VK_NULL_HANDLE;
 
     vkDestroySampler(m_device, m_shadow_map_sampler, NULL);
     m_shadow_map_sampler = VK_NULL_HANDLE;

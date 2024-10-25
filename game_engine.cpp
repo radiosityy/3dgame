@@ -122,7 +122,7 @@ GameEngine::GameEngine()
     m_renderer->onSceneLoad(scene_init_data);
 
 #if EDITOR_ENABLE
-    m_editor = std::make_unique<Editor>(*m_window, *m_scene, *m_renderer, m_fonts[0]);
+    m_editor = std::make_unique<Editor>(m_window->width(), m_window->height(), *m_scene, *m_renderer, m_fonts[0]);
 #endif
 }
 
@@ -263,7 +263,7 @@ void GameEngine::run()
 #if EDITOR_ENABLE
         if(m_edit_mode)
         {
-            m_editor->update(m_window->inputState(), frametime);
+            m_editor->update(m_window->inputState(), frametime, !m_console_active);
         }
         else
 #endif
@@ -326,6 +326,8 @@ void GameEngine::onWindowResize(uint32_t width, uint32_t height) noexcept
     {
         m_invalid_window = false;
 
+        m_console->setSize(width, 0.4f * height);
+
         m_scene->onWindowResize(static_cast<float>(width) / static_cast<float>(height));
         m_renderer->onWindowResize(width, height);
 #if EDITOR_ENABLE
@@ -338,6 +340,21 @@ void GameEngine::onWindowResize(uint32_t width, uint32_t height) noexcept
 
 void GameEngine::onKeyPressed(Key key, const InputState& input_state)
 {
+    if(input_state.ctrl())
+    {
+        if(key == VKeyL)
+        {
+            m_window->toggleCursorLock();
+            return;
+        }
+
+        if(key == VKeyQ)
+        {
+            stop();
+            return;
+        }
+    }
+
     if(VKeyTidle == key)
     {
         if(m_console_active)
@@ -370,21 +387,6 @@ void GameEngine::onKeyPressed(Key key, const InputState& input_state)
         return;
     }
 #endif
-
-    if(input_state.ctrl())
-    {
-        if(key == VKeyL)
-        {
-            m_window->toggleCursorLock();
-            return;
-        }
-
-        if(key == VKeyQ)
-        {
-            stop();
-            return;
-        }
-    }
 
 #if EDITOR_ENABLE
     if(m_edit_mode)
