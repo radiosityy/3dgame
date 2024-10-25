@@ -1,5 +1,5 @@
 #include "window.h"
-#include "game_engine.h"
+#include "game.h"
 #include "game_utils.h"
 
 #include <stdio.h>
@@ -218,7 +218,7 @@ void Window::handleControllerEvents()
 
                     m_controller_state.buttons[i] = state.buttons[i];
 
-                    m_game_engine.onControllerEvent(event, m_controller_state);
+                    m_game.onControllerEvent(event, m_controller_state);
                 }
             }
 
@@ -231,7 +231,7 @@ void Window::handleControllerEvents()
 
                 m_controller_state.left_trigger = state.left_trigger;
 
-                m_game_engine.onControllerEvent(event, m_controller_state);
+                m_game.onControllerEvent(event, m_controller_state);
             }
 
             /*right trigger*/
@@ -243,7 +243,7 @@ void Window::handleControllerEvents()
 
                 m_controller_state.right_trigger = state.right_trigger;
 
-                m_game_engine.onControllerEvent(event, m_controller_state);
+                m_game.onControllerEvent(event, m_controller_state);
             }
 
             /*left stick*/
@@ -255,7 +255,7 @@ void Window::handleControllerEvents()
 
                 m_controller_state.left_stick = state.left_stick;
 
-                m_game_engine.onControllerEvent(event, m_controller_state);
+                m_game.onControllerEvent(event, m_controller_state);
             }
 
             /*right stick*/
@@ -267,7 +267,7 @@ void Window::handleControllerEvents()
 
                 m_controller_state.right_stick = state.right_stick;
 
-                m_game_engine.onControllerEvent(event, m_controller_state);
+                m_game.onControllerEvent(event, m_controller_state);
             }
 
             m_prev_xinput_packet_number = xinput_state.dwPacketNumber;
@@ -280,12 +280,12 @@ void Window::handleControllerEvents()
 }
 #endif
 
-Window::Window(GameEngine& game_engine, std::string_view app_name, uint16_t width, uint16_t height)
+Window::Window(Game& game, std::string_view app_name, uint16_t width, uint16_t height)
     : m_x(0)
     , m_y(0)
     , m_width(width)
     , m_height(height)
-    , m_game_engine(game_engine)
+    , m_game(game)
     , m_class_name(app_name)
 {
     g_window = this;
@@ -449,12 +449,12 @@ LRESULT Window::EventHandler(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             if(raw.data.keyboard.Flags & RI_KEY_BREAK)
             {
                 m_input_state.keyboard[key] = false;
-                m_game_engine.onKeyReleased(key, m_input_state);
+                m_game.onKeyReleased(key, m_input_state);
             }
             else
             {
                 m_input_state.keyboard[key] = true;
-                m_game_engine.onKeyPressed(key, m_input_state);
+                m_game.onKeyPressed(key, m_input_state);
             }
         }
         //Manage mouse input
@@ -466,37 +466,37 @@ LRESULT Window::EventHandler(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             case RI_MOUSE_LEFT_BUTTON_DOWN:
             {
                 m_input_state.mouse |= LMB;
-                m_game_engine.onMousePressed(LMB, m_input_state);
+                m_game.onMousePressed(LMB, m_input_state);
                 break;
             }
             case RI_MOUSE_LEFT_BUTTON_UP:
             {
                 m_input_state.mouse &= ~LMB;
-                m_game_engine.onMouseReleased(LMB, m_input_state);
+                m_game.onMouseReleased(LMB, m_input_state);
                 break;
             }
             case RI_MOUSE_RIGHT_BUTTON_DOWN:
             {
                 m_input_state.mouse |= RMB;
-                m_game_engine.onMousePressed(RMB, m_input_state);
+                m_game.onMousePressed(RMB, m_input_state);
                 break;
             }
             case RI_MOUSE_RIGHT_BUTTON_UP:
             {
                 m_input_state.mouse &= ~RMB;
-                m_game_engine.onMouseReleased(RMB, m_input_state);
+                m_game.onMouseReleased(RMB, m_input_state);
                 break;
             }
             case RI_MOUSE_MIDDLE_BUTTON_DOWN:
             {
                 m_input_state.mouse |= MMB;
-                m_game_engine.onMousePressed(MMB, m_input_state);
+                m_game.onMousePressed(MMB, m_input_state);
                 break;
             }
             case RI_MOUSE_MIDDLE_BUTTON_UP:
             {
                 m_input_state.mouse &= ~MMB;
-                m_game_engine.onMouseReleased(MMB, m_input_state);
+                m_game.onMouseReleased(MMB, m_input_state);
                 break;
             }
             case RI_MOUSE_WHEEL:
@@ -505,11 +505,11 @@ LRESULT Window::EventHandler(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                 if(delta > 0)
                 {
-                    m_game_engine.onMouseScrolledUp(m_input_state);
+                    m_game.onMouseScrolledUp(m_input_state);
                 }
                 else if(delta < 0)
                 {
-                    m_game_engine.onMouseScrolledDown(m_input_state);
+                    m_game.onMouseScrolledDown(m_input_state);
                 }
 
                 break;
@@ -596,7 +596,7 @@ LRESULT Window::EventHandler(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         m_input_state.cursor_pos = vec2(x, y);
         m_input_state.caps_lock = GetKeyState(VK_CAPITAL) & 1;
 
-        m_game_engine.onMouseMoved(cursor_delta, m_input_state);
+        m_game.onMouseMoved(cursor_delta, m_input_state);
 
         return 0;
     }
@@ -631,7 +631,7 @@ LRESULT Window::EventHandler(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         if((m_width != old_width) || (m_height != old_height))
         {
-            m_game_engine.onWindowResize(m_width, m_height);
+            m_game.onWindowResize(m_width, m_height);
         }
 
         return 0;
@@ -676,7 +676,7 @@ LRESULT Window::EventHandler(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     }
     case WM_DESTROY:
     {
-        m_game_engine.onWindowDestroy();
+        m_game.onWindowDestroy();
         return 0;
     }
     default:

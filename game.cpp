@@ -1,4 +1,4 @@
-#include "game_engine.h"
+#include "game.h"
 #include "game_utils.h"
 
 #include <sstream>
@@ -6,14 +6,14 @@
 #include <numeric>
 #include <algorithm>
 
-void GameEngine::setDefaultIni()
+void Game::setDefaultIni()
 {
     m_init_params.res_x = 1280;
     m_init_params.res_y = 720;
     m_init_params.vsync = true;
 }
 
-void GameEngine::writeIni()
+void Game::writeIni()
 {
     std::ofstream ini(ini_filename);
     //TODO: check if file correctly opened
@@ -22,7 +22,7 @@ void GameEngine::writeIni()
     ini << "res_y=" << m_init_params.res_y << std::endl;
 }
 
-void GameEngine::parseIni()
+void Game::parseIni()
 {
     setDefaultIni();
 
@@ -88,7 +88,7 @@ void GameEngine::parseIni()
     writeIni();
 }
 
-GameEngine::GameEngine()
+Game::Game()
 {
     parseIni();
 
@@ -126,7 +126,7 @@ GameEngine::GameEngine()
 #endif
 }
 
-void GameEngine::updateFpsLabel()
+void Game::updateFpsLabel()
 {
     static auto interval_start = std::chrono::steady_clock::now();
     static double dt = 0.0;
@@ -141,7 +141,7 @@ void GameEngine::updateFpsLabel()
     m_fps_label->setText(std::format("Fps: {} | {:.2f}ms", m_timer.getFps(), dt * 1000.0));
 }
 
-void GameEngine::processConsoleCmd(const std::string& text)
+void Game::processConsoleCmd(const std::string& text)
 {
     /*split command string into individual words*/
     std::vector<std::string> words;
@@ -228,7 +228,7 @@ void GameEngine::processConsoleCmd(const std::string& text)
     m_console->print(words[0] + ": unknown command.");
 }
 
-void GameEngine::run()
+void Game::run()
 {
     m_window->show();
     m_window->lockCursor();
@@ -306,17 +306,17 @@ void GameEngine::run()
     }
 }
 
-void GameEngine::stop() noexcept
+void Game::stop() noexcept
 {
     m_stop = true;
 }
 
-void GameEngine::onWindowDestroy() noexcept
+void Game::onWindowDestroy() noexcept
 {
     stop();
 }
 
-void GameEngine::onWindowResize(uint32_t width, uint32_t height) noexcept
+void Game::onWindowResize(uint32_t width, uint32_t height) noexcept
 {
     if((0 == width) || (0 == height))
     {
@@ -338,7 +338,7 @@ void GameEngine::onWindowResize(uint32_t width, uint32_t height) noexcept
 
 /*--------------------------------------- input handling -----------------------------------------*/
 
-void GameEngine::onKeyPressed(Key key, const InputState& input_state)
+void Game::onKeyPressed(Key key, const InputState& input_state)
 {
     if(input_state.ctrl())
     {
@@ -400,7 +400,7 @@ void GameEngine::onKeyPressed(Key key, const InputState& input_state)
     }
 }
 
-void GameEngine::onKeyReleased(Key key, const InputState& input_state)
+void Game::onKeyReleased(Key key, const InputState& input_state)
 {
 #if EDITOR_ENABLE
     if(m_edit_mode)
@@ -414,7 +414,7 @@ void GameEngine::onKeyReleased(Key key, const InputState& input_state)
     }
 }
 
-void GameEngine::onMousePressed(MouseButton mb, const InputState& input_state)
+void Game::onMousePressed(MouseButton mb, const InputState& input_state)
 {
     if(m_console_active)
     {
@@ -434,7 +434,7 @@ void GameEngine::onMousePressed(MouseButton mb, const InputState& input_state)
     }
 }
 
-void GameEngine::onMouseReleased(MouseButton mb, const InputState& input_state)
+void Game::onMouseReleased(MouseButton mb, const InputState& input_state)
 {
 #if EDITOR_ENABLE
     if(m_edit_mode)
@@ -448,7 +448,7 @@ void GameEngine::onMouseReleased(MouseButton mb, const InputState& input_state)
     }
 }
 
-void GameEngine::onMouseMoved(vec2 cursor_delta, const InputState& input_state)
+void Game::onMouseMoved(vec2 cursor_delta, const InputState& input_state)
 {
 #if EDITOR_ENABLE
     if(m_edit_mode)
@@ -462,7 +462,7 @@ void GameEngine::onMouseMoved(vec2 cursor_delta, const InputState& input_state)
     }
 }
 
-void GameEngine::onMouseScrolledUp(const InputState& input_state)
+void Game::onMouseScrolledUp(const InputState& input_state)
 {
 #if EDITOR_ENABLE
     if(m_edit_mode)
@@ -476,7 +476,7 @@ void GameEngine::onMouseScrolledUp(const InputState& input_state)
     }
 }
 
-void GameEngine::onMouseScrolledDown(const InputState& input_state)
+void Game::onMouseScrolledDown(const InputState& input_state)
 {
 #if EDITOR_ENABLE
     if(m_edit_mode)

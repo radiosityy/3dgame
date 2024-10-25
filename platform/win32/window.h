@@ -5,12 +5,12 @@
 #include <memory>
 #include "input_state.h"
 
-class GameEngine;
+class Game;
 
 class Window
 {
 public:
-    Window(GameEngine& game_engine, std::string_view app_name, uint16_t width = 1024, uint16_t height = 720);
+    Window(Game& game, std::string_view app_name, uint16_t width = 1024, uint16_t height = 720);
     ~Window();
 
     Window(const Window&) = delete;
@@ -52,7 +52,7 @@ private:
     uint32_t m_width;
     uint32_t m_height;
 
-    GameEngine& m_game_engine;
+    Game& m_game;
     HWND m_hwnd;
     HINSTANCE m_hinstance;
 

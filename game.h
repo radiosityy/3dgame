@@ -1,5 +1,5 @@
-#ifndef GAME_ENGINE_H
-#define GAME_ENGINE_H
+#ifndef GAME_H
+#define GAME_H
 
 #include "window.h"
 #include "renderer.h"
@@ -11,15 +11,15 @@
 #include "editor/editor.h"
 #endif
 
-class GameEngine
+class Game
 {
 public:
-    GameEngine();
+    Game();
 
-    GameEngine(const GameEngine&) = delete;
-    GameEngine(const GameEngine&&) = delete;
-    GameEngine& operator=(const GameEngine&) = delete;
-    GameEngine& operator=(const GameEngine&&) = delete;
+    Game(const Game&) = delete;
+    Game(const Game&&) = delete;
+    Game& operator=(const Game&) = delete;
+    Game& operator=(const Game&&) = delete;
 
     void run();
 
@@ -83,4 +83,4 @@ private:
     constexpr static float max_frametime = 0.05f;
 };
 
-#endif // GAME_ENGINE_H
+#endif // GAME_H

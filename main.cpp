@@ -1,16 +1,16 @@
-#include "game_engine.h"
+#include "game.h"
 #include "game_utils.h"
 
 int main()
 {
 #if DEBUG
-    GameEngine game_engine;
-    game_engine.run();
+    Game game;
+    game.run();
 #else
     try
     {
-        GameEngine game_engine;
-        game_engine.run();
+        GameEngine game;
+        game.run();
     }
     catch(std::exception& e)
     {
