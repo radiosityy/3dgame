@@ -45,23 +45,28 @@ struct alignas(16) DirLightShaderData
 {
     DirLightShaderData() = default;
     DirLightShaderData(const DirLight& dir_light)
-    {
-        //TODO(HACK): we should probably copy field by field, but this works (I think?)
-        std::memcpy(this, &dir_light, sizeof(DirLight) - 8);
-    }
+        : color(dir_light.color)
+        , dir(dir_light.dir)
+        , shadow_map_count(dir_light.shadow_map_count)
+        , shadow_map_res_x(dir_light.shadow_map_res_x)
+        , shadow_map_res_y(dir_light.shadow_map_res_y)
+    {}
     DirLightShaderData& operator=(const DirLight& dir_light)
     {
-        //TODO(HACK): we should probably copy field by field, but this works (I think?)
-        std::memcpy(this, &dir_light, sizeof(DirLight) - 8);
+        color = dir_light.color;
+        dir = dir_light.dir;
+        shadow_map_count = dir_light.shadow_map_count;
+        shadow_map_res_x = dir_light.shadow_map_res_x;
+        shadow_map_res_y = dir_light.shadow_map_res_y;
         return *this;
     }
 
-    vec3 color;
-    alignas(16) vec3 dir;
-    uint32_t shadow_map_count; //0, if light doesn't cast shadows
-    uint32_t shadow_map_res_x;
-    uint32_t shadow_map_res_y;
-    uint32_t shadow_map_id;
+    vec3 color = vec3(0.0f, 0.0f, 0.0f);
+    alignas(16) vec3 dir = vec3(0.0f, 0.0f, 0.0f);
+    uint32_t shadow_map_count = 0; //0, if light doesn't cast shadows
+    uint32_t shadow_map_res_x = 0;
+    uint32_t shadow_map_res_y = 0;
+    uint32_t shadow_map_id = 0;
 };
 static_assert(sizeof(DirLight) == sizeof(DirLightShaderData));
 
@@ -69,27 +74,34 @@ struct alignas(16) PointLightShaderData
 {
     PointLightShaderData() = default;
     PointLightShaderData(const PointLight& point_light)
-    {
-        //TODO(HACK): we should probably copy field by field, but this works (I think?)
-        std::memcpy(this, &point_light, sizeof(PointLight) - 4);
-        color = color * point_light.power;
-    }
+        : color(point_light.color * point_light.power)
+        , max_d(point_light.max_d)
+        , pos(point_light.pos)
+        , shadow_map_res(point_light.shadow_map_res)
+        , a0(point_light.a0)
+        , a1(point_light.a1)
+        , a2(point_light.a2)
+    {}
     PointLightShaderData& operator=(const PointLight& point_light)
     {
-        //TODO(HACK): we should probably copy field by field, but this works (I think?)
-        std::memcpy(this, &point_light, sizeof(PointLight) - 4);
-        color = color * point_light.power;
+        color = point_light.color * point_light.power;
+        max_d = point_light.max_d;
+        pos = point_light.pos;
+        shadow_map_res = point_light.shadow_map_res;
+        a0 = point_light.a0;
+        a1 = point_light.a1;
+        a2 = point_light.a2;
         return *this;
     }
 
-    vec3 color;
-    float max_d;
-    vec3 pos;
+    vec3 color = vec3(0.0f, 0.0f, 0.0f);
+    float max_d = 0.0f;
+    vec3 pos = vec3(0.0f, 0.0f, 0.0f);
     uint32_t shadow_map_res = 0; //0, if light doesn't cast shadows
-    float a0;
-    float a1;
-    float a2;
-    uint32_t shadow_map_id;
+    float a0 = 0.0f;
+    float a1 = 0.0f;
+    float a2 = 0.0f;
+    uint32_t shadow_map_id = 0;
 };
 static_assert(sizeof(PointLight) == sizeof(PointLightShaderData));
 
