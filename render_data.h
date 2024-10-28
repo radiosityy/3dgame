@@ -9,7 +9,6 @@
 enum class RenderMode
 {
     Default,
-    Sky,
     Terrain,
     DirShadowMap,
     PointShadowMap,
@@ -37,9 +36,6 @@ constexpr uint32_t RENDER_MODE_UI_COUNT = static_cast<uint32_t>(RenderModeUi::Co
 
 struct RenderData
 {
-    vec3 visual_sun_pos;
-    vec3 effective_sun_pos;
-    float sun_radius;
     //TODO:remove this from here and make all classes setup render data, push constants etc. by themselves (as part of render modes code?)
     vec3 cur_terrain_pos;
     bool cur_terrain_intersection;

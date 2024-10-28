@@ -19,7 +19,7 @@ const Camera& Editor::camera() noexcept
     return m_camera;
 }
 
-void Editor::update(const InputState& input_state, float dt, bool process_input)
+void Editor::update(float dt, const InputState& input_state, bool process_input)
 {
     if(Mode::Terrain == m_mode)
     {
@@ -219,7 +219,7 @@ PointLight& Editor::selectedPointLight()
 
 void Editor::openObjectAddPanel()
 {
-    m_object_add_panel = addChild(std::make_unique<ObjectAddPanel>(m_renderer, 400.0f, 400.0f, m_scene, m_font));
+    m_object_add_panel = addChild(std::make_unique<ObjectAddPanel>(m_renderer, m_scene, m_camera, 400.0f, 400.0f, m_font));
     setKeyboardFocus(m_object_add_panel);
 }
 

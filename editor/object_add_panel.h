@@ -8,7 +8,7 @@
 class ObjectAddPanel : public GuiParentObject
 {
 public:
-    ObjectAddPanel(Renderer& renderer, float x, float y, Scene& scene, const Font& font);
+    ObjectAddPanel(Renderer& renderer, Scene& scene, Camera& camera, float x, float y, const Font& font);
 
     virtual bool onKeyPressedIntercept(Key, const InputState&) override;
     virtual void setScissor(Quad scissor) override;
@@ -23,6 +23,7 @@ private:
 
     Renderer& m_renderer;
     Scene& m_scene;
+    Camera& m_camera;
     const Font* m_font = nullptr;
 
     float m_x;

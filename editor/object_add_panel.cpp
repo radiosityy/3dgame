@@ -4,9 +4,10 @@
 #include <filesystem>
 #include <print>
 
-ObjectAddPanel::ObjectAddPanel(Renderer& renderer, float x, float y, Scene& scene, const Font& font)
+ObjectAddPanel::ObjectAddPanel(Renderer& renderer, Scene& scene, Camera& camera, float x, float y, const Font& font)
     : m_renderer(renderer)
     , m_scene(scene)
+    , m_camera(camera)
     , m_font(&font)
     , m_x(x)
     , m_y(y)
@@ -108,7 +109,7 @@ void ObjectAddPanel::onGotFocus()
 void ObjectAddPanel::addObject(std::string_view mesh_filename)
 {
     const std::string mesh_file_path = std::string("assets/meshes/") + mesh_filename.data();
-    const vec3 object_pos = m_scene.camera().pos() + 10.0f * m_scene.camera().forward();
+    const vec3 object_pos = m_camera.pos() + 10.0f * m_camera.forward();
 
     try
     {

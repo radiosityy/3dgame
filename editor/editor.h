@@ -7,7 +7,7 @@
 #include "point_light_edit_panel.h"
 #include "object_add_panel.h"
 
-class Editor : public GuiParent
+class Editor final : public GuiParent
 {
     enum class Mode
     {
@@ -28,12 +28,10 @@ class Editor : public GuiParent
 
 public:
     Editor(uint32_t window_width, uint32_t window_height, Scene& scene, Renderer& renderer, const Font& font);
-    //TODO: this destructor declaration is not needed?
-    virtual ~Editor() = default;
 
     const Camera& camera() noexcept;
 
-    void update(const InputState& input_state, float dt, bool process_input);
+    void update(float dt, const InputState& input_state, bool process_input);
     void draw(RenderData&);
     void onWindowResize(uint32_t width, uint32_t height);
 

@@ -14,7 +14,6 @@
 constexpr auto VS_QUAD_FILENAME = "shaders/vs_quad.spv";
 constexpr auto VS_DEFAULT_FILENAME = "shaders/vs_default.spv";
 constexpr auto VS_BILLBOARD_FILENAME = "shaders/vs_billboard.spv";
-constexpr auto VS_SKY_FILENAME = "shaders/vs_sky.spv";
 constexpr auto VS_SHADOWMAP_FILENAME = "shaders/vs_shadowmap.spv";
 constexpr auto VS_HIGHLIGHT_FILENAME = "shaders/vs_highlight.spv";
 constexpr auto VS_TERRAIN_FILENAME = "shaders/vs_terrain.spv";
@@ -36,7 +35,6 @@ constexpr auto FS_UI_FILENAME = "shaders/fs_ui.spv";
 constexpr auto FS_FONT_FILENAME = "shaders/fs_font.spv";
 constexpr auto FS_DEFAULT_FILENAME = "shaders/fs_default.spv";
 constexpr auto FS_BILLBOARD_FILENAME = "shaders/fs_billboard.spv";
-constexpr auto FS_SKY_FILENAME = "shaders/fs_sky.spv";
 constexpr auto FS_POINT_SHADOW_MAP_FILENAME = "shaders/fs_point_shadowmap.spv";
 constexpr auto FS_COLOR_FILENAME = "shaders/fs_color.spv";
 constexpr auto FS_TERRAIN_EDITOR_FILENAME = "shaders/fs_terrain_editor.spv";

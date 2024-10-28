@@ -110,7 +110,8 @@ Game::Game()
         processConsoleCmd(text);
     });
 
-    m_scene = std::make_unique<Scene>(*m_renderer, static_cast<float>(m_window->width()) / static_cast<float>(m_window->height()), m_fonts[0]);
+    m_scene = std::make_unique<Scene>(*m_renderer);
+    m_gameplay = std::make_unique<Gameplay>(*m_renderer, *m_scene, static_cast<float>(m_window->width()) / static_cast<float>(m_window->height()));
 
     SceneInitData scene_init_data;
 
@@ -263,7 +264,7 @@ void Game::run()
 #if EDITOR_ENABLE
         if(m_edit_mode)
         {
-            m_editor->update(m_window->inputState(), frametime, !m_console_active);
+            m_editor->update(frametime, m_window->inputState(), !m_console_active);
         }
         else
 #endif
@@ -284,7 +285,7 @@ void Game::run()
         }
 
         RenderData render_data;
-        m_scene->draw(render_data);
+        m_gameplay->draw(render_data);
 #if EDITOR_ENABLE
         if(m_edit_mode)
         {
@@ -328,7 +329,7 @@ void Game::onWindowResize(uint32_t width, uint32_t height) noexcept
 
         m_console->setSize(width, 0.4f * height);
 
-        m_scene->onWindowResize(static_cast<float>(width) / static_cast<float>(height));
+        m_gameplay->onWindowResize(static_cast<float>(width) / static_cast<float>(height));
         m_renderer->onWindowResize(width, height);
 #if EDITOR_ENABLE
         m_editor->onWindowResize(width, height);
@@ -396,7 +397,7 @@ void Game::onKeyPressed(Key key, const InputState& input_state)
     else
 #endif
     {
-        m_scene->onKeyPressed(key, input_state);
+        // m_scene->onKeyPressed(key, input_state);
     }
 }
 
@@ -458,7 +459,7 @@ void Game::onMouseMoved(vec2 cursor_delta, const InputState& input_state)
     else
 #endif
     {
-        m_scene->onMouseMoved(cursor_delta, input_state);
+        // m_scene->onMouseMoved(cursor_delta, input_state);
     }
 }
 
@@ -472,7 +473,7 @@ void Game::onMouseScrolledUp(const InputState& input_state)
     else
 #endif
     {
-        m_scene->onMouseScrolledUp(input_state);
+        // m_scene->onMouseScrolledUp(input_state);
     }
 }
 
@@ -486,6 +487,6 @@ void Game::onMouseScrolledDown(const InputState& input_state)
     else
 #endif
     {
-        m_scene->onMouseScrolledDown(input_state);
+        // m_scene->onMouseScrolledDown(input_state);
     }
 }

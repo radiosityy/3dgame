@@ -4,6 +4,7 @@
 #include "window.h"
 #include "renderer.h"
 #include "scene.h"
+#include "gameplay.h"
 #include "console.h"
 #include "timer.h"
 #include "font.h"
@@ -56,6 +57,7 @@ private:
     std::unique_ptr<Window> m_window;
     std::unique_ptr<Renderer> m_renderer;
     std::unique_ptr<Scene> m_scene;
+    std::unique_ptr<Gameplay> m_gameplay;
     Timer m_timer;
 
     bool m_stop = false;

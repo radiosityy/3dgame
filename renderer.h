@@ -511,19 +511,16 @@ private:
         mat4x4 VP;
         mat4x4 V;
         alignas(16) vec3 camera_pos;
+                    float editor_terrain_tool_inner_radius;
         alignas(16) vec3 camera_up;
-        uint32_t dir_light_count = 0;
-        uint32_t point_light_count = 0;
-        alignas(16) vec3 visual_sun_pos;
-                    float sun_radius;
-        alignas(16) vec3 effective_sun_pos;
+                    float editor_terrain_tool_outer_radius;
         alignas(16) vec3 cur_pos_terrain;
-                    uint32_t cur_terrain_intersection;
         alignas(16) vec2 ui_scale;
                     float terrain_patch_size;
         alignas(16) vec4 editor_highlight_color;
-                    float editor_terrain_tool_inner_radius;
-                    float editor_terrain_tool_outer_radius;
+        uint32_t dir_light_count = 0;
+        uint32_t point_light_count = 0;
+        uint32_t cur_terrain_intersection;
     } m_common_buffer_data;
 
     /*------------------- push constants -----------------*/
