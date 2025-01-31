@@ -1,4 +1,21 @@
 #include "geometry.h"
+#include <format>
+
+std::string to_string(const vec2& v)
+{
+    return std::format("({:.3f},{:.3f})", v.x, v.y);
+}
+
+std::string to_string(const vec3& v)
+{
+
+    return std::format("({:.3f},{:.3f},{:.3f})", v.x, v.y, v.z);
+}
+
+std::string to_string(const vec4& v)
+{
+    return std::format("({:.3f},{:.3f},{:.3f},{:.3f})", v.x, v.y, v.z, v.w);
+}
 
 #if 0
 bool LineSegment::intersects(const LineSegment& rhs) const noexcept

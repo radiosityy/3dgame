@@ -125,6 +125,11 @@ using quat = glm::quat;
 using mat4x4 = glm::mat4x4;
 using mat3x3 = glm::mat3x3;
 
+#include <string>
+std::string to_string(const vec2&);
+std::string to_string(const vec3&);
+std::string to_string(const vec4&);
+
 #else
 template<class T>
 class vector2;

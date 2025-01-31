@@ -4,7 +4,6 @@
 #include "collision.h"
 #include "render_data.h"
 #include <vector>
-#include <map>
 #include "model.h"
 
 class Object
@@ -23,26 +22,14 @@ public:
     const std::vector<Sphere>& spheres() const;
 
     vec3 pos() const;
-    vec3 scale() const;
-    const quat& rot() const;
 
-    vec3 acceleration() const;
     vec3 velocity() const;
-    float rotVelocity() const;
 
+    void setRot(const mat4x4&);
     void setPos(vec3 pos);
     void move(vec3 d);
 
-    void setRotation(quat rot);
-    void rotate(vec3 axis, float a);
-    void rotateX(float a);
-    void rotateY(float a);
-    void rotateZ(float a);
-
-    void setScale(vec3);
-
     void setVelocity(vec3 v);
-    void setAcceleration(vec3 a);
 
     void setVisible(bool);
     bool isVisible() const;
@@ -52,6 +39,17 @@ public:
     void setPose(std::string_view);
 
 #if EDITOR_ENABLE
+    const quat& rotq() const;
+
+    void setRotation(quat rot);
+    void rotate(vec3 axis, float a);
+    void rotateX(float a);
+    void rotateY(float a);
+    void rotateZ(float a);
+
+    vec3 scale() const;
+    void setScale(vec3);
+
     bool isSerializable() const;
     void setSerializable(bool);
     void serialize(std::ofstream& outfile) const;
@@ -66,11 +64,12 @@ protected:
 
     vec3 m_pos = {0.0f, 0.0f, 0.0f};
     vec3 m_scale = {1.0f, 1.0f, 1.0f};
-    quat m_rot = quat(1.0f, 0.0f, 0.0f, 0.0f);
+    mat4x4 m_rot = glm::identity<mat4x4>();
+#if EDITOR_ENABLE
+    quat m_rotq = quat(1.0f, 0.0f, 0.0f, 0.0f);
+#endif
 
-    float m_rot_velocity = 0.0f;
     vec3 m_velocity = {0.0f, 0.0f, 0.0f};
-    vec3 m_acc = {0.0f, 0.0f, 0.0f};
 
     RenderMode m_render_mode = RenderMode::Default;
 

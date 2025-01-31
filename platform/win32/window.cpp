@@ -35,7 +35,7 @@ bool Window::isCursorVisible() const noexcept
     return m_cursor_visible;
 }
 
-void Window::toggleCursorVisible()
+void Window::toggleShowCursor()
 {
     showCursor(!m_cursor_visible);
 }
@@ -50,6 +50,11 @@ void Window::toggleCursorLock()
     {
         lockCursor();
     }
+}
+
+void Window::toggleCursorWrap()
+{
+    wrapCursor(!m_cursor_wrap);
 }
 
 static Window* g_window = nullptr;
@@ -376,6 +381,16 @@ void Window::unlockCursor()
     m_cursor_locked = false;
 }
 
+void Window::wrapCursor(bool cursor_wrap)
+{
+    m_cursor_wrap = cursor_wrap;
+}
+
+void Window::stopCursor(bool stop_cursor)
+{
+    m_cursor_stopped = stop_cursor;
+}
+
 LRESULT Window::EventHandler(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch(uMsg)
@@ -453,8 +468,9 @@ LRESULT Window::EventHandler(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
             else
             {
+                const bool repeated = m_input_state.keyboard[key];
                 m_input_state.keyboard[key] = true;
-                m_game.onKeyPressed(key, m_input_state);
+                m_game.onKeyPressed(key, m_input_state, repeated);
             }
         }
         //Manage mouse input
@@ -559,42 +575,50 @@ LRESULT Window::EventHandler(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             cursor_delta = vec2(x, y) - m_input_state.cursor_pos;
         }
 
-        /*wrap cursor if locked*/
-        if(m_cursor_locked)
+        if(m_cursor_stopped)
         {
-            bool wrap = false;
-
-            if(x == 0)
-            {
-                x = m_width - 2;
-                wrap = true;
-            }
-            else if(x == m_width - 1)
-            {
-                x = 1;
-                wrap = true;
-            }
-
-            if(y == 0)
-            {
-                y = m_height - 2;
-                wrap = true;
-            }
-            else if(y == m_height - 1)
-            {
-                y = 1;
-                wrap = true;
-            }
-
-            if(wrap)
-            {
-                m_ignore_next_mouse_move_event = true;
-                SetCursorPos(static_cast<int>(x) + m_x, static_cast<int>(y) + m_y);
-            }
+            m_ignore_next_mouse_move_event = true;
+            SetCursorPos(m_x + m_input_state.cursor_pos.x, m_y + m_input_state.cursor_pos.y);
         }
+        else
+        {
+            if(m_cursor_wrap)
+            {
+                bool wrap = false;
 
-        m_input_state.cursor_pos = vec2(x, y);
-        m_input_state.caps_lock = GetKeyState(VK_CAPITAL) & 1;
+                if(x == 0)
+                {
+                    x = m_width - 2;
+                    wrap = true;
+                }
+                else if(x == m_width - 1)
+                {
+                    x = 1;
+                    wrap = true;
+                }
+
+                if(y == 0)
+                {
+                    y = m_height - 2;
+                    wrap = true;
+                }
+                else if(y == m_height - 1)
+                {
+                    y = 1;
+                    wrap = true;
+                }
+
+                if(wrap)
+                {
+                    m_ignore_next_mouse_move_event = true;
+                    SetCursorPos(static_cast<int>(x) + m_x, static_cast<int>(y) + m_y);
+                }
+            }
+
+            m_input_state.cursor_pos = vec2(x, y);
+            //TODO: why update capslock???
+            m_input_state.caps_lock = GetKeyState(VK_CAPITAL) & 1;
+        }
 
         m_game.onMouseMoved(cursor_delta, m_input_state);
 

@@ -10,7 +10,7 @@ Object::Object(Renderer& renderer, std::ifstream& scene_file)
     scene_file.read(reinterpret_cast<char*>(&m_render_mode), sizeof(RenderMode));
     scene_file.read(reinterpret_cast<char*>(&m_pos), sizeof(vec3));
     scene_file.read(reinterpret_cast<char*>(&m_scale), sizeof(vec3));
-    scene_file.read(reinterpret_cast<char*>(&m_rot), sizeof(quat));
+    scene_file.read(reinterpret_cast<char*>(&m_rotq), sizeof(quat));
 
     m_model = std::make_unique<Model>(renderer, model_filename);
     m_instance_data.resize(m_model->mehes().size());
@@ -29,7 +29,7 @@ Object::Object(Renderer& renderer, std::ifstream& scene_file)
 Object::Object(Renderer& renderer, std::string_view model_filename, RenderMode render_mode, vec3 pos, vec3 scale, quat rot)
     : m_pos(pos)
     , m_scale(scale)
-    , m_rot(rot)
+    , m_rotq(rot)
     , m_render_mode(render_mode)
 #if EDITOR_ENABLE
     , m_model_filename(model_filename)
@@ -65,7 +65,8 @@ void Object::draw(Renderer& renderer)
        const auto& mesh = m_model->mehes()[i];
 
        //TODO: only update instance data if the instance data has really changed (measure if any performance boost)
-       m_instance_data[i].W = glm::translate(m_pos) * mat4_cast(m_rot) * glm::scale(m_scale);
+       //TODO: for translation, don't multiply, but directly set the row/column corresponding to translation
+       m_instance_data[i].W = glm::translate(m_pos) * m_rot * glm::scale(m_scale);
        m_instance_data[i].tex_id = mesh.textureId();
        m_instance_data[i].normal_map_id = mesh.normalMapId();
 
@@ -108,29 +109,14 @@ vec3 Object::pos() const
     return m_pos;
 }
 
-vec3 Object::scale() const
-{
-    return m_scale;
-}
-
-const quat& Object::rot() const
-{
-    return m_rot;
-}
-
-vec3 Object::acceleration() const
-{
-    return m_acc;
-}
-
 vec3 Object::velocity() const
 {
     return m_velocity;
 }
 
-float Object::rotVelocity() const
+void Object::setRot(const mat4x4& rot)
 {
-    return m_rot_velocity;
+    m_rot = rot;
 }
 
 void Object::setPos(vec3 pos)
@@ -143,44 +129,9 @@ void Object::move(vec3 d)
     m_pos += d;
 }
 
-void Object::setRotation(quat rot)
-{
-    m_rot = rot;
-}
-
-void Object::rotate(vec3 axis, float a)
-{
-    m_rot = normalize(glm::rotate(m_rot, a, axis));
-}
-
-void Object::rotateX(float a)
-{
-    rotate(vec3(1.0f, 0.0f, 0.0f), a);
-}
-
-void Object::rotateY(float a)
-{
-    rotate(vec3(0.0f, 1.0f, 0.0f), a);
-}
-
-void Object::rotateZ(float a)
-{
-    rotate(vec3(0.0f, 0.0f, 1.0f), a);
-}
-
-void Object::setScale(vec3 scale)
-{
-    m_scale = scale;
-}
-
 void Object::setVelocity(vec3 v)
 {
     m_velocity = v;
-}
-
-void Object::setAcceleration(vec3 a)
-{
-    m_acc = a;
 }
 
 void Object::setVisible(bool visible)
@@ -210,6 +161,49 @@ void Object::setPose(std::string_view pose_name)
 
 #if EDITOR_ENABLE
 
+const quat& Object::rotq() const
+{
+    return m_rotq;
+}
+
+void Object::setRotation(quat rot)
+{
+    m_rotq = rot;
+    m_rot = mat4_cast(m_rotq);
+}
+
+void Object::rotate(vec3 axis, float a)
+{
+    //TODO: is normalize needed here?
+    m_rotq = normalize(glm::rotate(m_rotq, a, axis));
+    m_rot = mat4_cast(m_rotq);
+}
+
+void Object::rotateX(float a)
+{
+    rotate(vec3(1.0f, 0.0f, 0.0f), a);
+}
+
+void Object::rotateY(float a)
+{
+    rotate(vec3(0.0f, 1.0f, 0.0f), a);
+}
+
+void Object::rotateZ(float a)
+{
+    rotate(vec3(0.0f, 0.0f, 1.0f), a);
+}
+
+vec3 Object::scale() const
+{
+    return m_scale;
+}
+
+void Object::setScale(vec3 scale)
+{
+    m_scale = scale;
+}
+
 bool Object::isSerializable() const
 {
     return m_serialiable;
@@ -228,7 +222,7 @@ void Object::serialize(std::ofstream& outfile) const
     outfile.write(reinterpret_cast<const char*>(&m_render_mode), sizeof(RenderMode));
     outfile.write(reinterpret_cast<const char*>(&m_pos), sizeof(vec3));
     outfile.write(reinterpret_cast<const char*>(&m_scale), sizeof(vec3));
-    outfile.write(reinterpret_cast<const char*>(&m_rot), sizeof(quat));
+    outfile.write(reinterpret_cast<const char*>(&m_rotq), sizeof(quat));
 }
 
 void Object::drawHighlight(Renderer& renderer)
@@ -242,7 +236,7 @@ void Object::drawHighlight(Renderer& renderer)
 bool Object::rayIntersetion(const Ray& rayW, float min_d, float& d) const
 {
     //TODO: maybe we already have this calculated and don't have to recalulate here?
-    const auto rot = mat4_cast(m_rot);
+    const auto rot = mat4_cast(m_rotq);
     const mat4x4 W = glm::translate(m_pos) * rot * glm::scale(m_scale);
 
     //TODO:if we're going to calculate W here than we can directly calculate the inverse

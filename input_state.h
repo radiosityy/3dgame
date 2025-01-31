@@ -36,6 +36,11 @@ struct InputState
         return mouse & LMB;
     }
 
+    bool mmb() const noexcept
+    {
+        return mouse & MMB;
+    }
+
     std::array<bool, 256> keyboard = {};
     MouseButton mouse = 0;
     bool caps_lock = false;

@@ -23,11 +23,16 @@ public:
     void show();
 
     void showCursor(bool);
-    void toggleCursorVisible();
+    void toggleShowCursor();
 
     void lockCursor();
     void unlockCursor();
     void toggleCursorLock();
+
+    void wrapCursor(bool);
+    void toggleCursorWrap();
+
+    void stopCursor(bool);
 
     void handleEvents();
 
@@ -61,9 +66,11 @@ private:
 
     bool m_has_focus = false;
     bool m_cursor_visible = true;
-    bool m_cursor_locked = false;
     bool m_cursor_visible_backup = m_cursor_visible;
+    bool m_cursor_locked = false;
     bool m_cursor_locked_backup = m_cursor_locked;
+    bool m_cursor_wrap = false;
+    bool m_cursor_stopped = false;
 
     bool m_ignore_next_mouse_move_event = false;
 

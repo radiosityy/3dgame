@@ -111,7 +111,7 @@ Game::Game()
     });
 
     m_scene = std::make_unique<Scene>(*m_renderer);
-    m_gameplay = std::make_unique<Gameplay>(*m_renderer, *m_scene, static_cast<float>(m_window->width()) / static_cast<float>(m_window->height()));
+    m_gameplay = std::make_unique<Gameplay>(*m_window, *m_renderer, *m_scene, m_fonts[0]);
 
     SceneInitData scene_init_data;
 
@@ -233,11 +233,10 @@ void Game::run()
 {
     m_window->show();
     m_window->lockCursor();
-    m_window->showCursor(false);
 
 #if EDITOR_ENABLE
     m_edit_mode = true;
-    m_window->showCursor(true);
+    m_window->wrapCursor(true);
 #endif
 
     m_timer.reset();
@@ -273,11 +272,13 @@ void Game::run()
             {
                 if(sim_frametime > dt)
                 {
+                    m_gameplay->update(dt, m_window->inputState(), !m_console_active);
                     m_scene->update(dt, m_window->inputState());
                     sim_frametime -= dt;
                 }
                 else
                 {
+                    m_gameplay->update(sim_frametime, m_window->inputState(), !m_console_active);
                     m_scene->update(sim_frametime, m_window->inputState());
                     break;
                 }
@@ -285,13 +286,14 @@ void Game::run()
         }
 
         RenderData render_data;
-        m_gameplay->draw(render_data);
 #if EDITOR_ENABLE
         if(m_edit_mode)
         {
             m_editor->draw(render_data);
         }
+        else
 #endif
+        m_gameplay->draw(render_data);
 
         updateFpsLabel();
         m_fps_label->update(*m_renderer);
@@ -303,7 +305,14 @@ void Game::run()
             m_console->draw(*m_renderer);
         }
 
-        m_renderer->updateAndRender(render_data, m_editor->camera());
+#if EDITOR_ENABLE
+        if(m_edit_mode)
+        {
+            m_renderer->updateAndRender(render_data, m_editor->camera());
+        }
+        else
+#endif
+        m_renderer->updateAndRender(render_data, m_gameplay->camera());
     }
 }
 
@@ -329,7 +338,7 @@ void Game::onWindowResize(uint32_t width, uint32_t height) noexcept
 
         m_console->setSize(width, 0.4f * height);
 
-        m_gameplay->onWindowResize(static_cast<float>(width) / static_cast<float>(height));
+        m_gameplay->onWindowResize(width, height);
         m_renderer->onWindowResize(width, height);
 #if EDITOR_ENABLE
         m_editor->onWindowResize(width, height);
@@ -339,7 +348,7 @@ void Game::onWindowResize(uint32_t width, uint32_t height) noexcept
 
 /*--------------------------------------- input handling -----------------------------------------*/
 
-void Game::onKeyPressed(Key key, const InputState& input_state)
+void Game::onKeyPressed(Key key, const InputState& input_state, bool repeated)
 {
     if(input_state.ctrl())
     {
@@ -384,7 +393,7 @@ void Game::onKeyPressed(Key key, const InputState& input_state)
     if(key == VKeyF2)
     {
         m_edit_mode = !m_edit_mode;
-        m_window->showCursor(m_edit_mode);
+        m_window->wrapCursor(m_edit_mode);
         return;
     }
 #endif
@@ -397,7 +406,7 @@ void Game::onKeyPressed(Key key, const InputState& input_state)
     else
 #endif
     {
-        // m_scene->onKeyPressed(key, input_state);
+        m_gameplay->onKeyPressed(key, input_state, repeated);
     }
 }
 
@@ -411,7 +420,7 @@ void Game::onKeyReleased(Key key, const InputState& input_state)
     else
 #endif
     {
-        // m_scene->onKeyReleased(key, input_state);
+        m_gameplay->onKeyReleased(key, input_state);
     }
 }
 
@@ -431,7 +440,7 @@ void Game::onMousePressed(MouseButton mb, const InputState& input_state)
     else
 #endif
     {
-        // m_scene->onMousePressed(mb, input_state);
+        m_gameplay->onMousePressed(mb, input_state);
     }
 }
 
@@ -445,7 +454,7 @@ void Game::onMouseReleased(MouseButton mb, const InputState& input_state)
     else
 #endif
     {
-        // m_scene->onMouseReleased(mb, input_state);
+        m_gameplay->onMouseReleased(mb, input_state);
     }
 }
 
@@ -459,7 +468,7 @@ void Game::onMouseMoved(vec2 cursor_delta, const InputState& input_state)
     else
 #endif
     {
-        // m_scene->onMouseMoved(cursor_delta, input_state);
+        m_gameplay->onMouseMoved(cursor_delta, input_state);
     }
 }
 

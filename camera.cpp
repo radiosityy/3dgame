@@ -53,6 +53,8 @@ void Camera::setBasis(vec3 forward, vec3 up, vec3 right) noexcept
     m_up = up;
     m_right = right;
 
+    //TODO: can directly set view matrix (and other matrices as well) from these basis vectors and not set m_dirty view
+    //      and not force more complicated matrix computation later
     m_dirty_view = true;
 }
 

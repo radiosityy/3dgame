@@ -24,7 +24,7 @@ public:
 
     void run();
 
-    void onKeyPressed(Key, const InputState&);
+    void onKeyPressed(Key, const InputState&, bool);
     void onKeyReleased(Key, const InputState&);
     void onMousePressed(MouseButton mb, const InputState&);
     void onMouseReleased(MouseButton mb, const InputState&);

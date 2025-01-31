@@ -337,7 +337,7 @@ void Editor::onKeyPressedImpl(Key key, const InputState& input_state)
                 if(m_selected_object)
                 {
                     m_mode = Mode::Rotate;
-                    m_original_rot = m_selected_object->rot();
+                    m_original_rot = m_selected_object->rotq();
                     m_rot_cursor_pos = input_state.cursor_pos - vec2(m_window_width / 2.0f, m_window_height / 2.0f);
                 }
                 return;

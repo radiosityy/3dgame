@@ -8,16 +8,22 @@
 class Gameplay
 {
 public:
-    Gameplay(Renderer& renderer, Scene& scene, float aspect_ratio);
+    Gameplay(Window& window, Renderer& renderer, Scene& scene, Font& font);
 
     const Camera& camera() const noexcept;
 
-    void onWindowResize(float aspect_ratio) noexcept;
+    void onWindowResize(uint32_t window_width, uint32_t window_height) noexcept;
+    void onKeyPressed(Key, const InputState&, bool);
+    void onKeyReleased(Key, const InputState&);
+    void onMousePressed(MouseButton mb, const InputState&);
+    void onMouseReleased(MouseButton mb, const InputState&);
+    void onMouseMoved(vec2, const InputState&);
 
     void update(float dt, const InputState& input_state, bool process_input);
     void draw(RenderData& render_data);
 
 private:
+    Window& m_window;
     Camera m_camera;
     Renderer& m_renderer;
     Scene& m_scene;
@@ -34,6 +40,8 @@ private:
     /*--- Player ---*/
     std::unique_ptr<Player> m_player;
     bool m_player_movement = true;
+
+    constexpr static float cam_distance = 30.0f;
 };
 
 #endif //GAMEPLAY_H
