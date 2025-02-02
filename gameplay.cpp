@@ -146,7 +146,7 @@ void Gameplay::onMouseMoved(vec2 d, const InputState& input_state)
         const float a = 5.0f * d.x / static_cast<float>(m_window.width());
         const vec3 cam_forward = glm::rotateY(m_camera.forward(), a);
         const vec3 cam_up = glm::rotateY(m_camera.up(), a);
-        m_camera.setBasis(cam_forward, cam_up, glm::cross(cam_forward, cam_up));
+        m_camera.setBasis(cam_forward, cam_up, glm::cross(cam_up, cam_forward));
         m_camera.setPos(m_player->pos() - cam_distance * cam_forward);
         m_player->setWalkDir(glm::rotateY(m_player->walkDir(), a));
     }
