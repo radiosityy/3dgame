@@ -291,7 +291,6 @@ void Game::run()
         {
             m_editor->draw(render_data);
         }
-        else
 #endif
         m_gameplay->draw(render_data);
 

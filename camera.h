@@ -11,36 +11,23 @@ class Camera
 public:
     Camera(float ratio, float n, float f, float hfov);
 
-    /*explicitly disable copy and move operations*/
     Camera (const Camera&) = delete;
     Camera& operator=(const Camera&) = delete;
     Camera (Camera&&) = delete;
     Camera& operator=(Camera&&) = delete;
 
-    /*moves camera forward and backward*/
     void walk(float d) noexcept;
-    /*moves camera left and right*/
     void strafe(float d) noexcept;
-    /*rotates camera up and down*/
     void pitch(float angle) noexcept;
-    /*rotates camera left and right*/
     void rotate(float angle) noexcept;
-    /*tilts camera up or down*/
     void tilt(float d) noexcept;
 
-    /*sets camera position*/
     void setPos(vec3) noexcept;
-    /*sets camera basis vectors*/
     void setBasis(vec3 forward, vec3 up, vec3 right) noexcept;
-    /*set camera's horizontal FOV angle*/
     void setHFOV(float) noexcept;
-    /*set camera's vertical FOV angle*/
     void setVFOV(float) noexcept;
-    /*set near plane*/
     void setNear(float) noexcept;
-    /*set far plane*/
     void setFar(float) noexcept;
-    /*sets aspect ratio (width/height)*/
     void setAspectRatio(float) noexcept;
 
     float hvof() const noexcept;
@@ -52,12 +39,9 @@ public:
     std::array<vec3, 8> viewFrustumPointsW() const noexcept;
     std::array<vec4, 6> viewFrustumPlanesW() const noexcept;
 
-    /*updates and returns ViewProjection matrix*/
     mat4x4 VP() const noexcept;
-    /*updates and returns View matrix*/
     const mat4x4& V() const noexcept;
     const mat4x4& invV() const noexcept;
-    /*updates and returns Projection matrix*/
     const mat4x4& P() noexcept;
 
     const vec3& pos() const noexcept;
@@ -71,32 +55,24 @@ private:
     void updateView() const noexcept;
     void updateProj() const noexcept;
 
-    /*flag whether proj matrix needs to be updated*/
-    mutable bool m_dirty_view;
+    mutable bool m_dirty_view = true;
 
-    /*view and projection matrices*/
-    mutable mat4x4 m_view;
-    mutable mat4x4 m_inv_view;
-    mutable mat4x4 m_proj;
+    mutable mat4x4 m_view = glm::identity<mat4x4>();
+    mutable mat4x4 m_inv_view = glm::identity<mat4x4>();
+    mutable mat4x4 m_proj = glm::identity<mat4x4>();
 
-    /*camera position*/
-    vec3 m_pos;
-    /*camera forward unit vector*/
-    vec3 m_forward;
-    /*camera up unit vector*/
-    vec3 m_up;
-    /*camera right unit vector*/
-    vec3 m_right;
+    vec3 m_pos = vec3(0.0f, 0.0f, 0.0f);
+    vec3 m_forward = vec3(0.0f, 0.0f, 1.0f);
+    vec3 m_right = vec3(1.0f, 0.0f, 0.0f);
+    vec3 m_up = vec3(0.0f, 1.0f, 0.0f);
 
-    /*near plane*/
-    float m_near;
-    /*far plane*/
-    float m_far;
-    /*FOV angles*/
-    float m_vfov;
-    float m_hfov;
-    /*aspect ratio (width/height)*/
-    float m_aspect_ratio;
+    float m_aspect_ratio = 1.0f;
+    float m_near = 1.0f;
+    float m_far = 10.0f;
+    float m_hfov = 1.0f;
+    float m_vfov = 1.0f;
+
+    float m_img_plane_distance = 0.0f;
 };
 
 #endif //CAMERA_H

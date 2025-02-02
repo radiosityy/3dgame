@@ -1,23 +1,13 @@
 #include "camera.h"
 
 Camera::Camera(float ratio, float n, float f, float hfov)
-{
-    /*set camera pos and vectors to defaults*/
-    m_pos = vec3(0.0f, 0.0f, 0.0f);
-    m_forward = vec3(0.0f, 0.0f, 1.0f);
-    m_right = vec3(1.0f, 0.0f, 0.0f);
-    m_up = vec3(0.0f, 1.0f, 0.0f);
-
-    /*set projection params from constructor arguments*/
-    m_hfov = hfov;
-    m_aspect_ratio = ratio;
-    m_near = n;
-    m_far = f;
-    m_vfov = 2.0f * atanf(tanf(m_hfov / 2.0f) / m_aspect_ratio);
-
-    /*set dirty projection flag*/
-    m_dirty_view = true;
-}
+    : m_aspect_ratio(ratio)
+    , m_near(n)
+    , m_far(f)
+    , m_hfov(hfov)
+    , m_vfov(2.0f * atanf(tanf(m_hfov / 2.0f) / m_aspect_ratio))
+    , m_img_plane_distance(1.0f / std::tan(m_vfov / 2.0f))
+{}
 
 void Camera::walk(float d) noexcept
 {
@@ -52,9 +42,6 @@ void Camera::setBasis(vec3 forward, vec3 up, vec3 right) noexcept
     m_forward = forward;
     m_up = up;
     m_right = right;
-
-    //TODO: can directly set view matrix (and other matrices as well) from these basis vectors and not set m_dirty view
-    //      and not force more complicated matrix computation later
     m_dirty_view = true;
 }
 
@@ -62,6 +49,7 @@ void Camera::setHFOV(float a) noexcept
 {
     m_hfov = a;
     m_vfov = 2.0f * atanf(tanf(a / 2.0f) / m_aspect_ratio);
+    m_img_plane_distance = 1.0f / std::tan(m_vfov / 2.0f);
 
     updateProj();
 }
@@ -70,6 +58,7 @@ void Camera::setVFOV(float a) noexcept
 {
     m_vfov = a;
     m_hfov = 2.0f * atanf(m_aspect_ratio*tanf(m_vfov / 2.0f));
+    m_img_plane_distance = 1.0f / std::tan(m_vfov / 2.0f);
 
     updateProj();
 }
@@ -147,12 +136,12 @@ float Camera::near() const noexcept
 
 float Camera::imagePlaneDistance() const noexcept
 {
-    return 1.0f / std::tan(m_vfov / 2.0f);
+    return m_img_plane_distance;
 }
 
 std::array<vec3, 8> Camera::viewFrustumPointsW() const noexcept
 {
-    const float vtan = std::tan(m_vfov / 2.0f);
+    const float vtan = 1.0f / m_img_plane_distance;
 
     const float nh2 = m_near * vtan;
     const float nw2 = m_aspect_ratio * nh2;
@@ -211,8 +200,26 @@ void Camera::updateView() const noexcept
 {
     if(m_dirty_view)
     {
-        m_view = glm::lookAtLH<float>(m_pos, m_pos + m_forward, m_up);
-        m_inv_view = glm::inverse(m_view);
+        m_inv_view[0] = vec4(m_right, 0.0f);
+        m_inv_view[1] = vec4(m_up, 0.0f);
+        m_inv_view[2] = vec4(m_forward, 0.0f);
+        m_inv_view[3] = vec4(m_pos, 1.0f);
+
+        m_view[0][0] = m_right.x;
+        m_view[1][0] = m_right.y;
+        m_view[2][0] = m_right.z;
+        m_view[0][1] = m_up.x;
+        m_view[1][1] = m_up.y;
+        m_view[2][1] = m_up.z;
+        m_view[0][2] = m_forward.x;
+        m_view[1][2] = m_forward.y;
+        m_view[2][2] = m_forward.z;
+        m_view[3][0] = -dot(m_right, m_pos);
+        m_view[3][1] = -dot(m_up, m_pos);
+        m_view[3][2] = -dot(m_forward, m_pos);
+
+        m_view = glm::inverse(m_inv_view);
+
         m_dirty_view = false;
     }
 }
