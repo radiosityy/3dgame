@@ -463,6 +463,10 @@ bool Terrain::rayIntersection(const Ray& ray, float& d) const
     d = std::numeric_limits<float>::max();
     bool intersection_found = false;
 
+    const uint32_t res_u32 = static_cast<uint32_t>(MAX_TESS_LEVEL);
+    const float dx = m_patch_size / MAX_TESS_LEVEL;
+    const float dz = m_patch_size / MAX_TESS_LEVEL;
+
     for(uint32_t patch_z = 0; patch_z < m_patch_count; patch_z++)
     {
         for(uint32_t patch_x = 0; patch_x < m_patch_count; patch_x++)
@@ -472,10 +476,6 @@ bool Terrain::rayIntersection(const Ray& ray, float& d) const
 
             if(intersect(ray, aabb))
             {
-                const uint32_t res_u32 = static_cast<uint32_t>(m_patch_vertices[patch_id].res);
-                const float dx = m_patch_size / m_patch_vertices[patch_id].res;
-                const float dz = m_patch_size / m_patch_vertices[patch_id].res;
-
                 for(uint32_t x = 0; x < static_cast<uint32_t>(m_patch_vertices[patch_id].res); x++)
                 {
                     for(uint32_t z = 0; z < static_cast<uint32_t>(m_patch_vertices[patch_id].res); z++)
