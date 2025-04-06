@@ -14,9 +14,7 @@
 #include <vector>
 #include <string>
 #include <functional>
-#include <list>
 
-#include "collision.h"
 #include "window.h"
 #include "render_data.h"
 #include "font.h"
@@ -235,8 +233,8 @@ public:
         return alloc;
     }
     uint32_t reqInstanceVBAlloc(uint32_t instance_count);
-    uint32_t requestBoneTransformBufferAllocation(uint32_t bone_count);
-    void requestTerrainBufferAllocation(uint64_t size);
+    uint32_t reqBoneBufAlloc(uint32_t bone_count);
+    void reqTerrainBufAlloc(uint64_t size);
 
     void freeVertexBufferAllocation(const VertexBufferAllocation&);
     void freeInstanceVertexBufferAllocation(uint32_t instance_id, uint32_t instance_count);
@@ -461,9 +459,7 @@ private:
     std::array<PerFrameData, FRAMES_IN_FLIGHT> m_per_frame_data;
 
     std::vector<RenderBatch> m_render_batches;
-    uint32_t m_render_batch_count = 0;
     std::vector<RenderBatchUi> m_render_batches_ui;
-    uint32_t m_render_batch_ui_count = 0;
     std::unordered_map<VkBufferWrapper*, std::vector<BufferUpdateReq>> m_buffer_update_reqs;
 
     /*--- vertex buffers ---*/

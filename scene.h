@@ -21,8 +21,6 @@ public:
     Scene& operator=(const Scene&) = delete;
     Scene& operator=(const Scene&&) = delete;
 
-    void loadFromFile(std::string_view filename);
-
     void update(float dt, const InputState& input_state) noexcept;
     void draw(const Camera&, RenderData&) noexcept;
 
@@ -50,6 +48,8 @@ public:
 #endif
 
 private:
+    void loadFromFile(std::string_view filename);
+
     Renderer& m_renderer;
 
     std::unique_ptr<Terrain> m_terrain;

@@ -787,9 +787,7 @@ std::vector<uint32_t> Renderer::loadTexturesGeneric(const std::vector<std::strin
 /*---------------- main methods ----------------*/
 
 Renderer::Renderer(const Window& window, std::string_view app_name)
-    : m_render_batches(10000)
-    , m_render_batches_ui(10000)
-    , m_dir_shadow_map_buffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT)
+    : m_dir_shadow_map_buffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT)
     , m_point_shadow_map_buffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT)
     , m_bone_transform_buffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT)
     , m_terrain_buffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, false, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT)
@@ -809,7 +807,8 @@ Renderer::Renderer(const Window& window, std::string_view app_name)
         createSamplers();
         createBuffers();
 
-        //shadow maps
+        m_render_batches.reserve(10000);
+        m_render_batches_ui.reserve(10000);
         m_shadow_map_clear_value.depthStencil.depth = 1.0f;
     }
     catch(...)
@@ -1203,10 +1202,8 @@ void Renderer::updateAndRender(const RenderData& render_data, const Camera& came
 
             vkCmdBeginRenderPass(cmd_buf, &shadow_map.render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
 
-            for(uint32_t i = 0; i < m_render_batch_count; i++)
+            for(const auto& rb : m_render_batches)
             {
-                const auto& rb = m_render_batches[i];
-
                 if(rb.render_mode == RenderMode::Default)
                 {
                     vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, getPipeline(RenderMode::DirShadowMap));
@@ -1269,10 +1266,8 @@ void Renderer::updateAndRender(const RenderData& render_data, const Camera& came
 
             vkCmdBeginRenderPass(cmd_buf, &shadow_map.render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
 
-            for(uint32_t i = 0; i < m_render_batch_count; i++)
+            for(const auto& rb : m_render_batches)
             {
-                const auto& rb = m_render_batches[i];
-
                 if(rb.render_mode == RenderMode::Default)
                 {
                     vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, getPipeline(RenderMode::PointShadowMap));
@@ -1303,45 +1298,32 @@ void Renderer::updateAndRender(const RenderData& render_data, const Camera& came
     /*main render pass*/
     vkCmdBeginRenderPass(cmd_buf, &m_render_targets[image_id].render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
 
-    if(m_render_batch_count != 0)
+    for(const auto& rb : m_render_batches)
     {
-        for(uint32_t i = 0; i < m_render_batch_count; i++)
-        {
-            const auto& rb = m_render_batches[i];
-
-            vkCmdPushConstants(cmd_buf, m_pipeline_layout, push_const_ranges[0].stageFlags, 0, sizeof(push_const), &push_const);
-            vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, getPipeline(rb.render_mode));
-            vkCmdBindVertexBuffers(cmd_buf, 0, 1, &rb.vb->buf, &vb_offset);
-
-            vkCmdDraw(cmd_buf, rb.vertex_count, 1, rb.vertex_offset, rb.instance_id);
-        }
-
-        m_render_batch_count = 0;
+        vkCmdPushConstants(cmd_buf, m_pipeline_layout, push_const_ranges[0].stageFlags, 0, sizeof(push_const), &push_const);
+        vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, getPipeline(rb.render_mode));
+        vkCmdBindVertexBuffers(cmd_buf, 0, 1, &rb.vb->buf, &vb_offset);
+        vkCmdDraw(cmd_buf, rb.vertex_count, 1, rb.vertex_offset, rb.instance_id);
     }
+    m_render_batches.clear();
 
-    if(m_render_batch_ui_count != 0)
+    for(const auto& rb : m_render_batches_ui)
     {
-        for(uint32_t i = 0; i < m_render_batch_ui_count; i++)
-        {
-            const auto& rb = m_render_batches_ui[i];
+        vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, getPipeline(rb.render_mode));
+        vkCmdBindVertexBuffers(cmd_buf, 0, 1, &rb.vb->buf, &vb_offset);
 
-            vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, getPipeline(rb.render_mode));
-            vkCmdBindVertexBuffers(cmd_buf, 0, 1, &rb.vb->buf, &vb_offset);
+        //TODO: don't clamp?
+        VkRect2D scissor;
+        scissor.offset.x = static_cast<int>(std::clamp<float>(rb.scissor.x + 0.5f, 0, static_cast<float>(m_surface_width)));
+        scissor.offset.y = static_cast<int>(std::clamp<float>(rb.scissor.y + 0.5f, 0, static_cast<float>(m_surface_height)));
+        scissor.extent.width = static_cast<uint32_t>(std::clamp<float>(rb.scissor.width + 0.5f, 0, static_cast<float>(m_surface_width)));
+        scissor.extent.height = static_cast<uint32_t>(std::clamp<float>(rb.scissor.height + 0.5f, 0, static_cast<float>(m_surface_height)));
 
-            //TODO: don't clamp?
-            VkRect2D scissor;
-            scissor.offset.x = static_cast<int>(std::clamp<float>(rb.scissor.x + 0.5f, 0, static_cast<float>(m_surface_width)));
-            scissor.offset.y = static_cast<int>(std::clamp<float>(rb.scissor.y + 0.5f, 0, static_cast<float>(m_surface_height)));
-            scissor.extent.width = static_cast<uint32_t>(std::clamp<float>(rb.scissor.width + 0.5f, 0, static_cast<float>(m_surface_width)));
-            scissor.extent.height = static_cast<uint32_t>(std::clamp<float>(rb.scissor.height + 0.5f, 0, static_cast<float>(m_surface_height)));
+        vkCmdSetScissor(cmd_buf, 0, 1, &scissor);
 
-            vkCmdSetScissor(cmd_buf, 0, 1, &scissor);
-
-            vkCmdDraw(cmd_buf, rb.vertex_count, 1, rb.vertex_offset, 0);
-        }
-
-        m_render_batch_ui_count = 0;
+        vkCmdDraw(cmd_buf, rb.vertex_count, 1, rb.vertex_offset, 0);
     }
+    m_render_batches_ui.clear();
 
     vkCmdEndRenderPass(cmd_buf);
 
@@ -1629,14 +1611,14 @@ uint32_t Renderer::reqInstanceVBAlloc(uint32_t instance_count)
     return instance_id;
 }
 
-uint32_t Renderer::requestBoneTransformBufferAllocation(uint32_t bone_count)
+uint32_t Renderer::reqBoneBufAlloc(uint32_t bone_count)
 {
     const uint64_t offset = m_bone_transform_buffer.alloc(bone_count * sizeof(mat4x4));
     const uint32_t bone_transform_id = offset / sizeof(mat4x4);
     return bone_transform_id;
 }
 
-void Renderer::requestTerrainBufferAllocation(uint64_t size)
+void Renderer::reqTerrainBufAlloc(uint64_t size)
 {
     m_terrain_buffer.alloc(size);
 }
@@ -1797,14 +1779,12 @@ std::vector<uint32_t> Renderer::requestTerrainHeightmaps(std::span<std::pair<flo
 
 void Renderer::draw(RenderMode render_mode, VertexBuffer* vb, uint32_t vertex_offset, uint32_t vertex_count, uint32_t instance_id)
 {
-    m_render_batches[m_render_batch_count] = RenderBatch(render_mode, vb, vertex_offset, vertex_count, instance_id);
-    m_render_batch_count++;
+    m_render_batches.emplace_back(render_mode, vb, vertex_offset, vertex_count, instance_id);
 }
 
 void Renderer::drawUi(RenderModeUi render_mode, VertexBuffer* vb, uint32_t vertex_offset, uint32_t vertex_count, const Quad& scissor)
 {
-    m_render_batches_ui[m_render_batch_ui_count] = RenderBatchUi(render_mode, vb, vertex_offset, vertex_count, scissor);
-    m_render_batch_ui_count++;
+    m_render_batches_ui.emplace_back(render_mode, vb, vertex_offset, vertex_count, scissor);
 }
 
 DirLightId Renderer::addDirLight(const DirLight& dir_light)

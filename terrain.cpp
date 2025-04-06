@@ -92,7 +92,7 @@ void Terrain::loadFromFile(Renderer& renderer)
     m_vb_alloc = renderer.reqVBAlloc<VertexTerrain>(m_patch_vertices.size());
     renderer.updateVertexData(m_vb_alloc.vb, m_vb_alloc.data_offset, sizeof(VertexTerrain) * m_patch_vertices.size(), m_patch_vertices.data());
 
-    renderer.requestTerrainBufferAllocation(m_vertex_data.size() * sizeof(VertexData));
+    renderer.reqTerrainBufAlloc(m_vertex_data.size() * sizeof(VertexData));
     renderer.updateTerrainData(m_vertex_data.data(), 0, m_vertex_data.size() * sizeof(VertexData));
 
     //TODO:don't do this after we add proper patch streaming

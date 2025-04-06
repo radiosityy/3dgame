@@ -112,7 +112,7 @@ Model::Model(Renderer& renderer, std::string_view filename)
         m_curr_pose.resize(m_model_data->bone_count);
         m_bone_transforms.resize(m_model_data->bone_count);
         resetPose();
-        m_bone_offset = renderer.requestBoneTransformBufferAllocation(m_model_data->bone_count);
+        m_bone_offset = renderer.reqBoneBufAlloc(m_model_data->bone_count);
         renderer.updateBoneTransformData(m_bone_offset, m_model_data->bone_count, m_bone_transforms.data());
     }
 }
