@@ -34,10 +34,10 @@ struct VertexUi
 
 inline const std::vector<VkVertexInputAttributeDescription> vertex_ui_attr_desc
 {
-    {0, 0, VK_FORMAT_R32G32_SFLOAT, 0}, // top left pos
-    {1, 0, VK_FORMAT_R32G32_SFLOAT, 8}, // size
-    {2, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 16}, // rgba color
-    {3, 0, VK_FORMAT_R32G32B32_UINT, 32}, // tex_id, layer_id, use_texture (uvec3)
+    {0, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(VertexUi, top_left_pos)}, // top left pos
+    {1, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(VertexUi, size)}, // size
+    {2, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(VertexUi, color)}, // rgba color
+    {3, 0, VK_FORMAT_R32G32B32_UINT, offsetof(VertexUi, tex_id)}, // tex_id, layer_id, use_texture (uvec3)
 };
 
 /*----------------------------------------- Vertex Billboard ------------------------------------------*/
@@ -62,10 +62,10 @@ struct VertexBillboard
 
 inline const std::vector<VkVertexInputAttributeDescription> vertex_billboard_attr_desc
 {
-    {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0}, // center pos
-    {1, 0, VK_FORMAT_R32G32_SFLOAT, 12}, // size
-    {2, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 20}, // color
-    {3, 0, VK_FORMAT_R32G32_UINT, 36}, // tex_id
+    {0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(VertexBillboard, center_pos)}, // center pos
+    {1, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(VertexBillboard, size)}, // size
+    {2, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(VertexBillboard, color)}, // color
+    {3, 0, VK_FORMAT_R32G32_UINT, offsetof(VertexBillboard, tex_id)}, // tex_id
 };
 
 /*----------------------------------------- Vertex Default ------------------------------------------*/
@@ -89,18 +89,18 @@ struct VertexDefault
 
 inline const std::vector<VkVertexInputAttributeDescription> vertex_default_attr_desc
 {
-    {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0}, // pos
-    {1, 0, VK_FORMAT_R32G32B32_SFLOAT, 12}, // normal
-    {2, 0, VK_FORMAT_R32G32B32_SFLOAT, 24}, // tangent
-    {3, 0, VK_FORMAT_R32G32_SFLOAT, 36}, // texcoords
-    {4, 0, VK_FORMAT_R32_UINT, 44}, // bone_id
+    {0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(VertexDefault, pos)}, // pos
+    {1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(VertexDefault, normal)}, // normal
+    {2, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(VertexDefault, tangent)}, // tangent
+    {3, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(VertexDefault, tex_coords)}, // texcoords
+    {4, 0, VK_FORMAT_R32_UINT, offsetof(VertexDefault, bone_id)}, // bone_id
 
-    {5, 1, VK_FORMAT_R32G32B32A32_SFLOAT, 0}, // world matrix row0
-    {6, 1, VK_FORMAT_R32G32B32A32_SFLOAT, 16}, // world matrix row1
-    {7, 1, VK_FORMAT_R32G32B32A32_SFLOAT, 32}, // world matrix row2
-    {8, 1, VK_FORMAT_R32G32B32A32_SFLOAT, 48}, // world matrix row3
-    {9, 1, VK_FORMAT_R32G32_UINT, 64}, // tex_id, normal_map_id
-    {10, 1, VK_FORMAT_R32_UINT, 72}, // bone_offset
+    {5, 1, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(InstanceVertexData, W)}, // world matrix row0
+    {6, 1, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(InstanceVertexData, W) + 4*sizeof(float)}, // world matrix row1
+    {7, 1, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(InstanceVertexData, W) + 8*sizeof(float)}, // world matrix row2
+    {8, 1, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(InstanceVertexData, W) + 12*sizeof(float)}, // world matrix row3
+    {9, 1, VK_FORMAT_R32G32_UINT, offsetof(InstanceVertexData, tex_id)}, // tex_id, normal_map_id
+    {10, 1, VK_FORMAT_R32_UINT, offsetof(InstanceVertexData, bone_offset)}, // bone_offset
 };
 
 /*----------------------------------------- Vertex Terrain ------------------------------------------*/
