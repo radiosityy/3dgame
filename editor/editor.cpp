@@ -297,7 +297,7 @@ void Editor::onKeyPressedImpl(Key key, const InputState& input_state)
 {
     if(key == VKeyF5)
     {
-        m_scene.serialize("scene.scn");
+        m_scene.saveToFile("scene.scn");
         return;
     }
 

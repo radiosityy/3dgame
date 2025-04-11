@@ -2,14 +2,13 @@
 #define SCENE_H
 
 #include "camera.h"
-#include "player.h"
 #include "input_state.h"
 #include "terrain.h"
 
 #include <vector>
 #include <memory>
-#include "label.h"
 #include "renderer.h"
+#include "object.h"
 
 class Scene
 {
@@ -44,7 +43,7 @@ public:
     void removeStaticPointLight(uint32_t id);
     void updateStaticPointLight(uint32_t id, const PointLight& point_light);
     std::vector<PointLight>& staticPointLights();
-    void serialize(std::string_view filename) const;
+    void saveToFile(std::string_view filename) const;
 #endif
 
 private:

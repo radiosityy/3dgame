@@ -5,9 +5,7 @@
 #include <algorithm>
 #include <filesystem>
 
-#include "timer.h"
 #include <print>
-#include <sstream>
 #include <fstream>
 
 Scene::Scene(Renderer& renderer)
@@ -171,9 +169,8 @@ std::vector<PointLight>& Scene::staticPointLights()
     return m_static_point_lights;
 }
 
-void Scene::serialize(std::string_view filename) const
+void Scene::saveToFile(std::string_view filename) const
 {
-    //backup existing scene and terrain files
     if(std::filesystem::exists(filename))
     {
         std::filesystem::copy_file(filename, std::string(filename) + ".bak", std::filesystem::copy_options::overwrite_existing);
