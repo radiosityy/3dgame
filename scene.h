@@ -51,8 +51,8 @@ private:
 
     Renderer& m_renderer;
 
+    MeshManager m_mesh_manager;
     std::unique_ptr<Terrain> m_terrain;
-
     std::vector<Object> m_objects;
 
 #if EDITOR_ENABLE

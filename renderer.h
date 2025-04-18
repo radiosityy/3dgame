@@ -222,6 +222,9 @@ public:
     void setSampleCount(VkSampleCountFlagBits);
     bool enableVsync(bool vsync);
 
+    void initStaticVB(uint64_t data_size);
+    void finalizeStaticVB();
+
     template<class VertexType>
     VertexBufferAllocation reqVBAlloc(uint32_t vertex_count)
     {

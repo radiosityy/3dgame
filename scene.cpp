@@ -27,18 +27,37 @@ void Scene::loadFromFile(std::string_view filename)
     }
     else
     {
-        uint64_t obj_count = 0;
-        scene_file.read(reinterpret_cast<char*>(&obj_count), sizeof(uint64_t));
+        uint64_t mesh_data_size = 0;
+        scene_file.read(reinterpret_cast<char*>(&mesh_data_size), sizeof(uint64_t));
 
-        for(uint64_t i = 0; i < obj_count; i++)
+        m_renderer.initStaticVB(mesh_data_size);
+
+        uint32_t mesh_count = 0;
+        scene_file.read(reinterpret_cast<char*>(&mesh_count), sizeof(uint32_t));
+        for(uint32_t mesh_id = 0; mesh_id < mesh_count; mesh_id++)
+        {
+            uint8_t mesh_filename_length = 0;
+            scene_file.read(reinterpret_cast<char*>(&mesh_filename_length), sizeof(uint8_t));
+            std::string mesh_filename;
+            mesh_filename.resize(mesh_filename_length);
+            scene_file.read(reinterpret_cast<char*>(mesh_filename.data()), mesh_filename_length);
+            m_mesh_manager.loadMeshData(m_renderer, mesh_filename);
+        }
+
+        m_renderer.finalizeStaticVB();
+
+        uint32_t obj_count = 0;
+        scene_file.read(reinterpret_cast<char*>(&obj_count), sizeof(uint32_t));
+
+        for(uint32_t i = 0; i < obj_count; i++)
         {
             addObject(m_renderer, scene_file);
         }
 
-        uint64_t point_light_count = 0;
-        scene_file.read(reinterpret_cast<char*>(&point_light_count), sizeof(uint64_t));
+        uint32_t point_light_count = 0;
+        scene_file.read(reinterpret_cast<char*>(&point_light_count), sizeof(uint32_t));
 
-        for(uint64_t i = 0; i < point_light_count; i++)
+        for(uint32_t i = 0; i < point_light_count; i++)
         {
             PointLight point_light(scene_file);
 
@@ -188,7 +207,21 @@ void Scene::saveToFile(std::string_view filename) const
         error(std::format("Failed to open file: {}", filename));
     }
 
-    uint64_t obj_count = 0;
+    const uint64_t mesh_data_size = m_mesh_manager.meshDataSize();
+    outfile.write(reinterpret_cast<const char*>(&mesh_data_size), sizeof(uint64_t));
+
+    const auto& mesh_filenames = m_mesh_manager.meshFilenames();
+    const uint32_t mesh_count = mesh_filenames.size();
+    outfile.write(reinterpret_cast<const char*>(&mesh_count), sizeof(uint32_t));
+
+    for(const auto& mesh_filename : mesh_filenames)
+    {
+        const uint8_t mesh_filename_lenght = mesh_filename.size();
+        outfile.write(reinterpret_cast<const char*>(&mesh_filename_lenght), sizeof(uint8_t));
+        outfile.write(reinterpret_cast<const char*>(mesh_filename.data()), sizeof(char) * mesh_filename_lenght);
+    }
+
+    uint32_t obj_count = 0;
 
     for(const auto& obj : m_objects)
     {
@@ -198,7 +231,7 @@ void Scene::saveToFile(std::string_view filename) const
         }
     }
 
-    outfile.write(reinterpret_cast<const char*>(&obj_count), sizeof(uint64_t));
+    outfile.write(reinterpret_cast<const char*>(&obj_count), sizeof(uint32_t));
 
     for(const auto& obj : m_objects)
     {
@@ -208,8 +241,8 @@ void Scene::saveToFile(std::string_view filename) const
         }
     }
 
-    const uint64_t point_light_count = m_static_point_lights.size();
-    outfile.write(reinterpret_cast<const char*>(&point_light_count), sizeof(uint64_t));
+    const uint32_t point_light_count = m_static_point_lights.size();
+    outfile.write(reinterpret_cast<const char*>(&point_light_count), sizeof(uint32_t));
 
     for(const auto& point_light : m_static_point_lights)
     {
