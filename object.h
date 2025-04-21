@@ -4,13 +4,13 @@
 #include "collision.h"
 #include "render_data.h"
 #include <vector>
-#include "model.h"
+#include "mesh.h"
 
 class Object
 {
 public:
     Object(Renderer& renderer, std::ifstream& scene_file);
-    Object(Renderer& renderer, std::string_view model_filename, RenderMode render_mode, vec3 pos = vec3(0.0f, 0.0f, 0.0f), vec3 scale = vec3(1.0f, 1.0f, 1.0f), quat rot = quat(1.0f, 0.0f, 0.0f, 0.0f));
+    Object(Renderer& renderer, std::string_view mesh_filename, RenderMode render_mode, vec3 pos = vec3(0.0f, 0.0f, 0.0f), vec3 scale = vec3(1.0f, 1.0f, 1.0f), quat rot = quat(1.0f, 0.0f, 0.0f, 0.0f));
 
     bool cull(const std::array<vec4, 6>& frustum_planes_W);
 
@@ -60,7 +60,7 @@ public:
 #endif
 
 protected:
-    std::unique_ptr<Model> m_model;
+    std::unique_ptr<Mesh> m_mesh;
 
     vec3 m_pos = {0.0f, 0.0f, 0.0f};
     vec3 m_scale = {1.0f, 1.0f, 1.0f};
@@ -77,7 +77,7 @@ private:
     std::vector<InstanceVertexData> m_instance_data;
     uint32_t m_instance_id = 0;
 #if EDITOR_ENABLE
-    std::string m_model_filename;
+    std::string m_mesh_filename;
 #endif
     bool m_visible = true;
     bool m_serialiable = true;

@@ -1604,6 +1604,11 @@ bool Renderer::enableVsync(bool vsync)
     return true;
 }
 
+void initStaticVB(uint64_t data_size)
+{
+
+}
+
 uint32_t Renderer::reqInstanceVBAlloc(uint32_t instance_count)
 {
     const uint64_t offset = m_instance_vertex_buffer.alloc(instance_count * sizeof(InstanceVertexData));
